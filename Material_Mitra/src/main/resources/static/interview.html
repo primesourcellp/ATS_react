@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Interview Management</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <style>
+    :root {
+      --primary: #2e7d32;
+      --primary-light: #4caf50;
+      --danger: #e53935;
+      --bg: #f3f4f6;
+      --card: #ffffff;
+      --text: #1f2937;
+      --border: #e5e7eb;
+      --shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      --radius: 10px;
+      --transition: all 0.3s ease-in-out;
+    }
+
+    body {
+      font-family: "Segoe UI", sans-serif;
+      background-color: var(--bg);
+      margin: 0;
+      color: var(--text);
+    }
+
+    header {
+      background-color: var(--primary);
+      color: white;
+      padding: 20px 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: var(--shadow);
+    }
+
+    .logo {
+      font-size: 1.5rem;
+      font-weight: bold;
+    }
+
+    .card {
+      max-width: 1100px;
+      margin: 30px auto;
+      background: var(--card);
+      border-radius: var(--radius);
+      padding: 30px;
+      box-shadow: var(--shadow);
+    }
+
+    h2 {
+      color: var(--primary);
+      margin-bottom: 20px;
+    }
+
+    .filter-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+
+    .filter-container input,
+    .filter-container button {
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: 14px;
+    }
+
+    .btn-primary {
+      background-color: var(--primary);
+      color: white;
+      border: none;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .btn-primary:hover {
+      background-color: var(--primary-light);
+    }
+
+    .btn-danger {
+      background-color: var(--danger);
+      color: white;
+      border: none;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .btn-danger:hover {
+      background-color: #c62828;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+
+    th,
+    td {
+      padding: 12px;
+      text-align: center;
+      border: 1px solid var(--border);
+    }
+
+    th {
+      background-color: #f0f0f0;
+    }
+
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      animation: fadeIn 0.3s ease-in-out;
+      z-index: 1000;
+    }
+
+    .modal-content {
+      background: white;
+      padding: 25px;
+      border-radius: var(--radius);
+      width: 400px;
+      max-width: 90%;
+      box-shadow: var(--shadow);
+      animation: slideIn 0.3s ease-out;
+    }
+
+    .modal-content label {
+      font-weight: 600;
+      margin-top: 12px;
+      display: block;
+    }
+
+    .modal-content input {
+      width: 100%;
+      padding: 10px;
+      margin-top: 5px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 15px;
+    }
+
+    .modal-content .btns {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    .modal-content h3 {
+      margin-top: 0;
+      color: var(--primary);
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes slideIn {
+      from { transform: translateY(-30px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    @media (max-width: 600px) {
+      .filter-container {
+        flex-direction: column;
+      }
+
+      table th, table td {
+        font-size: 13px;
+        padding: 8px;
+      }
+    }
+  </style>
+  
+  
+  
+  </head>
+<body>
+
+  <header>
+    <div class="logo"><i class="fas fa-calendar-check"></i> Interview Management</div>
+    <div class="user-info">Admin <i class="fas fa-user-circle" style="margin-left: 10px;"></i></div>
+  </header>
+
+  <div class="card">
+    <h2><i class="fas fa-clock"></i> Interview Schedule</h2>
+
+    <div class="filter-container">
+      <input type="text" id="searchInput" placeholder="Search Candidate / Job Title">
+      <input type="date" id="dateFilter">
+      <button class="btn-primary" id="openModalBtn"><i class="fas fa-plus"></i> Schedule Interview</button>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Candidate</th>
+          <th>Job Title</th>
+          <th>Date</th>
+          <th>Time</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="interviewTableBody">
+        <!-- Dynamic content -->
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Modal -->
+  <div class="modal" id="interviewModal">
+    <div class="modal-content">
+      <h3 id="modalTitle">Schedule Interview</h3>
+      <form id="interviewForm">
+        <label for="applicationId">Application ID</label>
+        <input type="number" id="applicationId" required>
+
+        <label for="interviewDate">Date</label>
+        <input type="date" id="interviewDate" required>
+
+        <label for="interviewTime">Start Time</label>
+        <input type="time" id="interviewTime" required>
+
+        <label for="endTime">End Time</label>
+        <input type="time" id="endTime" required>
+
+        <div class="btns">
+          <button type="submit" class="btn-primary">Submit</button>
+          <button type="button" id="closeModalBtn">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+ <script>
+  const openModalBtn = document.getElementById("openModalBtn");
+  const closeModalBtn = document.getElementById("closeModalBtn");
+  const interviewModal = document.getElementById("interviewModal");
+  const interviewForm = document.getElementById("interviewForm");
+  const interviewTableBody = document.getElementById("interviewTableBody");
+  const searchInput = document.getElementById("searchInput");
+  const dateFilter = document.getElementById("dateFilter");
+  const modalTitle = document.getElementById("modalTitle");
+
+  let editingInterviewId = null;
+  let currentPage = 0;
+  const pageSize = 20;
+
+  openModalBtn.onclick = () => {
+    interviewForm.reset();
+    editingInterviewId = null;
+    modalTitle.textContent = "Schedule Interview";
+    interviewModal.style.display = "flex";
+  };
+
+  closeModalBtn.onclick = () => {
+    interviewModal.style.display = "none";
+    interviewForm.reset();
+  };
+
+  interviewForm.onsubmit = async (e) => {
+    e.preventDefault();
+
+    const applicationId = document.getElementById("applicationId").value;
+    const interviewDate = document.getElementById("interviewDate").value;
+    const interviewTime = document.getElementById("interviewTime").value;
+    const endTime = document.getElementById("endTime").value;
+
+    const interviewData = {
+      interviewDate,
+      interviewTime,
+      endTime,
+      application: {
+        id: applicationId
+      }
+    };
+
+    try {
+      if (editingInterviewId) {
+        // Update interview via PUT with JSON body
+        const res = await fetch(`/api/interviews/${editingInterviewId}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(interviewData)
+        });
+
+        if (!res.ok) throw new Error("Update failed");
+        alert("Interview updated successfully!");
+      } else {
+        // Schedule new interview via POST with URL params (no body)
+        const params = new URLSearchParams({ interviewDate, interviewTime, endTime });
+        const res = await fetch(`/api/interviews/schedule/${applicationId}?${params.toString()}`, {
+          method: "POST"
+        });
+
+        if (!res.ok) {
+          const error = await res.json();
+          throw new Error(error.message || "Scheduling failed");
+        }
+
+        alert("Interview scheduled successfully!");
+      }
+
+      interviewModal.style.display = "none";
+      interviewForm.reset();
+      editingInterviewId = null;
+      loadInterviews();
+    } catch (err) {
+      alert("Error: " + err.message);
+    }
+  };
+
+  async function loadInterviews(search = "", page = currentPage) {
+    try {
+      // Fetch paginated interviews from search API
+      const res = await fetch(`/api/interviews/search?search=${encodeURIComponent(search)}&page=${page}&size=${pageSize}`);
+      const data = await res.json();
+
+      const interviews = data.content;  // DTO list
+
+      interviewTableBody.innerHTML = "";
+
+      interviews.forEach((interview, index) => {
+    	  const row = document.createElement("tr");
+    	  row.innerHTML = `
+    	    <td>${index + 1}</td> <!-- Serial Number -->
+    	    <td>${interview.candidateName || "-"}</td>
+    	    <td>${interview.jobTitle || "-"}</td>
+    	    <td>${interview.interviewDate}</td>
+    	    <td>${interview.interviewTime} - ${interview.endTime}</td>
+    	    <td>
+    	      <button type="button" class="btn-primary" onclick="editInterview(${interview.id})">Edit</button>
+    	      <button type="button" class="btn-danger" onclick="deleteInterview(${interview.id})">Delete</button>
+    	    </td>
+    	  `;
+    	  interviewTableBody.appendChild(row);
+    	});
+
+    } catch (err) {
+      console.error("Error loading interviews", err);
+    }
+  }
+
+  // To edit interview, fetch full interview by id separately (id needed)
+  async function editInterview(id) {
+    try {
+      const res = await fetch(`/api/interviews/${id}`);
+      if (!res.ok) throw new Error("Interview not found");
+      const interview = await res.json();
+
+      document.getElementById("applicationId").value = interview.application?.id || '';
+      document.getElementById("interviewDate").value = interview.interviewDate;
+      document.getElementById("interviewTime").value = interview.interviewTime;
+      document.getElementById("endTime").value = interview.endTime;
+
+      editingInterviewId = interview.id;
+      modalTitle.textContent = "Edit Interview";
+      interviewModal.style.display = "flex";
+    } catch (err) {
+      alert("Error: " + err.message);
+    }
+  }
+
+  // You can implement this prompt to get interview ID if you want edit by candidateName,
+  // or better, add ID to DTO in backend and pass it in button click.
+  function promptEditInterview(candidateName) {
+    const id = prompt(`To edit interview for candidate "${candidateName}", please enter Interview ID:`);
+    if (id) editInterview(id);
+  }
+
+  async function deleteInterview(id) {
+    if (!confirm("Are you sure you want to delete this interview?")) return;
+    try {
+      const res = await fetch(`/api/interviews/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Delete failed");
+      alert("Interview deleted.");
+      loadInterviews();
+    } catch (err) {
+      alert("Error: " + err.message);
+    }
+  }
+
+  searchInput.addEventListener("input", () => {
+    const searchValue = searchInput.value.trim();
+    currentPage = 0;
+    loadInterviews(searchValue, currentPage);
+  });
+
+  dateFilter.addEventListener("change", () => {
+    // Date filtering on backend is recommended; for now reload without filter.
+    const selectedDate = dateFilter.value.trim();
+    // You can add date param support to your backend search API if desired.
+    loadInterviews(searchInput.value.trim(), currentPage);
+  });
+
+  window.onload = () => loadInterviews();
+</script>
+ 
+
+</body>
+</html>

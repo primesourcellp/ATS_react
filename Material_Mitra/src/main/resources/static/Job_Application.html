@@ -1,0 +1,1228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Job Application Tracker</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --primary: #4f46e5;
+      --primary-dark: #4338ca;
+      --primary-light: #6366f1;
+      --danger: #ef4444;
+      --danger-dark: #dc2626;
+      --success: #10b981;
+      --success-dark: #059669;
+      --warning: #f59e0b;
+      --warning-dark: #d97706;
+      --info: #3b82f6;
+      --info-dark: #2563eb;
+      --text: #1f2937;
+      --text-light: #6b7280;
+      --bg: #f3f4f6;
+      --card: #ffffff;
+      --border: #e5e7eb;
+      --shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.08);
+      --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1), 0 4px 6px rgba(0, 0, 0, 0.05);
+      --transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      padding: 20px;
+    }
+
+    header {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+      color: white;
+      padding: 1rem;
+      border-radius: 10px;
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: var(--shadow-lg);
+    }
+
+    .logo {
+      font-size: 1.5rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .card {
+      background: var(--card);
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: var(--shadow);
+    }
+
+    h1, h2, h3 {
+      margin-bottom: 15px;
+      color: var(--primary);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 15px;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: var(--transition);
+      border: none;
+      text-decoration: none;
+      font-size: 0.9rem;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: var(--primary-dark);
+      transform: translateY(-2px);
+    }
+
+    .btn-danger {
+      background: var(--danger);
+      color: white;
+    }
+
+    .btn-danger:hover {
+      background: var(--danger-dark);
+    }
+
+    .btn-success {
+      background: var(--success);
+      color: white;
+    }
+
+    .btn-success:hover {
+      background: var(--success-dark);
+    }
+
+    .btn-warning {
+      background: var(--warning);
+      color: white;
+    }
+
+    .btn-warning:hover {
+      background: var(--warning-dark);
+    }
+
+    .btn-info {
+      background: var(--info);
+      color: white;
+    }
+
+    .btn-info:hover {
+      background: var(--info-dark);
+    }
+
+    .btn-sm {
+      padding: 8px 12px;
+      font-size: 0.8rem;
+    }
+
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+
+    th, td {
+      padding: 12px 15px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+
+    th {
+      background-color: var(--primary);
+      color: white;
+      font-weight: 600;
+      position: sticky;
+      top: 0;
+    }
+
+    tr:hover {
+      background-color: rgba(79, 70, 229, 0.05);
+    }
+
+    .status {
+      padding: 5px 10px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      display: inline-block;
+    }
+
+    .status-pending {
+      background-color: rgba(245, 158, 11, 0.1);
+      color: var(--warning);
+    }
+
+    .status-accepted {
+      background-color: rgba(16, 185, 129, 0.1);
+      color: var(--success);
+    }
+
+    .status-rejected {
+      background-color: rgba(239, 68, 68, 0.1);
+      color: var(--danger);
+    }
+
+    .status-interview {
+      background-color: rgba(59, 130, 246, 0.1);
+      color: var(--info);
+    }
+
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      opacity: 0;
+      visibility: hidden;
+      transition: var(--transition);
+    }
+
+    .modal.active {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .modal-content {
+      background: white;
+      border-radius: 10px;
+      padding: 20px;
+      width: 90%;
+      max-width: 800px;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: var(--shadow-lg);
+      transform: translateY(-20px);
+      transition: var(--transition);
+    }
+
+    .modal.active .modal-content {
+      transform: translateY(0);
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 15px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      cursor: pointer;
+      color: var(--text-light);
+      transition: var(--transition);
+    }
+
+    .modal-close:hover {
+      color: var(--danger);
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 600;
+      color: var(--text-light);
+      font-size: 0.9rem;
+    }
+
+    input, select, textarea {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 1rem;
+      transition: var(--transition);
+    }
+
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+    }
+
+    .file-input {
+      display: none;
+    }
+
+    .file-label {
+      display: block;
+      padding: 10px;
+      border: 1px dashed var(--border);
+      border-radius: 6px;
+      text-align: center;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .file-label:hover {
+      border-color: var(--primary);
+    }
+
+    .toast {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      padding: 15px 20px;
+      border-radius: 6px;
+      color: white;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: var(--shadow-lg);
+      z-index: 1100;
+      transform: translateX(100%);
+      transition: var(--transition);
+    }
+
+    .toast.show {
+      transform: translateX(0);
+    }
+
+    .toast-success {
+      background-color: var(--success);
+    }
+
+    .toast-error {
+      background-color: var(--danger);
+    }
+
+    .toast-info {
+      background-color: var(--info);
+    }
+
+    .action-buttons {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--text-light);
+    }
+
+    .empty-state i {
+      font-size: 3rem;
+      margin-bottom: 15px;
+      color: var(--border);
+    }
+
+    .filter-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+
+    .resume-preview {
+      height: 500px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      background-color: #f5f5f5;
+    }
+
+    .resume-preview iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+
+    .no-resume-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      padding: 20px;
+      text-align: center;
+    }
+
+    .no-resume-placeholder i {
+      font-size: 3rem;
+      color: var(--border);
+      margin-bottom: 15px;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      background-color: var(--primary-light);
+      color: white;
+    }
+
+    .candidate-name {
+      color: var(--primary);
+      cursor: pointer;
+      text-decoration: underline;
+      transition: var(--transition);
+    }
+
+    .candidate-name:hover {
+      color: var(--primary-dark);
+    }
+
+    .candidate-details {
+      display: none;
+      background-color: white;
+      border-radius: 8px;
+      padding: 15px;
+      margin-top: 10px;
+      box-shadow: var(--shadow);
+    }
+
+    .candidate-details.active {
+      display: block;
+    }
+
+    .detail-row {
+      display: flex;
+      margin-bottom: 10px;
+    }
+
+    .detail-label {
+      font-weight: 600;
+      min-width: 120px;
+      color: var(--text-light);
+    }
+
+    .detail-value {
+      flex: 1;
+    }
+
+    .search-container {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .search-input {
+      flex: 1;
+    }
+
+    @media (max-width: 768px) {
+      .action-buttons {
+        flex-direction: column;
+      }
+      
+      th, td {
+        padding: 8px 10px;
+        font-size: 0.9rem;
+      }
+
+      .filter-container {
+        grid-template-columns: 1fr;
+      }
+
+      .detail-row {
+        flex-direction: column;
+      }
+
+      .detail-label {
+        margin-bottom: 5px;
+      }
+
+      .search-container {
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="logo">
+        <i class="fas fa-briefcase"></i>
+        <span>Job Application Tracker</span>
+      </div>
+      <button class="btn btn-primary" id="newApplicationBtn">
+        <i class="fas fa-plus"></i> New Application
+      </button>
+    </header>
+
+    <div class="card">
+      <h2><i class="fas fa-list"></i> Applications</h2>
+      
+      <div class="search-container">
+        <div class="form-group search-input">
+          <label for="searchInput">Search Applications</label>
+          <input type="text" id="searchInput" placeholder="Search by candidate name or job name">
+        </div>
+        <div class="form-group">
+          <label for="filterStatus">Status</label>
+          <select id="filterStatus">
+            <option value="ALL">All Statuses</option>
+            <option value="PENDING">Pending</option>
+            <option value="SCHEDULED">Scheduled</option>
+            <option value="INTERVIEWED">Interviewed</option>
+            <option value="PLACED">Placed</option>
+            <option value="REJECTED">Rejected</option>
+            <option value="SUBMITTED_BY_CLIENT">Submitted by Client</option>
+            <option value="CLIENT_SHORTLIST">Client Shortlist</option>
+            <option value="FIRST_INTERVIEW_SCHEDULED">First Interview Scheduled</option>
+            <option value="FIRST_INTERVIEW_FEEDBACK_PENDING">First Interview Feedback Pending</option>
+            <option value="FIRST_INTERVIEW_REJECT">First Interview Reject</option>
+            <option value="SECOND_INTERVIEW_SCHEDULED">Second Interview Scheduled</option>
+            <option value="SECOND_INTERVIEW_FEEDBACK_PENDING">Second Interview Feedback Pending</option>
+            <option value="SECOND_INTERVIEW_REJECT">Second Interview Reject</option>
+            <option value="THIRD_INTERVIEW_SCHEDULED">Third Interview Scheduled</option>
+            <option value="THIRD_INTERVIEW_FEEDBACK_PENDING">Third Interview Feedback Pending</option>
+            <option value="THIRD_INTERVIEW_REJECT">Third Interview Reject</option>
+            <option value="INTERNEL_REJECT">Internal Reject</option>
+            <option value="CLIENT_REJECT">Client Reject</option>
+            <option value="FINAL_SELECT">Final Select</option>
+            <option value="JOINED">Joined</option>
+            <option value="BACKEDOUT">Backed Out</option>
+          </select>        
+        </div>
+        <button class="btn btn-primary" id="searchBtn" style="align-self: flex-end;">
+          <i class="fas fa-search"></i> Search
+        </button>
+      </div>
+
+      <table id="applicationsTable">
+        <thead>
+          <tr>
+            <th>Sno</th> 
+            <th>Candidate</th>
+            <th>Job</th>
+            <th>Status</th>
+            <th>Applied Date</th>
+            <th>Actions</th>
+              <th>Application ID</th> 
+          </tr>
+        </thead>
+        <tbody id="applicationsTableBody">
+          <!-- Applications will be loaded here -->
+        </tbody>
+      </table>
+      <div id="emptyState" class="empty-state" style="display: none;">
+        <i class="fas fa-inbox"></i>
+        <h3>No Applications Found</h3>
+        <p>Create a new application or adjust your search</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Application Modal -->
+  <div class="modal" id="applicationModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modalTitle">New Job Application</h3>
+        <button class="modal-close">&times;</button>
+      </div>
+      <form id="applicationForm">
+        <input type="hidden" id="applicationId">
+        <div class="form-group">
+          <label for="candidateSelect">Candidate</label>
+          <select id="candidateSelect" required>
+            <option value="">Select Candidate</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="jobSelect">Job</label>
+          <select id="jobSelect" required>
+            <option value="">Select Job</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="statusSelect">Status</label>
+          <select id="statusSelect" required>
+            <option value="ALL">All Statuses</option>
+            <option value="PENDING">Pending</option>
+            <option value="SCHEDULED">Scheduled</option>
+            <option value="INTERVIEWED">Interviewed</option>
+            <option value="PLACED">Placed</option>
+            <option value="REJECTED">Rejected</option>
+            <option value="SUBMITTED_BY_CLIENT">Submitted by Client</option>
+            <option value="CLIENT_SHORTLIST">Client Shortlist</option>
+            <option value="FIRST_INTERVIEW_SCHEDULED">First Interview Scheduled</option>
+            <option value="FIRST_INTERVIEW_FEEDBACK_PENDING">First Interview Feedback Pending</option>
+            <option value="FIRST_INTERVIEW_REJECT">First Interview Reject</option>
+            <option value="SECOND_INTERVIEW_SCHEDULED">Second Interview Scheduled</option>
+            <option value="SECOND_INTERVIEW_FEEDBACK_PENDING">Second Interview Feedback Pending</option>
+            <option value="SECOND_INTERVIEW_REJECT">Second Interview Reject</option>
+            <option value="THIRD_INTERVIEW_SCHEDULED">Third Interview Scheduled</option>
+            <option value="THIRD_INTERVIEW_FEEDBACK_PENDING">Third Interview Feedback Pending</option>
+            <option value="THIRD_INTERVIEW_REJECT">Third Interview Reject</option>
+            <option value="INTERNEL_REJECT">Internal Reject</option>
+            <option value="CLIENT_REJECT">Client Reject</option>
+            <option value="FINAL_SELECT">Final Select</option>
+            <option value="JOINED">Joined</option>
+            <option value="BACKEDOUT">Backed Out</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="resumeFile">Resume (PDF)</label>
+          <input type="file" id="resumeFile" class="file-input" accept=".pdf">
+          <label for="resumeFile" class="file-label" id="resumeLabel">
+            <i class="fas fa-file-pdf"></i> Choose PDF file
+          </label>
+          <small id="fileName"></small>
+        </div>
+        <div class="modal-footer" style="margin-top: 20px; display: flex; justify-content: flex-end; gap: 10px;">
+          <button type="button" class="btn btn-warning modal-close">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- View Resume Modal -->
+  <div class="modal" id="resumeModal">
+    <div class="modal-content" style="max-width: 800px;">
+      <div class="modal-header">
+        <h3>Resume Preview</h3>
+        <button class="modal-close">&times;</button>
+      </div>
+      <div class="resume-preview">
+        <div id="resumeViewer"></div>
+      </div>
+      <div class="modal-footer" style="margin-top: 20px; display: flex; justify-content: flex-end; gap: 10px;">
+        <button type="button" class="btn btn-primary" id="downloadResumeBtn">
+          <i class="fas fa-download"></i> Download
+        </button>
+        <button type="button" class="btn btn-warning modal-close">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Candidate Details Modal -->
+  <div class="modal" id="candidateModal">
+    <div class="modal-content" style="max-width: 600px;">
+      <div class="modal-header">
+        <h3 id="candidateModalTitle">Candidate Details</h3>
+        <button class="modal-close">&times;</button>
+      </div>
+      <div id="candidateDetailsContent">
+        <div class="detail-row">
+          <div class="detail-label">Name:</div>
+          <div class="detail-value" id="candidateDetailName">-</div>
+        </div>
+        <div class="detail-row">
+          <div class="detail-label">Email:</div>
+          <div class="detail-value" id="candidateDetailEmail">-</div>
+        </div>
+        <div class="detail-row">
+          <div class="detail-label">Phone:</div>
+          <div class="detail-value" id="candidateDetailPhone">-</div>
+        </div>
+        <div class="detail-row">
+          <div class="detail-label">Skills:</div>
+          <div class="detail-value" id="candidateDetailSkills">-</div>
+        </div>
+        <div class="detail-row">
+          <div class="detail-label">Experience:</div>
+          <div class="detail-value" id="candidateDetailExperience">-</div>
+        </div>
+        <div class="form-group" style="margin-top: 20px;">
+          <button type="button" class="btn btn-primary" id="viewCandidateResumeBtn">
+            <i class="fas fa-file-pdf"></i> View Resume
+          </button>
+        </div>
+      </div>
+      <div class="modal-footer" style="margin-top: 20px; display: flex; justify-content: flex-end; gap: 10px;">
+        <button type="button" class="btn btn-warning modal-close">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div class="toast" id="toast"></div>
+  <script>
+    // DOM Elements
+   // DOM Elements
+const applicationsTableBody = document.getElementById('applicationsTableBody');
+const emptyState = document.getElementById('emptyState');
+const applicationModal = document.getElementById('applicationModal');
+const resumeModal = document.getElementById('resumeModal');
+const candidateModal = document.getElementById('candidateModal');
+const modalTitle = document.getElementById('modalTitle');
+const candidateModalTitle = document.getElementById('candidateModalTitle');
+const applicationForm = document.getElementById('applicationForm');
+const applicationIdInput = document.getElementById('applicationId');
+const candidateSelect = document.getElementById('candidateSelect');
+const jobSelect = document.getElementById('jobSelect');
+const statusSelect = document.getElementById('statusSelect');
+const resumeFile = document.getElementById('resumeFile');
+const resumeLabel = document.getElementById('resumeLabel');
+const fileName = document.getElementById('fileName');
+const filterStatus = document.getElementById('filterStatus');
+const searchInput = document.getElementById('searchInput');
+const searchBtn = document.getElementById('searchBtn');
+const newApplicationBtn = document.getElementById('newApplicationBtn');
+const resumeViewer = document.getElementById('resumeViewer');
+const downloadResumeBtn = document.getElementById('downloadResumeBtn');
+const viewCandidateResumeBtn = document.getElementById('viewCandidateResumeBtn');
+const toast = document.getElementById('toast');
+const modalCloseButtons = document.querySelectorAll('.modal-close');
+const candidateDetailName = document.getElementById('candidateDetailName');
+const candidateDetailEmail = document.getElementById('candidateDetailEmail');
+const candidateDetailPhone = document.getElementById('candidateDetailPhone');
+const candidateDetailSkills = document.getElementById('candidateDetailSkills');
+const candidateDetailExperience = document.getElementById('candidateDetailExperience');
+
+// Current application state
+let currentApplicationId = null;
+let currentResumeUrl = null;
+let currentCandidateId = null;
+
+// Initialize the application
+document.addEventListener('DOMContentLoaded', () => {
+  loadApplications();
+  loadCandidates();
+  loadJobs();
+  setupEventListeners();
+});
+
+// Set up event listeners
+function setupEventListeners() {
+  // Modal close buttons
+  modalCloseButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      applicationModal.classList.remove('active');
+      resumeModal.classList.remove('active');
+      candidateModal.classList.remove('active');
+    });
+  });
+
+  // Modal background click
+  [applicationModal, resumeModal, candidateModal].forEach(modal => {
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        modal.classList.remove('active');
+      }
+    });
+  });
+
+  // New application button
+  newApplicationBtn.addEventListener('click', () => {
+    openApplicationModal();
+  });
+
+  // Search and filter
+  searchBtn.addEventListener('click', loadApplications);
+  searchInput.addEventListener('input', debounce(loadApplications, 300));
+  filterStatus.addEventListener('change', debounce(loadApplications, 300));
+
+  // Resume file input change
+  resumeFile.addEventListener('change', () => {
+    if (resumeFile.files.length > 0) {
+      fileName.textContent = resumeFile.files[0].name;
+    } else {
+      fileName.textContent = '';
+    }
+  });
+
+  // Form submit
+  applicationForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    await saveApplication();
+  });
+
+  // Download resume button
+  downloadResumeBtn.addEventListener('click', () => {
+    if (currentResumeUrl) {
+      window.open(currentResumeUrl, '_blank');
+    }
+  });
+
+  // View candidate resume button
+  viewCandidateResumeBtn.addEventListener('click', () => {
+    if (currentCandidateId) {
+      viewCandidateResume(currentCandidateId);
+    }
+  });
+}
+
+// Debounce helper
+function debounce(func, timeout = 300) {
+  let timer;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => { func.apply(this, args); }, timeout);
+  };
+}
+
+// Load applications from API
+async function loadApplications() {
+  try {
+    showLoading(applicationsTableBody, emptyState);
+
+    let url = '/api/applications';
+    const params = new URLSearchParams();
+
+    if (filterStatus.value !== 'ALL') {
+      params.append('status', filterStatus.value);
+    }
+
+    const searchValue = searchInput.value.trim();
+    if (searchValue) {
+      // Try searching by candidate name first
+      try {
+        const candidateResponse = await fetch(`/api/applications/candidate/name/${encodeURIComponent(searchValue)}`);
+        if (candidateResponse.ok) {
+          const candidateData = await candidateResponse.json();
+          if (candidateData && candidateData.length > 0) {
+            renderApplications(candidateData, applicationsTableBody, emptyState);
+            return;
+          }
+        }
+      } catch {
+        // Ignore and fallback to job search
+      }
+      // If no candidate found, try job name search
+      params.append('jobName', searchValue);
+    }
+
+    if (params.toString()) {
+      url += `?${params.toString()}`;
+    }
+
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || 'Failed to load applications');
+    }
+
+    const applications = await response.json();
+    renderApplications(applications, applicationsTableBody, emptyState);
+
+  } catch (error) {
+    console.error('Error loading applications:', error);
+    showToast('Error', error.message, 'error');
+    showEmptyState(emptyState, applicationsTableBody);
+  }
+}
+
+// Render applications table rows
+function renderApplications(applications, tableBody, emptyStateElement) {
+  tableBody.innerHTML = '';
+
+  if (!applications || applications.length === 0) {
+    showEmptyState(emptyStateElement, tableBody);
+    return;
+  }
+
+  // Add a counter for Sno
+let counter = 1;
+
+applications.forEach(application => {
+  const tr = document.createElement('tr');
+  const statusClass = getStatusClass(application.status);
+
+  const candidateId = application.candidate?.id || ''; // fallback empty string
+  const candidateName = application.candidateName || application.candidate?.name || 'N/A';
+  const jobName = application.job?.jobName || application.job?.title || 'N/A';
+  const appliedAt = application.appliedAt ? new Date(application.appliedAt).toLocaleDateString() : 'N/A';
+
+  tr.innerHTML = `
+    <td>${counter++}</td>
+    <td><span class="candidate-name" data-id="${candidateId}">${candidateName}</span></td>
+    <td>${jobName}</td>
+    <td><span class="status ${statusClass}">${application.status || 'N/A'}</span></td>
+    <td>${appliedAt}</td>
+    <td>
+      <div class="action-buttons">
+        ${application.applicationResumePath ? `<button class="btn btn-primary btn-sm view-resume-btn" data-id="${application.id}"><i class="fas fa-file-pdf"></i> Resume</button>` : ''}
+        <button class="btn btn-warning btn-sm edit-btn" data-id="${application.id}"><i class="fas fa-edit"></i> Edit</button>
+        <button class="btn btn-danger btn-sm delete-btn" data-id="${application.id}"><i class="fas fa-trash"></i> Delete</button>
+      </div>
+    </td>
+    <td>${application.id}</td>
+  `;
+
+  tableBody.appendChild(tr);
+});
+
+addApplicationEventListeners(tableBody);
+
+
+  // Candidate name click to view details
+  document.querySelectorAll('.candidate-name').forEach(nameEl => {
+    nameEl.addEventListener('click', (e) => {
+      e.preventDefault();
+      const candidateId = nameEl.dataset.id;
+      if (candidateId) {
+        viewCandidateDetails(candidateId);
+      }
+    });
+  });
+}
+
+
+
+
+// Helper: status CSS class
+function getStatusClass(status) {
+  if (!status) return 'status-pending';
+  status = status.toUpperCase();
+  if (status.includes('ACCEPT') || status.includes('APPROVE') || status.includes('PLACED') || status.includes('SELECT')) {
+    return 'status-accepted';
+  } else if (status.includes('REJECT')) {
+    return 'status-rejected';
+  } else if (status.includes('INTERVIEW') || status.includes('SCHEDULED')) {
+    return 'status-interview';
+  }
+  return 'status-pending';
+}
+
+// Add event listeners to buttons inside applications table
+function addApplicationEventListeners(tableBody) {
+  tableBody.querySelectorAll('.view-resume-btn').forEach(btn => {
+    btn.addEventListener('click', () => viewApplication(btn.dataset.id));
+  });
+  tableBody.querySelectorAll('.edit-btn').forEach(btn => {
+    btn.addEventListener('click', () => editApplication(btn.dataset.id));
+  });
+  tableBody.querySelectorAll('.delete-btn').forEach(btn => {
+    btn.addEventListener('click', () => deleteApplication(btn.dataset.id));
+  });
+}
+
+// Show loading spinner row
+function showLoading(tableBody, emptyStateElement) {
+  tableBody.innerHTML = `
+    <tr>
+      <td colspan="7" style="text-align: center; padding: 20px;">
+        <i class="fas fa-spinner fa-spin"></i> Loading...
+      </td>
+    </tr>
+  `;
+  emptyStateElement.style.display = 'none';
+}
+// Show empty state message
+function showEmptyState(emptyStateElement, tableBody) {
+  tableBody.innerHTML = '';
+  emptyStateElement.style.display = 'block';
+}
+
+// Load candidates into dropdown
+async function loadCandidates() {
+  try {
+    const response = await fetch('/api/candidates');
+    if (!response.ok) throw new Error('Failed to load candidates');
+    const candidates = await response.json();
+
+    candidateSelect.innerHTML = '<option value="">Select Candidate</option>';
+    candidates.forEach(candidate => {
+      const option = document.createElement('option');
+      option.value = candidate.id;
+      option.textContent = candidate.name;
+      candidateSelect.appendChild(option);
+    });
+  } catch (error) {
+    console.error('Error loading candidates:', error);
+    showToast('Error', error.message, 'error');
+  }
+}
+
+// Load jobs into dropdown
+async function loadJobs() {
+  try {
+    const response = await fetch('/jobs');
+    if (!response.ok) throw new Error('Failed to load jobs');
+    const jobs = await response.json();
+
+    jobSelect.innerHTML = '<option value="">Select Job</option>';
+    jobs.forEach(job => {
+      const option = document.createElement('option');
+      option.value = job.id;
+      option.textContent = job.jobName || job.title;
+      jobSelect.appendChild(option);
+    });
+  } catch (error) {
+    console.error('Error loading jobs:', error);
+    showToast('Error', error.message, 'error');
+  }
+}
+
+// Open modal to add new application
+function openApplicationModal() {
+  modalTitle.textContent = 'New Job Application';
+  applicationForm.reset();
+  applicationIdInput.value = '';
+  fileName.textContent = '';
+  applicationModal.classList.add('active');
+}
+
+// View application resume modal
+async function viewApplication(id) {
+  try {
+    currentApplicationId = id;
+    currentResumeUrl = `/view/application/${id}`;
+
+    const checkResponse = await fetch(`/api/applications/${id}`);
+    if (!checkResponse.ok) throw new Error('Application not found');
+
+    const application = await checkResponse.json();
+
+    if (!application.applicationResumePath) {
+      showToast('Info', 'No resume available for this application', 'info');
+      resumeViewer.innerHTML = `
+        <div style="text-align: center; padding: 50px;">
+          <i class="fas fa-file-pdf" style="font-size: 3rem; color: #ccc;"></i>
+          <h3>No Resume Available</h3>
+          <p>This application does not have an attached resume.</p>
+        </div>
+      `;
+      downloadResumeBtn.disabled = true;
+      resumeModal.classList.add('active');
+      return;
+    }
+
+    // Get resume path from the application
+    const resumeResponse = await fetch(`/api/applications/${id}/resume/path`);
+    if (!resumeResponse.ok) throw new Error('Failed to load resume');
+
+    const resumeData = await resumeResponse.json();
+    const resumeUrl = resumeData.resumeUrl;
+
+    // Display PDF directly in iframe
+    const tempIframe = document.createElement('iframe');
+    tempIframe.src = resumeUrl;
+    tempIframe.style.width = '100%';
+    tempIframe.style.height = '500px';
+    tempIframe.style.border = 'none';
+
+    resumeViewer.innerHTML = '';
+    resumeViewer.appendChild(tempIframe);
+
+    downloadResumeBtn.disabled = false;
+    downloadResumeBtn.onclick = () => {
+      const a = document.createElement('a');
+      a.href = resumeUrl;
+      a.download = `resume_${application.candidate?.name?.replace(/\s+/g, '_') || 'candidate'}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    };
+
+    resumeModal.classList.add('active');
+
+  } catch (error) {
+    console.error('Error viewing application:', error);
+    showToast('Error', error.message, 'error');
+  }
+}
+
+// View candidate details modal
+async function viewCandidateDetails(candidateId) {
+  try {
+    currentCandidateId = candidateId;
+
+    const response = await fetch(`/api/candidates/${candidateId}`);
+    if (!response.ok) throw new Error('Failed to load candidate details');
+
+    const candidate = await response.json();
+
+    candidateModalTitle.textContent = `Candidate: ${candidate.name}`;
+    candidateDetailName.textContent = candidate.name || '-';
+    candidateDetailEmail.textContent = candidate.email || '-';
+    candidateDetailPhone.textContent = candidate.phone || '-';
+    candidateDetailSkills.textContent = candidate.skills || '-';
+    candidateDetailExperience.textContent = candidate.experience || '-';
+
+    candidateModal.classList.add('active');
+  } catch (error) {
+    console.error('Error viewing candidate details:', error);
+    showToast('Error', error.message, 'error');
+  }
+}
+
+// View candidate resume (find any application with resume)
+async function viewCandidateResume(candidateId) {
+  try {
+    currentCandidateId = candidateId;
+
+    const response = await fetch(`/api/applications/candidate/${candidateId}`);
+    if (!response.ok) throw new Error('Failed to find candidate applications');
+
+    const applications = await response.json();
+
+    if (!applications || applications.length === 0) {
+      showToast('Info', 'No applications found for this candidate', 'info');
+      return;
+    }
+
+    const applicationWithResume = applications.find(app => app.applicationResumePath);
+    if (!applicationWithResume) {
+      showToast('Info', 'No resume found for this candidate', 'info');
+      resumeViewer.innerHTML = `
+        <div style="text-align: center; padding: 50px;">
+          <i class="fas fa-file-pdf" style="font-size: 3rem; color: #ccc;"></i>
+          <h3>No Resume Available</h3>
+          <p>This candidate has not uploaded a resume in any application.</p>
+        </div>
+      `;
+      downloadResumeBtn.disabled = true;
+      resumeModal.classList.add('active');
+      return;
+    }
+
+    await viewApplication(applicationWithResume.id);
+
+  } catch (error) {
+    console.error('Error viewing candidate resume:', error);
+    showToast('Error', error.message, 'error');
+  }
+}
+
+// Edit application modal
+async function editApplication(id) {
+  try {
+    const response = await fetch(`/api/applications/${id}`);
+    if (!response.ok) throw new Error('Failed to load application details');
+
+    const application = await response.json();
+
+    modalTitle.textContent = 'Edit Application';
+    applicationIdInput.value = application.id;
+    candidateSelect.value = application.candidate?.id || '';
+    jobSelect.value = application.job?.id || '';
+    statusSelect.value = application.status || 'PENDING';
+    fileName.textContent = application.applicationResumePath ? 'Resume attached' : 'No file selected';
+
+    applicationModal.classList.add('active');
+  } catch (error) {
+    console.error('Error editing application:', error);
+    showToast('Error', error.message, 'error');
+  }
+}
+
+// Save application (new or update)
+async function saveApplication() {
+  try {
+    if (!candidateSelect.value || !jobSelect.value) {
+      throw new Error('Please select both candidate and job');
+    }
+
+    const formData = new FormData();
+    formData.append('candidateId', candidateSelect.value);
+    formData.append('jobId', jobSelect.value);
+    formData.append('status', statusSelect.value);
+
+    if (resumeFile.files.length > 0) {
+      formData.append('resumeFile', resumeFile.files[0]);
+    }
+
+    let url, method;
+
+    if (applicationIdInput.value) {
+      url = `/api/applications/${applicationIdInput.value}`;
+      method = 'PATCH';
+    } else {
+      url = `/api/applications/apply/${candidateSelect.value}/job/${jobSelect.value}`;
+      method = 'POST';
+    }
+
+    const response = await fetch(url, {
+      method,
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || 'Failed to save application');
+    }
+
+    applicationModal.classList.remove('active');
+    showToast('Success', 'Application saved successfully', 'success');
+    loadApplications();
+
+  } catch (error) {
+    console.error('Error saving application:', error);
+    showToast('Error', error.message, 'error');
+  }
+}
+
+// Delete application
+async function deleteApplication(id) {
+  if (!confirm('Are you sure you want to delete this application?')) return;
+
+  try {
+    const response = await fetch(`/api/applications/${id}`, {
+      method: 'DELETE',
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || 'Failed to delete application');
+    }
+
+    showToast('Success', 'Application deleted successfully', 'success');
+    loadApplications();
+  } catch (error) {
+    console.error('Error deleting application:', error);
+    showToast('Error', error.message, 'error');
+  }
+}
+
+// Toast notifications
+function showToast(title, message, type = 'success') {
+  toast.textContent = `${title}: ${message}`;
+  toast.className = `toast toast-${type} show`;
+  setTimeout(() => {
+    toast.classList.remove('show');
+  }, 5000);
+}
+
+  </script>
+</body>
+</html>	
