@@ -19,6 +19,7 @@ const CandidateTable = ({
 
   const getStatusClass = (status) => {
     const statusClassMap = {
+      'NEW_CANDIDATE': 'bg-emerald-100 text-emerald-800',
       'PENDING': 'bg-yellow-100 text-yellow-800',
       'SCHEDULED': 'bg-blue-100 text-blue-800',
       'INTERVIEWED': 'bg-purple-100 text-purple-800',

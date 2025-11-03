@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from '../../layout/navbar';
 import Toast from '../toast/Toast';
-import { websiteApplicationAPI, jobAPI } from '../../api/websiteapi';
+import { websiteApplicationAPI, jobAPI } from '../../api/api';
 import ApplicationDetailCard from './ApplicationDetailCard';
 
 const WebsiteApplication = () => {

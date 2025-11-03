@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { applicationAPI, candidateAPI, interviewAPI, jobAPI } from '../../api/application';
+import { applicationAPI, candidateAPI, interviewAPI, jobAPI } from '../../api/api';
 import Navbar from '../../layout/navbar';
 import Toast from '../toast/Toast';
 import ApplicationModal from './ApplicationModal';

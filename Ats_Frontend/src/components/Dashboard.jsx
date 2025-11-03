@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   FaBars,
   FaTimes,
@@ -17,7 +18,8 @@ import {
   FaArrowDown,
   FaGlobe
 } from "react-icons/fa";
-import { notificationAPI } from "../api/notificationApi";
+import { notificationAPI, jobAPI, candidateAPI, interviewAPI, applicationAPI, authAPI } from "../api/api";
+import logo from "../assets/logo.png";
 
 // Desktop Navigation Component
 const DesktopNav = ({ role, currentPath }) => {
@@ -29,7 +31,6 @@ const DesktopNav = ({ role, currentPath }) => {
     { name: "Interviews", path: "/Interviews", icon: <FaCalendarCheck className="text-lg" /> },
     { name: "Clients", path: "/clients", icon: <FaUser className="text-lg" /> },
     { name: "Website Applications", path: "/wesiteapplication", icon: <FaGlobe className="text-lg" /> },
-    { name: "Notifications", path: "/notifications", icon: <FaBell className="text-lg" /> },
   ];
 
   if (role === "ADMIN") {
@@ -43,9 +44,11 @@ const DesktopNav = ({ role, currentPath }) => {
   return (
     <aside className="hidden lg:flex flex-col w-72 bg-white dark:bg-gray-800 shadow-xl rounded-r-2xl transition-all duration-300 border-r border-gray-100 dark:border-gray-700">
       <div className="flex items-center justify-center h-20 border-b border-gray-200 dark:border-gray-700">
-        <h1 className="text-2xl font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
-          <FaCubes className="text-indigo-500 dark:text-indigo-300" /> ATS
-        </h1>
+        <img 
+          src={logo} 
+          alt="ATS Logo" 
+          className="h-12 w-auto object-contain"
+        />
       </div>
       <nav className="flex-1 px-3 py-6 space-y-2">
         {navItems.map((item, idx) => (
@@ -89,7 +92,6 @@ const MobileNav = ({ role, mobileNavOpen, setMobileNavOpen, currentPath }) => {
     { name: "Applications", path: "/applications", icon: <FaFileAlt className="text-lg" /> },
     { name: "Interviews", path: "/interview", icon: <FaCalendarCheck className="text-lg" /> },
     { name: "Clients", path: "/clients", icon: <FaUser className="text-lg" /> },
-    { name: "Notifications", path: "/notifications", icon: <FaBell className="text-lg" /> },
   ];
 
   if (role === "ADMIN") {
@@ -112,9 +114,11 @@ const MobileNav = ({ role, mobileNavOpen, setMobileNavOpen, currentPath }) => {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b pb-4 mb-4 dark:border-gray-700">
-              <h2 className="text-xl font-bold text-indigo-600 dark:text-indigo-400 flex items-center">
-                <FaCubes className="mr-2" /> ATS
-              </h2>
+              <img 
+                src={logo} 
+                alt="ATS Logo" 
+                className="h-10 w-auto object-contain"
+              />
               <button onClick={() => setMobileNavOpen(false)}>
                 <FaTimes className="text-xl text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400" />
               </button>
@@ -214,6 +218,28 @@ const Header = ({ role, handleLogout, setMobileNavOpen }) => {
     };
   }, [showNotificationDropdown]);
 
+  // Handle notification click - navigate to website application
+  const handleNotificationClick = async (notification) => {
+    // Mark notification as read if not already read
+    if (!notification.read) {
+      try {
+        await notificationAPI.markAsRead(notification.id);
+        setNotifications(prev => 
+          prev.map(n => n.id === notification.id ? { ...n, read: true } : n)
+        );
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      } catch (error) {
+        console.error('Error marking notification as read:', error);
+      }
+    }
+    
+    // Close dropdown
+    setShowNotificationDropdown(false);
+    
+    // Navigate to website application page
+    window.location.href = '/wesiteapplication';
+  };
+
   return (
     <header className="flex items-center justify-between p-4 bg-white dark:bg-gray-800 shadow-sm lg:px-6 border-b border-gray-100 dark:border-gray-700">
       <div className="flex items-center">
@@ -260,7 +286,8 @@ const Header = ({ role, handleLogout, setMobileNavOpen }) => {
                   notifications.map((notification) => (
                     <div 
                       key={notification.id}
-                      className={`p-4 border-b border-gray-100 dark:border-gray-700 ${
+                      onClick={() => handleNotificationClick(notification)}
+                      className={`p-4 border-b border-gray-100 dark:border-gray-700 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors duration-200 ${
                         !notification.read ? 'bg-blue-50 dark:bg-blue-900/20' : ''
                       }`}
                     >
@@ -358,7 +385,7 @@ const Header = ({ role, handleLogout, setMobileNavOpen }) => {
 };
 
 // Stat Card Component
-const StatCard = ({ icon, value, label, change, color, loading }) => {
+const StatCard = ({ icon, value, label, change, color, loading, onClick }) => {
   const colorClasses = {
     blue: { 
       bg: "bg-blue-50 dark:bg-blue-900/20", 
@@ -386,7 +413,12 @@ const StatCard = ({ icon, value, label, change, color, loading }) => {
   const isPositive = changeValue >= 0;
 
   return (
-    <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-all duration-300 group relative overflow-hidden">
+    <div 
+      onClick={onClick}
+      className={`bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-all duration-300 group relative overflow-hidden ${
+        onClick ? 'cursor-pointer hover:border-indigo-300 dark:hover:border-indigo-600 hover:scale-[1.02]' : ''
+      }`}
+    >
       {loading && (
         <div className="absolute inset-0 bg-white dark:bg-gray-800 bg-opacity-80 dark:bg-opacity-80 flex items-center justify-center z-10">
           <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
@@ -434,6 +466,7 @@ const DashboardCard = ({ title, text, btn, link, icon }) => {
 
 // Main Dashboard Component
 const Dashboard = () => {
+  const navigate = useNavigate();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [role, setRole] = useState("");
   const [stats, setStats] = useState({
@@ -558,17 +591,12 @@ const Dashboard = () => {
           applications: typeof stats.applications === 'number' ? stats.applications : 0,
         };
 
-        const [jobsRes, candidatesRes, interviewsRes, applicationsRes] = await Promise.all([
-          fetch("http://localhost:8080/jobs/counts", { headers }),
-          fetch("http://localhost:8080/api/candidates/count", { headers }),
-          fetch("http://localhost:8080/api/interviews/count/today", { headers }),
-          fetch("http://localhost:8080/api/applications/count", { headers }),
+        const [newJobs, newCandidates, newInterviews, newApplications] = await Promise.all([
+          jobAPI.getCount().catch(() => "--"),
+          candidateAPI.getCount().catch(() => "--"),
+          interviewAPI.getCount().catch(() => "--"),
+          applicationAPI.getCount().catch(() => "--"),
         ]);
-
-        const newJobs = jobsRes.ok ? await jobsRes.json() : "--";
-        const newCandidates = candidatesRes.ok ? await candidatesRes.json() : "--";
-        const newInterviews = interviewsRes.ok ? await interviewsRes.json() : "--";
-        const newApplications = applicationsRes.ok ? await applicationsRes.json() : "--";
 
         // Calculate trends based on previous values
         const newTrends = {
@@ -609,10 +637,7 @@ const Dashboard = () => {
 
     if (token) {
       try {
-        await fetch("http://localhost:8080/api/auth/logout", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        await authAPI.logout();
       } catch (err) {
         console.error("Server logout failed:", err);
       }
@@ -678,6 +703,7 @@ const Dashboard = () => {
                   change={trends.jobs}
                   color="blue" 
                   loading={loading}
+                  onClick={() => navigate('/jobs')}
                 />
                 <StatCard 
                   icon={<FaUsers />} 
@@ -686,6 +712,7 @@ const Dashboard = () => {
                   change={trends.candidates}
                   color="green" 
                   loading={loading}
+                  onClick={() => navigate('/candidates')}
                 />
                 <StatCard 
                   icon={<FaFileAlt />} 
@@ -694,6 +721,7 @@ const Dashboard = () => {
                   change={trends.applications}
                   color="yellow" 
                   loading={loading}
+                  onClick={() => navigate('/applications')}
                 />
                 <StatCard 
                   icon={<FaCalendarCheck />} 
@@ -702,6 +730,7 @@ const Dashboard = () => {
                   change={trends.interviews}
                   color="indigo" 
                   loading={loading}
+                  onClick={() => navigate('/Interviews')}
                 />
               </div>
             </div>

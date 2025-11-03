@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { candidateAPI } from "../../api/candidate";
+import { candidateAPI } from "../../api/api";
 
 const EditCandidateModal = ({ candidate, onClose, onCandidateUpdated, showToast }) => {
   const [formData, setFormData] = useState({
@@ -127,6 +127,7 @@ const EditCandidateModal = ({ candidate, onClose, onCandidateUpdated, showToast 
                 className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 required
               >
+                <option value="NEW_CANDIDATE">New Candidate</option>
                 <option value="PENDING">Pending</option>
                 <option value="SCHEDULED">Scheduled</option>
                 <option value="INTERVIEWED">Interviewed</option>

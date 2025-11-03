@@ -3,6 +3,7 @@ import React from 'react';
 const CandidateFilters = ({ onSearch, onStatusFilter, onLocationFilter, searchTerm, statusFilter, locationFilter }) => {
   const statusOptions = [
     { value: '', label: 'All Statuses' },
+    { value: 'NEW_CANDIDATE', label: 'New Candidate' },
     { value: 'PENDING', label: 'Pending' },
     { value: 'SCHEDULED', label: 'Scheduled' },
     { value: 'INTERVIEWED', label: 'Interviewed' },

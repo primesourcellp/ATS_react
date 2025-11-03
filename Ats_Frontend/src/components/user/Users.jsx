@@ -3,7 +3,7 @@ import Navbar from '../../layout/navbar';
 import Toast from '../toast/Toast';
 import UserTable from './UserTable';
 import UserForm from './UserForm';
-import { userAPI } from '../../api/userApi';
+import { userAPI } from '../../api/api';
 
 const UserManagement = () => {
   const [users, setUsers] = useState([]);

@@ -21,7 +21,6 @@ import com.example.Material_Mitra.repository.InterviewRepository;
 import com.example.Material_Mitra.repository.JobApplicationRepository;
 import com.example.Material_Mitra.repository.JobRepository;
 
-//import ch.qos.logback.core.net.server.Client;
 import jakarta.transaction.Transactional;
 
 
@@ -80,6 +79,7 @@ public class JobService {
         job.setJobLocation(jobDetails.getJobLocation());
         job.setSkillsname(jobDetails.getSkillsname());
         job.setJobDiscription(jobDetails.getJobDiscription());
+        job.setRolesAndResponsibilities(jobDetails.getRolesAndResponsibilities());
         job.setJobSalaryRange(jobDetails.getJobSalaryRange());
         job.setJobExperience(jobDetails.getJobExperience());
         return jobRepository.save(job);
@@ -166,6 +166,9 @@ public class JobService {
         dto.setCreatedAt(job.getCreatedAt().toString());
         dto.setSkillsName(job.getSkillsname());
         dto.setJobDescription(job.getJobDiscription());
+        dto.setJobExperience(job.getJobExperience());
+        dto.setJobSalaryRange(job.getJobSalaryRange());
+        dto.setRolesAndResponsibilities(job.getRolesAndResponsibilities());
         
         // ✅ Convert enum to String for DTO
         if (job.getJobType() != null) {
@@ -183,6 +186,26 @@ public class JobService {
             dto.setClient(clientDTO);
         }
 
+        return dto;
+    }
+
+    // Lightweight mapper without client details (for public/active listing)
+    public JobDTO convertToDTOWithoutClient(Job job) {
+        JobDTO dto = new JobDTO();
+        dto.setId(job.getId());
+        dto.setJobName(job.getJobName());
+        dto.setJobLocation(job.getJobLocation());
+        dto.setCreatedAt(job.getCreatedAt().toString());
+        dto.setSkillsName(job.getSkillsname());
+        dto.setJobDescription(job.getJobDiscription());
+        dto.setJobExperience(job.getJobExperience());
+        dto.setJobSalaryRange(job.getJobSalaryRange());
+        dto.setRolesAndResponsibilities(job.getRolesAndResponsibilities());
+        if (job.getJobType() != null) {
+            dto.setJobType(job.getJobType().name());
+        }
+        dto.setStatus(job.getStatus().name());
+        // intentionally do NOT set client
         return dto;
     }
 
@@ -206,7 +229,7 @@ public class JobService {
     public List<JobDTO> getActiveJobs() {
         return jobRepository.findByStatus(JobStatus.ACTIVE)
                             .stream()
-                            .map(this::convertToDTO)
+                            .map(this::convertToDTOWithoutClient)
                             .collect(Collectors.toList());
     }
 

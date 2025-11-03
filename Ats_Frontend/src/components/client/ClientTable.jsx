@@ -122,7 +122,7 @@ const ClientTable = ({ clients, loading, onEditClient, onViewJobDetails, onDelet
                     {client.address || 'N/A'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden lg:table-cell">
-                    {client.client_number || 'N/A'}
+                    {client.clientNumber || client.client_number || 'N/A'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
@@ -229,9 +229,9 @@ const ClientTable = ({ clients, loading, onEditClient, onViewJobDetails, onDelet
                             <h4 className="text-sm font-medium text-gray-700 mb-3">Client Details</h4>
                             <div className="text-sm text-gray-600 space-y-1">
                               <p><span className="font-medium">ID:</span> {client.id}</p>
-                              <p><span className="font-medium">Name:</span> {client.clientName}</p>
+                              <p><span className="font-medium">Name:</span> {client.clientName || client.client_name}</p>
                               <p><span className="font-medium">Address:</span> {client.address || 'N/A'}</p>
-                              <p><span className="font-medium">Contact:</span> {client.client_number || 'N/A'}</p>
+                              <p><span className="font-medium">Contact:</span> {client.clientNumber || client.client_number || 'N/A'}</p>
                             </div>
                           </div>
                           

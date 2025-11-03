@@ -1,4 +1,4 @@
-const BASE_URL = "http://localhost:8080";
+const BASE_URL = "https://atsapi.primesourcellp.com";
 
 // ===================== Helper Functions =====================
 const getAuthHeaders = (contentType = "application/json") => {
@@ -177,10 +177,9 @@ export const applicationAPI = {
       throw new Error(`Failed to fetch resume. Status: ${response.status}`);
     }
     
-    // Create blob URL from the PDF response
-    const blob = await response.blob();
-    const url = window.URL.createObjectURL(blob);
-    return url;
+    // Get the S3 presigned URL from JSON response
+    const data = await response.json();
+    return data.url;
   },
 };
 

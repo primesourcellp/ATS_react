@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { candidateAPI } from '../../api/candidate';
+import { candidateAPI } from '../../api/api';
 
 const CandidateFormModal = ({ candidate, onSave, onCancel }) => {
   const [formData, setFormData] = useState({
@@ -75,7 +75,7 @@ const CandidateFormModal = ({ candidate, onSave, onCancel }) => {
       onClick={onCancel} // click outside closes modal
     >
       <div
-        className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto p-6 relative"
+        className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[70vh] overflow-y-auto p-6 relative"
         onClick={(e) => e.stopPropagation()} // prevent closing when clicking inside
       >
         <div className="flex justify-between items-center border-b pb-3 mb-4">
@@ -148,6 +148,7 @@ const CandidateFormModal = ({ candidate, onSave, onCancel }) => {
                 onChange={handleInputChange}
                 className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
               >
+                <option value="NEW_CANDIDATE">New Candidate</option>
                 <option value="PENDING">Pending</option>
                 <option value="SCHEDULED">Scheduled</option>
                 <option value="INTERVIEWED">Interviewed</option>

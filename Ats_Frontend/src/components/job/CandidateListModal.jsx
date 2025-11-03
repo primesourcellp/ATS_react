@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { candidateAPI } from "../../api/jobApi";
+import { candidateAPI } from "../../api/api";
 
 const CandidateListModal = ({ job, onClose, onViewCandidate }) => {
   const [candidates, setCandidates] = useState([]);

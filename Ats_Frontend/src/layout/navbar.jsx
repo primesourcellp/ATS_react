@@ -14,7 +14,8 @@ import {
   FaChevronDown,
   FaSignOutAlt
 } from "react-icons/fa";
-import NotificationCenter from "../components/notifications/NotificationCenter";
+import { authAPI } from "../api/api";
+import logo from "../assets/logo.png";
 
 const Navbar = () => {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -28,21 +29,18 @@ const Navbar = () => {
   }, []);
 
   const handleLogout = async () => {
-  const token = localStorage.getItem("jwtToken");
-  localStorage.clear(); // Clear all local storage
+    const token = localStorage.getItem("jwtToken");
+    localStorage.clear(); // Clear all local storage
 
-  if (token) {
-    try {
-      await fetch("http://localhost:8080/auth/logout", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-    } catch (err) {
-      console.error("Server logout failed:", err);
+    if (token) {
+      try {
+        await authAPI.logout();
+      } catch (err) {
+        console.error("Server logout failed:", err);
+      }
     }
-  }
-  window.location.href = "/"; // redirect to login page
-};
+    window.location.href = "/"; // redirect to login page
+  };
 
 
   const navItems = [
@@ -73,15 +71,12 @@ const Navbar = () => {
           </button>
           <div className="flex items-center">
             <FaCubes className="text-white mr-2" />
-            <h1 className="text-white font-bold text-lg">ATS</h1>
+            <h1 className="text-white font-bold text-lg">TalentPrime</h1>
           </div>
         </div>
 
-        {/* Notifications and User Info */}
+        {/* User Info */}
         <div className="flex items-center space-x-4">
-          {/* Notification Center */}
-          <NotificationCenter />
-          
           {/* User Info and Logout */}
           <div className="relative">
             <button 
@@ -116,11 +111,12 @@ const Navbar = () => {
 
       {/* Sidebar */}
       <aside className="hidden lg:flex flex-col w-20 hover:w-64 bg-white shadow-xl rounded-r-2xl h-screen fixed top-0 left-0 z-20 transition-all duration-300 group">
-        <div className="flex items-center justify-center h-16 border-b border-gray-200">
-          <h1 className="text-xl font-bold text-green-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap">
-            <FaCubes className="inline mr-2 text-green-500" /> ATS
-          </h1>
-          <FaCubes className="text-green-500 text-xl absolute opacity-100 group-hover:opacity-0 transition-opacity duration-300" />
+        <div className="flex items-center justify-center h-16 border-b border-gray-200 relative">
+          <img 
+            src={logo} 
+            alt="ATS Logo" 
+            className="h-10 w-auto object-contain opacity-100 group-hover:opacity-100 transition-opacity duration-300"
+          />
         </div>
         <nav className="flex-1 px-2 py-6 space-y-2 overflow-hidden">
           {navItems.map((item, idx) => (
@@ -156,9 +152,11 @@ const Navbar = () => {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b pb-4 mb-4">
-              <h2 className="text-xl font-bold text-green-600 flex items-center">
-                <FaCubes className="mr-2" /> ATS
-              </h2>
+              <img 
+                src={logo} 
+                alt="ATS Logo" 
+                className="h-10 w-auto object-contain"
+              />
               <button onClick={() => setMobileNavOpen(false)}>
                 <FaTimes className="text-xl text-gray-600 hover:text-green-600" />
               </button>

@@ -1,14 +1,11 @@
 package com.example.Material_Mitra.controller;
 
-import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -27,6 +24,7 @@ import com.example.Material_Mitra.enums.WebsiteReviewed;
 import com.example.Material_Mitra.enums.WorkingStatus;
 import com.example.Material_Mitra.repository.JobRepository;
 import com.example.Material_Mitra.service.NotificationService;
+import com.example.Material_Mitra.service.S3FileStorageService;
 import com.example.Material_Mitra.service.WebsiteFormService;
 
 @RestController
@@ -36,12 +34,15 @@ public class WebsiteFormController {
     private final WebsiteFormService formService;
     private final JobRepository jobRepository;
     private final NotificationService notificationService;
+    private final S3FileStorageService fileStorageService;
 
     @Autowired
-    public WebsiteFormController(WebsiteFormService formService, JobRepository jobRepository, NotificationService notificationService) {
+    public WebsiteFormController(WebsiteFormService formService, JobRepository jobRepository, 
+                                 NotificationService notificationService, S3FileStorageService fileStorageService) {
         this.formService = formService;
         this.jobRepository = jobRepository;
         this.notificationService = notificationService;
+        this.fileStorageService = fileStorageService;
     }
 
     // ✅ Return DTO instead of entity
@@ -64,14 +65,8 @@ public class WebsiteFormController {
         Job job = jobRepository.findById(jobId)
                 .orElseThrow(() -> new RuntimeException("Job not found"));
 
-        // Save resume to local folder
-        String uploadDir = "C:/Resumes";
-        File dir = new File(uploadDir);
-        if (!dir.exists()) dir.mkdirs();
-
-        String filename = System.currentTimeMillis() + "_" + resumeFile.getOriginalFilename();
-        File dest = new File(dir, filename);
-        resumeFile.transferTo(dest);
+        // Save resume to S3
+        String resumePath = fileStorageService.storeFile(resumeFile, "resumes/website-applications");
 
         // Parse experience string to double
         Double experienceValue = 0.0;
@@ -106,7 +101,7 @@ public class WebsiteFormController {
             application.setWorkRole("Unemployed");
         }
 
-        application.setResumePath("/resumes/" + filename);
+        application.setResumePath(resumePath);  // Store the S3 key
         application.setJob(job);
 
         WebsiteApplicationForm saved = formService.save(application);
@@ -205,7 +200,7 @@ public class WebsiteFormController {
         return updated != null ? ResponseEntity.ok(updated) : ResponseEntity.notFound().build();
     }
 
-    // View resume for website application
+    // View resume for website application - Redirect to S3
     @GetMapping("/{id}/resume/view")
     public ResponseEntity<?> viewResume(@PathVariable Long id) {
         try {
@@ -219,28 +214,13 @@ public class WebsiteFormController {
                         .body("Resume not found for application: " + application.getApplierName());
             }
 
-            // Convert relative path to absolute path
-            String resumePath = application.getResumePath();
-            if (resumePath.startsWith("/resumes/")) {
-                resumePath = "C:/Resumes" + resumePath.substring("/resumes".length());
-            }
-
-            File resumeFile = new File(resumePath);
-            if (!resumeFile.exists()) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body("Resume file not found on disk");
-            }
-
-            byte[] resumeBytes = Files.readAllBytes(resumeFile.toPath());
-            String contentType = Files.probeContentType(resumeFile.toPath());
-            if (contentType == null) {
-                contentType = "application/pdf";
-            }
-
-            return ResponseEntity.ok()
-                    .contentType(MediaType.parseMediaType(contentType))
-                    .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + resumeFile.getName() + "\"")
-                    .body(resumeBytes);
+            // Generate S3 presigned URL
+            String presignedUrl = fileStorageService.getFileUrl(application.getResumePath());
+            
+            // Redirect to S3 presigned URL
+            return ResponseEntity.status(302)
+                    .header(HttpHeaders.LOCATION, presignedUrl)
+                    .build();
 
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -248,7 +228,7 @@ public class WebsiteFormController {
         }
     }
 
-    // Download resume for website application
+    // Download resume for website application - Redirect to S3
     @GetMapping("/{id}/resume/download")
     public ResponseEntity<?> downloadResume(@PathVariable Long id) {
         try {
@@ -262,28 +242,13 @@ public class WebsiteFormController {
                         .body("Resume not found for application: " + application.getApplierName());
             }
 
-            // Convert relative path to absolute path
-            String resumePath = application.getResumePath();
-            if (resumePath.startsWith("/resumes/")) {
-                resumePath = "C:/Resumes" + resumePath.substring("/resumes".length());
-            }
-
-            File resumeFile = new File(resumePath);
-            if (!resumeFile.exists()) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body("Resume file not found on disk");
-            }
-
-            byte[] resumeBytes = Files.readAllBytes(resumeFile.toPath());
-            String contentType = Files.probeContentType(resumeFile.toPath());
-            if (contentType == null) {
-                contentType = "application/pdf";
-            }
-
-            return ResponseEntity.ok()
-                    .contentType(MediaType.parseMediaType(contentType))
-                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + resumeFile.getName() + "\"")
-                    .body(resumeBytes);
+            // Generate S3 presigned URL
+            String presignedUrl = fileStorageService.getFileUrl(application.getResumePath());
+            
+            // Redirect to S3 presigned URL
+            return ResponseEntity.status(302)
+                    .header(HttpHeaders.LOCATION, presignedUrl)
+                    .build();
 
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -291,7 +256,7 @@ public class WebsiteFormController {
         }
     }
 
-    // Get resume URL for website application
+    // Get resume URL for website application - Return S3 presigned URL
     @GetMapping("/{id}/resume/url")
     public ResponseEntity<?> getResumeUrl(@PathVariable Long id) {
         try {
@@ -305,8 +270,8 @@ public class WebsiteFormController {
                         .body("Resume not found for application: " + application.getApplierName());
             }
 
-            // Return the resume URL for frontend to use
-            String resumeUrl = "http://localhost:8080/api/forms/" + id + "/resume/view";
+            // Generate S3 presigned URL (valid for 1 hour)
+            String resumeUrl = fileStorageService.getFileUrl(application.getResumePath());
             return ResponseEntity.ok().body(java.util.Map.of("resumeUrl", resumeUrl));
 
         } catch (Exception e) {

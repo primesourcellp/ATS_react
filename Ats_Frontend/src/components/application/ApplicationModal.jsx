@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { applicationAPI } from "../../api/application"; 
+import { applicationAPI } from "../../api/api"; 
 
 const ApplicationModal = ({ application, candidates, jobs, onSave, onClose, showToast }) => {
   const [formData, setFormData] = useState({

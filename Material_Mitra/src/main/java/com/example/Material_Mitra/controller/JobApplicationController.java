@@ -4,10 +4,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
-import org.springframework.core.io.Resource;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,17 +20,17 @@ import com.example.Material_Mitra.dto.DTOMapper;
 import com.example.Material_Mitra.dto.JobApplicationDTO;
 import com.example.Material_Mitra.entity.JobApplication;
 import com.example.Material_Mitra.enums.ResultStatus;
-import com.example.Material_Mitra.service.FileStorageService;
 import com.example.Material_Mitra.service.JobApplicationService;
+import com.example.Material_Mitra.service.S3FileStorageService;
 
 @RestController
 @RequestMapping("/api/applications")
 public class JobApplicationController {
 
     private final JobApplicationService jobApplicationService;
-    private final FileStorageService fileStorageService;
+    private final S3FileStorageService fileStorageService;
 
-    public JobApplicationController(JobApplicationService jobApplicationService, FileStorageService fileStorageService) {
+    public JobApplicationController(JobApplicationService jobApplicationService, S3FileStorageService fileStorageService) {
         this.jobApplicationService = jobApplicationService;
         this.fileStorageService = fileStorageService;
     }
@@ -165,23 +162,21 @@ public class JobApplicationController {
 
     // ✅ Serve Application Resume File Content Directly (Proxy Endpoint)
     @GetMapping("/{id}/resume/file")
-    public ResponseEntity<Resource> getApplicationResumeFile(@PathVariable Long id) {
+    public ResponseEntity<?> getApplicationResumeFile(@PathVariable Long id) {
         try {
             String resumePath = jobApplicationService.getResumePath(id);
             if (resumePath == null) {
                 return ResponseEntity.notFound().build();
             }
             
-            Resource resource = fileStorageService.loadFileAsResource(resumePath);
-            String contentType = fileStorageService.getContentType(resumePath);
-            if (contentType == null) {
-                contentType = "application/pdf";
-            }
+            // Return S3 presigned URL as JSON
+            String presignedUrl = fileStorageService.getFileUrl(resumePath);
             
             return ResponseEntity.ok()
-                    .contentType(MediaType.parseMediaType(contentType))
-                    .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"application_resume.pdf\"")
-                    .body(resource);
+                    .body(Map.of(
+                        "url", presignedUrl,
+                        "fileName", "Application_Resume_" + id + ".pdf"
+                    ));
         } catch (Exception e) {
             return ResponseEntity.notFound().build();
         }

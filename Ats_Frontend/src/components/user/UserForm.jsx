@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { userAPI } from '../../api/userApi';
+import { userAPI } from '../../api/api';
 
 const UserForm = ({ user, onSave, onClose }) => {
   const [username, setUsername] = useState('');

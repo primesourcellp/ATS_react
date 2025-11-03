@@ -137,9 +137,9 @@ public class UserController {
     @GetMapping("/check-email/{email}")
     public ResponseEntity<?> checkEmailExists(@PathVariable String email) {
         try {
-            List<User> users = userService.getUsersByEmail(email);
-            boolean exists = !users.isEmpty();
-            return ResponseEntity.ok(Map.of("exists", exists, "count", users.size()));
+            Optional<User> userOptional = userService.getUserByEmail(email);
+            boolean exists = userOptional.isPresent();
+            return ResponseEntity.ok(Map.of("exists", exists, "count", exists ? 1 : 0));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Error checking email: " + e.getMessage());

@@ -5,7 +5,7 @@ import CandidateTable from './CandidateTable';
 import CandidateDetailsModal from './CandidateDetail';
 import CreateCandidateModal from './CreateCandidateModal';
 import EditCandidateModal from './EditCandidateModal';
-import { candidateAPI } from '../../api/candidate';
+import { candidateAPI } from '../../api/api';
 
 const CandidateManagement = () => {
   const [candidates, setCandidates] = useState([]);
@@ -19,6 +19,9 @@ const CandidateManagement = () => {
   const [candidateIdSearch, setCandidateIdSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [locationFilter, setLocationFilter] = useState('');
+  const [includeSkillsFilter, setIncludeSkillsFilter] = useState('');
+  const [excludeSkillsFilter, setExcludeSkillsFilter] = useState('');
+  const [sortBy, setSortBy] = useState('newest');
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -32,7 +35,7 @@ const CandidateManagement = () => {
 
   useEffect(() => {
     filterCandidates();
-  }, [candidates, searchTerm, candidateIdSearch, statusFilter, locationFilter]);
+  }, [candidates, searchTerm, candidateIdSearch, statusFilter, locationFilter, includeSkillsFilter, excludeSkillsFilter, sortBy]);
 
   const loadCandidates = async () => {
     try {
@@ -82,6 +85,73 @@ const CandidateManagement = () => {
     if (locationFilter) {
       const locationTerm = locationFilter.toLowerCase();
       result = result.filter(c => c.location && c.location.toLowerCase().includes(locationTerm));
+    }
+    
+    // Filter by include skills (candidate MUST have these skills)
+    if (includeSkillsFilter) {
+      const includeSkills = includeSkillsFilter.split(',').map(s => s.trim().toLowerCase()).filter(s => s);
+      result = result.filter(c => {
+        if (!c.skills) return false;
+        const candidateSkills = c.skills.toLowerCase();
+        // All include skills must be present
+        return includeSkills.every(skill => candidateSkills.includes(skill));
+      });
+    }
+    
+    // Filter by exclude skills (candidate MUST NOT have these skills)
+    if (excludeSkillsFilter) {
+      const excludeSkills = excludeSkillsFilter.split(',').map(s => s.trim().toLowerCase()).filter(s => s);
+      result = result.filter(c => {
+        if (!c.skills) return true; // If no skills, include the candidate
+        const candidateSkills = c.skills.toLowerCase();
+        // None of the exclude skills should be present
+        return !excludeSkills.some(skill => candidateSkills.includes(skill));
+      });
+    }
+    
+    // Sort candidates
+    switch(sortBy) {
+      case 'newest':
+        result.sort((a, b) => {
+          const dateA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+          const dateB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+          return dateB - dateA; // Newest first (descending)
+        });
+        break;
+      case 'oldest':
+        result.sort((a, b) => {
+          const dateA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+          const dateB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+          return dateA - dateB; // Oldest first (ascending)
+        });
+        break;
+      case 'name':
+        result.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+        break;
+      case 'id_asc':
+        // Sort by ID: 1 to last (ascending)
+        result.sort((a, b) => {
+          const idA = a.id || 0;
+          const idB = b.id || 0;
+          return idA - idB; // Lowest ID first
+        });
+        break;
+      case 'id_desc':
+        // Sort by ID: last to 1 (descending)
+        result.sort((a, b) => {
+          const idA = a.id || 0;
+          const idB = b.id || 0;
+          return idB - idA; // Highest ID first
+        });
+        break;
+      default:
+        // Default to newest first
+        result.sort((a, b) => {
+          const dateA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+          const dateB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+          return dateB - dateA; // Newest first (descending)
+        });
+        break;
     }
     
     setFilteredCandidates(result);
@@ -140,6 +210,7 @@ const CandidateManagement = () => {
   // Get status counts for stats
   const getStatusCounts = () => {
     const statusCounts = {
+      'NEW_CANDIDATE': 0,
       'PENDING': 0,
       'SCHEDULED': 0,
       'INTERVIEWED': 0,
@@ -187,7 +258,7 @@ const CandidateManagement = () => {
         </div>
 
         {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
           <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
             <div className="flex items-center">
               <div className="rounded-lg bg-blue-100 p-3">
@@ -198,6 +269,20 @@ const CandidateManagement = () => {
               <div className="ml-4">
                 <h3 className="text-sm font-medium text-gray-600">Total Candidates</h3>
                 <p className="text-2xl font-semibold text-gray-900">{candidates.length}</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+            <div className="flex items-center">
+              <div className="rounded-lg bg-emerald-100 p-3">
+                <svg className="h-6 w-6 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                </svg>
+              </div>
+              <div className="ml-4">
+                <h3 className="text-sm font-medium text-gray-600">New Candidate</h3>
+                <p className="text-2xl font-semibold text-gray-900">{statusCounts.NEW_CANDIDATE}</p>
               </div>
             </div>
           </div>
@@ -261,8 +346,8 @@ const CandidateManagement = () => {
 
         {/* Filters */}
         <div className="bg-white rounded-xl shadow-sm p-5 mb-6 border border-gray-100">
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-            <div>
+          <div className="grid grid-cols-1 md:grid-cols-8 gap-4">
+            <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-2">Search Candidates</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -280,18 +365,18 @@ const CandidateManagement = () => {
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Search by Candidate ID</label>
+            <div className="md:col-span-1">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Search by ID</label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <svg className="h-5 w-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
+                  <svg className="h-4 w-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
                   </svg>
                 </div>
                 <input
                   type="text"
-                  placeholder="Enter candidate ID (e.g., 123, 45...)"
-                  className="pl-10 w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="ID"
+                  className="pl-8 w-full p-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   value={candidateIdSearch}
                   onChange={(e) => setCandidateIdSearch(e.target.value)}
                 />
@@ -306,6 +391,7 @@ const CandidateManagement = () => {
                 onChange={(e) => setStatusFilter(e.target.value)}
               >
                 <option value="all">All Statuses</option>
+                <option value="NEW_CANDIDATE">New Candidate</option>
                 <option value="PENDING">Pending</option>
                 <option value="SCHEDULED">Scheduled</option>
                 <option value="INTERVIEWED">Interviewed</option>
@@ -341,6 +427,69 @@ const CandidateManagement = () => {
               />
             </div>
 
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Sort By</label>
+              <select
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+              >
+                <option value="newest">Newest First</option>
+                <option value="oldest">Oldest First</option>
+                <option value="name">By Name</option>
+                <option value="id_asc">ID: 1 to Last</option>
+                <option value="id_desc">ID: Last to 1</option>
+              </select>
+            </div>
+          </div>
+          
+          {/* Skills Filters Row */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 pt-4 border-t border-gray-200">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Include Skills <span className="text-gray-500 font-normal text-xs">(comma-separated)</span>
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <svg className="h-5 w-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <input
+                  type="text"
+                  placeholder="e.g., Java, Python, React"
+                  className="pl-10 w-full p-2.5 text-sm border border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-green-50"
+                  value={includeSkillsFilter}
+                  onChange={(e) => setIncludeSkillsFilter(e.target.value)}
+                />
+              </div>
+              <p className="mt-1 text-xs text-gray-500">Candidates MUST have all these skills</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Exclude Skills <span className="text-gray-500 font-normal text-xs">(comma-separated)</span>
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <svg className="h-5 w-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <input
+                  type="text"
+                  placeholder="e.g., Spring Boot, Angular"
+                  className="pl-10 w-full p-2.5 text-sm border border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-red-50"
+                  value={excludeSkillsFilter}
+                  onChange={(e) => setExcludeSkillsFilter(e.target.value)}
+                />
+              </div>
+              <p className="mt-1 text-xs text-gray-500">Candidates MUST NOT have any of these skills</p>
+            </div>
+          </div>
+
+          {/* Add Candidate Button */}
+          <div className="mt-4 pt-4 border-t border-gray-200">
             <div className="flex items-end">
               <button
                 onClick={() => setShowCreateModal(true)}

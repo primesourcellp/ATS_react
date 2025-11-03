@@ -45,7 +45,7 @@ public class Candidate {
     private String resumePath;
 
     @Enumerated(EnumType.STRING)
-    @Column(length = 50)
+    @Column(length = 100)
     private ResultStatus status;
     
   

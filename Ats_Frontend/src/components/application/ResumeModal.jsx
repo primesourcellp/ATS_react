@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { applicationAPI } from '../../api/application';
+import { applicationAPI } from '../../api/api';
 
 const ResumeModal = ({ application, onClose, showToast }) => {
   const [resumeUrl, setResumeUrl] = useState(null);
@@ -22,14 +22,7 @@ const ResumeModal = ({ application, onClose, showToast }) => {
     if (application) {
       fetchResume();
     }
-    
-    // Cleanup function to revoke blob URL when component unmounts
-    return () => {
-      if (resumeUrl && resumeUrl.startsWith('blob:')) {
-        window.URL.revokeObjectURL(resumeUrl);
-      }
-    };
-  }, [application, onClose, showToast, resumeUrl]);
+  }, [application, onClose, showToast]);
 
   const handleDownload = async () => {
     try {

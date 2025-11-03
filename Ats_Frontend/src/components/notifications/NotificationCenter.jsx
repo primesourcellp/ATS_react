@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { notificationAPI } from '../../api/api';
 
 const NotificationCenter = () => {
   const [notifications, setNotifications] = useState([]);
@@ -8,29 +9,13 @@ const NotificationCenter = () => {
   // Fetch notifications from API
   const fetchNotifications = async () => {
     try {
-      const token = localStorage.getItem('jwtToken');
-      console.log('🔔 Fetching notifications with token:', token ? 'Present' : 'Missing');
+      const data = await notificationAPI.getAll();
+      console.log('🔔 Notifications received:', data);
+      console.log('🔔 Number of notifications:', data.length);
+      console.log('🔔 Unread notifications:', data.filter(n => !n.read).length);
       
-      const response = await fetch('http://localhost:8080/api/notifications', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      console.log('🔔 Notification API response status:', response.status);
-      
-      if (response.ok) {
-        const data = await response.json();
-        console.log('🔔 Notifications received:', data);
-        console.log('🔔 Number of notifications:', data.length);
-        console.log('🔔 Unread notifications:', data.filter(n => !n.read).length);
-        
-        setNotifications(data);
-        setUnreadCount(data.filter(n => !n.read).length);
-      } else {
-        console.error('❌ Notification API error:', response.status, response.statusText);
-      }
+      setNotifications(data);
+      setUnreadCount(data.filter(n => !n.read).length);
     } catch (error) {
       console.error('❌ Error fetching notifications:', error);
     }
@@ -39,21 +24,11 @@ const NotificationCenter = () => {
   // Mark notification as read
   const markAsRead = async (notificationId) => {
     try {
-      const token = localStorage.getItem('jwtToken');
-      const response = await fetch(`http://localhost:8080/api/notifications/${notificationId}/read`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (response.ok) {
-        setNotifications(prev => 
-          prev.map(n => n.id === notificationId ? { ...n, read: true } : n)
-        );
-        setUnreadCount(prev => Math.max(0, prev - 1));
-      }
+      await notificationAPI.markAsRead(notificationId);
+      setNotifications(prev => 
+        prev.map(n => n.id === notificationId ? { ...n, read: true } : n)
+      );
+      setUnreadCount(prev => Math.max(0, prev - 1));
     } catch (error) {
       console.error('Error marking notification as read:', error);
     }
@@ -62,19 +37,9 @@ const NotificationCenter = () => {
   // Mark all as read
   const markAllAsRead = async () => {
     try {
-      const token = localStorage.getItem('jwtToken');
-      const response = await fetch('http://localhost:8080/api/notifications/mark-all-read', {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (response.ok) {
-        setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-        setUnreadCount(0);
-      }
+      await notificationAPI.markAllAsRead();
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+      setUnreadCount(0);
     } catch (error) {
       console.error('Error marking all notifications as read:', error);
     }
@@ -83,25 +48,38 @@ const NotificationCenter = () => {
   // Delete notification
   const deleteNotification = async (notificationId) => {
     try {
-      const token = localStorage.getItem('jwtToken');
-      const response = await fetch(`http://localhost:8080/api/notifications/${notificationId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+      await notificationAPI.delete(notificationId);
+      setNotifications(prev => prev.filter(n => n.id !== notificationId));
+      setUnreadCount(prev => {
+        const deletedNotification = notifications.find(n => n.id === notificationId);
+        return deletedNotification && !deletedNotification.read ? prev - 1 : prev;
       });
-      
-      if (response.ok) {
-        setNotifications(prev => prev.filter(n => n.id !== notificationId));
-        setUnreadCount(prev => {
-          const deletedNotification = notifications.find(n => n.id === notificationId);
-          return deletedNotification && !deletedNotification.read ? prev - 1 : prev;
-        });
-      }
     } catch (error) {
       console.error('Error deleting notification:', error);
     }
+  };
+
+  // Handle notification click - navigate to website application
+  const handleNotificationClick = async (notification, e) => {
+    // Prevent navigation if clicking on delete button or mark as read button
+    if (e.target.closest('button')) {
+      return;
+    }
+    
+    // Mark notification as read if not already read
+    if (!notification.read) {
+      try {
+        await markAsRead(notification.id);
+      } catch (error) {
+        console.error('Error marking notification as read:', error);
+      }
+    }
+    
+    // Close dropdown
+    setIsOpen(false);
+    
+    // Navigate to website application page
+    window.location.href = '/wesiteapplication';
   };
 
   // Format time ago
@@ -203,7 +181,8 @@ const NotificationCenter = () => {
                 notifications.map((notification) => (
                   <div
                     key={notification.id}
-                    className={`px-4 py-3 border-b border-gray-100 hover:bg-gray-50 transition-all duration-200 ${
+                    onClick={(e) => handleNotificationClick(notification, e)}
+                    className={`px-4 py-3 border-b border-gray-100 hover:bg-blue-100 cursor-pointer transition-all duration-200 ${
                       !notification.read ? 'bg-blue-50' : ''
                     }`}
                   >
@@ -221,7 +200,10 @@ const NotificationCenter = () => {
                               {getTimeAgo(notification.createdAt)}
                             </span>
                             <button
-                              onClick={() => deleteNotification(notification.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deleteNotification(notification.id);
+                              }}
                               className="text-gray-400 hover:text-red-500"
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -235,7 +217,10 @@ const NotificationCenter = () => {
                         </p>
                         {!notification.read && (
                           <button
-                            onClick={() => markAsRead(notification.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              markAsRead(notification.id);
+                            }}
                             className="text-xs text-blue-600 hover:text-blue-800 mt-1"
                           >
                             Mark as read
@@ -256,16 +241,9 @@ const NotificationCenter = () => {
                     // Clear all notifications
                     const clearAllNotifications = async () => {
                       try {
-                        const token = localStorage.getItem('jwtToken');
                         // Delete each notification individually
                         for (const notification of notifications) {
-                          await fetch(`http://localhost:8080/api/notifications/${notification.id}`, {
-                            method: 'DELETE',
-                            headers: {
-                              'Authorization': `Bearer ${token}`,
-                              'Content-Type': 'application/json'
-                            }
-                          });
+                          await notificationAPI.delete(notification.id);
                         }
                         // Refresh notifications
                         fetchNotifications();

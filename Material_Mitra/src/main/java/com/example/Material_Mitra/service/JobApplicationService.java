@@ -24,12 +24,12 @@ public class JobApplicationService {
     private final JobApplicationRepository jobApplicationRepository;
     private final CandidateRepository candidateRepository;
     private final JobRepository jobRepository;
-    private final FileStorageService fileStorageService;
+    private final S3FileStorageService fileStorageService;
 
     public JobApplicationService(JobApplicationRepository jobApplicationRepository,
                                  CandidateRepository candidateRepository,
                                  JobRepository jobRepository,
-                                 FileStorageService fileStorageService) {
+                                 S3FileStorageService fileStorageService) {
         this.jobApplicationRepository = jobApplicationRepository;
         this.candidateRepository = candidateRepository;
         this.jobRepository = jobRepository;

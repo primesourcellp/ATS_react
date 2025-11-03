@@ -13,6 +13,7 @@ public class JobDTO {
     private String jobType;
     private String jobExperience;
     private String jobSalaryRange;
+    private String rolesAndResponsibilities;
     private boolean hasApplications; 
 
     // getter/setter
@@ -58,5 +59,8 @@ public class JobDTO {
     
     public String getJobSalaryRange() { return jobSalaryRange; }
     public void setJobSalaryRange(String jobSalaryRange) { this.jobSalaryRange = jobSalaryRange; }
+    
+    public String getRolesAndResponsibilities() { return rolesAndResponsibilities; }
+    public void setRolesAndResponsibilities(String rolesAndResponsibilities) { this.rolesAndResponsibilities = rolesAndResponsibilities; }
     
 }

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { candidateAPI } from '../../api/candidate';
+import { candidateAPI } from '../../api/api';
 
 const CandidateDetails = ({ candidate, onClose, onEdit, onDelete }) => {
   const [resumeLoading, setResumeLoading] = useState(false);
@@ -8,28 +8,19 @@ const CandidateDetails = ({ candidate, onClose, onEdit, onDelete }) => {
     try {
       setResumeLoading(true);
       
-      // Use the new proxy endpoint that serves the file directly
-      const token = localStorage.getItem("jwtToken");
-      const response = await fetch(`http://localhost:8080/candidates/resume/${candidate.id}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
+      // Get the S3 presigned URL from backend
+      const url = await candidateAPI.viewResume(candidate.id);
+      
+      // Open the S3 presigned URL directly in a new tab
+      const newWindow = window.open(url, "_blank");
+      
+      // If popup was blocked, provide fallback
+      if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
+        // Popup blocked - create a clickable link
+        if (confirm("Popup blocked. Click OK to open resume in current tab.")) {
+          window.location.href = url;
         }
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch PDF: ${response.status}`);
       }
-      
-      const blob = await response.blob();
-      const blobUrl = URL.createObjectURL(blob);
-      
-      // Open the PDF in a new tab
-      window.open(blobUrl, "_blank");
-      
-      // Clean up the blob URL after a delay
-      setTimeout(() => {
-        URL.revokeObjectURL(blobUrl);
-      }, 10000);
       
     } catch (error) {
       alert(error.message || "Failed to view resume");
@@ -70,6 +61,7 @@ const CandidateDetails = ({ candidate, onClose, onEdit, onDelete }) => {
 
   const getStatusClass = (status) => {
     const statusClassMap = {
+      'NEW_CANDIDATE': 'bg-emerald-100 text-emerald-800',
       'PENDING': 'bg-yellow-100 text-yellow-800',
       'SCHEDULED': 'bg-blue-100 text-blue-800',
       'INTERVIEWED': 'bg-purple-100 text-purple-800',

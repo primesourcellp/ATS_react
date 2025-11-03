@@ -1,6 +1,6 @@
 // components/ApplicationDetailCard.jsx
 import React from "react";
-import { websiteApplicationAPI } from "../../api/websiteapi";
+import { websiteApplicationAPI } from "../../api/api";
 
 const ApplicationDetailCard = ({ application, onClose, formatDate }) => {
   if (!application) return null;

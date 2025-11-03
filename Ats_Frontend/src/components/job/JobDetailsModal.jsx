@@ -1,8 +1,11 @@
-import React, { useState } from "react";
-import { jobStatus } from "../../api/jobApi"; 
+import React, { useState, useRef, useEffect } from "react";
+import { jobStatus } from "../../api/api"; 
 
 const JobDetailsModal = ({ job, onClose, onViewCandidates }) => {
   const [status, setStatus] = useState(job.status || "NOT_SELECTED");
+  const [showRolesResponsibilities, setShowRolesResponsibilities] = useState(false);
+  const [showScrollButton, setShowScrollButton] = useState(false);
+  const scrollableRef = useRef(null);
 
   const handleStatusChange = async (newStatus) => {
     setStatus(newStatus);
@@ -13,6 +16,44 @@ const JobDetailsModal = ({ job, onClose, onViewCandidates }) => {
       console.error("Failed to update job status:", error.message);
     }
   };
+
+  const scrollToBottom = () => {
+    if (scrollableRef.current) {
+      scrollableRef.current.scrollTo({
+        top: scrollableRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
+    }
+  };
+
+  useEffect(() => {
+    const checkScrollable = () => {
+      if (scrollableRef.current) {
+        const { scrollTop, scrollHeight, clientHeight } = scrollableRef.current;
+        const isScrollable = scrollHeight > clientHeight;
+        const isNotAtBottom = scrollTop + clientHeight < scrollHeight - 50; // 50px threshold
+        setShowScrollButton(isScrollable && isNotAtBottom);
+      }
+    };
+
+    // Check immediately
+    checkScrollable();
+    
+    // Check after a small delay to ensure DOM is fully rendered
+    const timeoutId = setTimeout(checkScrollable, 100);
+
+    const container = scrollableRef.current;
+    if (container) {
+      container.addEventListener('scroll', checkScrollable);
+    }
+
+    return () => {
+      clearTimeout(timeoutId);
+      if (container) {
+        container.removeEventListener('scroll', checkScrollable);
+      }
+    };
+  }, [showRolesResponsibilities, job]);
 
   return (
     <div
@@ -73,7 +114,7 @@ const JobDetailsModal = ({ job, onClose, onViewCandidates }) => {
         </div>
 
         {/* ===== Job Info ===== */}
-        <div className="p-6">
+        <div className="p-6 relative" ref={scrollableRef} style={{ maxHeight: '70vh', overflowY: 'auto' }}>
           <h4 className="text-lg font-medium text-gray-800 mb-3">
             Job Information
           </h4>
@@ -140,6 +181,40 @@ const JobDetailsModal = ({ job, onClose, onViewCandidates }) => {
               )}
             </div>
           </div>
+
+          {/* Roles & Responsibilities Dropdown */}
+          {job.rolesAndResponsibilities && (
+            <div className="mb-4">
+              <button
+                onClick={() => setShowRolesResponsibilities(!showRolesResponsibilities)}
+                className="flex items-center justify-between w-full text-left p-3 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+              >
+                <span className="text-sm font-medium text-gray-700">
+                  <i className="fas fa-briefcase mr-2 text-blue-500"></i>
+                  Roles & Responsibilities
+                </span>
+                <i className={`fas fa-chevron-${showRolesResponsibilities ? 'up' : 'down'} text-gray-500`}></i>
+              </button>
+              {showRolesResponsibilities && (
+                <div className="mt-2 p-4 bg-gray-50 rounded-lg border border-gray-200 max-h-96 overflow-y-auto">
+                  <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                    {job.rolesAndResponsibilities}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+          
+          {/* Scroll to Bottom Button */}
+          {showScrollButton && (
+            <button
+              onClick={scrollToBottom}
+              className="absolute bottom-4 right-4 bg-blue-600 hover:bg-blue-700 text-white rounded-full p-3 shadow-lg transition-all duration-300 z-10"
+              title="Scroll to bottom"
+            >
+              <i className="fas fa-arrow-down"></i>
+            </button>
+          )}
         </div>
 
         {/* ===== Footer ===== */}

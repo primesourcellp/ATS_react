@@ -1,6 +1,7 @@
 package com.example.Material_Mitra.enums;
 
 public enum ResultStatus {
+    NEW_CANDIDATE,
     PENDING,       
 	SCHEDULED,
     INTERVIEWED,

@@ -152,6 +152,9 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
+                // Allow OPTIONS requests for CORS preflight
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                
                 // Public APIs
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/api/files/**").permitAll()
@@ -159,7 +162,9 @@ public class SecurityConfig {
                 .requestMatchers("/jobs/active").permitAll()
                 .requestMatchers("/api/forms/**").permitAll()
                 .requestMatchers("/api/candidates/view/**").permitAll()
-                // .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                .requestMatchers("/api/candidates/download/**").permitAll()
+                .requestMatchers("/api/candidates/resume/**").permitAll()
+                .requestMatchers("/candidates/resume/**").permitAll()
 
                 // Admin-only
                 .requestMatchers("/api/users/**").hasAuthority("ADMIN")
@@ -168,6 +173,7 @@ public class SecurityConfig {
                 // Authenticated users
                 .requestMatchers("/api/applications/**").authenticated()
                 .requestMatchers("/api/notifications/**").authenticated()
+                .requestMatchers("/jobs/**").authenticated()
 
                 .anyRequest().authenticated()
             )
@@ -183,7 +189,14 @@ public class SecurityConfig {
             "http://127.0.0.1:5501", 
             "http://localhost:5173", 
             "http://localhost:5174",
-            "https://ats.primesourcellp.com"
+            "http://localhost:5175",
+            "https://ats.primesourcellp.com",
+            "http://ats.primesourcellp.com",
+            "http://atsapi.primesourcellp.com",
+            "https://atsapi.primesourcellp.com",
+            "https://primesourcellp.com",
+            "http://primesourcellp.com",
+             "https://www.primesourcellp.com"
         ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));

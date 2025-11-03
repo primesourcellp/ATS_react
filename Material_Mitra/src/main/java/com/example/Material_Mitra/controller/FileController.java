@@ -1,9 +1,7 @@
 package com.example.Material_Mitra.controller;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -15,7 +13,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
-import com.example.Material_Mitra.service.FileStorageService;
+import com.example.Material_Mitra.service.S3FileStorageService;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -25,7 +23,7 @@ import jakarta.servlet.http.HttpServletRequest;
 public class FileController {
 
     @Autowired
-    private FileStorageService fileStorageService;
+    private S3FileStorageService fileStorageService;
 
     @PostMapping("/upload")
     public ResponseEntity<?> uploadFile(
@@ -33,15 +31,14 @@ public class FileController {
             @RequestParam(value = "subDirectory", required = false) String subDirectory) {
         
         try {
-            String fileName = fileStorageService.storeFile(file, subDirectory);
-            String fileUrl = fileStorageService.getFileUrl(fileName);
-            long fileSize = fileStorageService.getFileSize(fileName);
+            String s3Key = fileStorageService.storeFile(file, subDirectory);
+            String fileUrl = fileStorageService.getFileUrl(s3Key);
             
             return ResponseEntity.ok().body(new FileUploadResponse(
-                fileName, 
+                s3Key, 
                 fileUrl, 
                 file.getOriginalFilename(),
-                fileSize,
+                file.getSize(),
                 file.getContentType()
             ));
         } catch (Exception e) {
@@ -50,22 +47,17 @@ public class FileController {
     }
 
     @GetMapping("/{fileName:.+}")
-    public ResponseEntity<Resource> downloadFile(
+    public ResponseEntity<?> downloadFile(
             @PathVariable String fileName, 
             HttpServletRequest request) {
         
         try {
-            Resource resource = fileStorageService.loadFileAsResource(fileName);
-            String contentType = fileStorageService.getContentType(fileName);
+            // Redirect to S3 presigned URL
+            String presignedUrl = fileStorageService.getFileUrl(fileName);
             
-            if (contentType == null) {
-                contentType = "application/octet-stream";
-            }
-
-            return ResponseEntity.ok()
-                    .contentType(MediaType.parseMediaType(contentType))
-                    .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + fileName + "\"")
-                    .body(resource);
+            return ResponseEntity.status(302)
+                    .header(HttpHeaders.LOCATION, presignedUrl)
+                    .build();
                     
         } catch (Exception e) {
             return ResponseEntity.notFound().build();

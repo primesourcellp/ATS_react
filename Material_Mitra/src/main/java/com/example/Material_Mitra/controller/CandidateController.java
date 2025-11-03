@@ -6,8 +6,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.core.io.Resource;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -29,7 +27,7 @@ import com.example.Material_Mitra.entity.Candidate;
 import com.example.Material_Mitra.enums.ResultStatus;
 import com.example.Material_Mitra.repository.CandidateRepository;
 import com.example.Material_Mitra.service.CandidateService;
-import com.example.Material_Mitra.service.FileStorageService;
+import com.example.Material_Mitra.service.S3FileStorageService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 @RestController
 @RequestMapping("/api/candidates")
@@ -42,7 +40,7 @@ public class CandidateController {
     private CandidateRepository candidateRepository;
     
     @Autowired
-    private FileStorageService fileStorageService;
+    private S3FileStorageService fileStorageService;
     
     
  // Change your controller method to:
@@ -179,7 +177,7 @@ public class CandidateController {
 
     // Serve resume file content directly (proxy endpoint)
     @GetMapping("/resume/{id}")
-    public ResponseEntity<Resource> getResumeFile(@PathVariable Long id) {
+    public ResponseEntity<?> getResumeFile(@PathVariable Long id) {
         try {
             Candidate candidate = candidateService.getCandidateById(id);
             
@@ -187,18 +185,14 @@ public class CandidateController {
                 return ResponseEntity.notFound().build();
             }
             
-            // Use FileStorageService to load the file
-            Resource resource = fileStorageService.loadFileAsResource(candidate.getResumePath());
-            String contentType = fileStorageService.getContentType(candidate.getResumePath());
-            
-            if (contentType == null) {
-                contentType = "application/pdf";
-            }
+            // Return S3 presigned URL as JSON
+            String presignedUrl = fileStorageService.getFileUrl(candidate.getResumePath());
             
             return ResponseEntity.ok()
-                    .contentType(MediaType.parseMediaType(contentType))
-                    .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + candidate.getName() + "_resume.pdf\"")
-                    .body(resource);
+                    .body(Map.of(
+                        "url", presignedUrl,
+                        "fileName", "Resume_" + candidate.getName() + ".pdf"
+                    ));
                     
         } catch (Exception e) {
             return ResponseEntity.notFound().build();

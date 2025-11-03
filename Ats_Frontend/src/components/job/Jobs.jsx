@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { clientAPI, jobAPI } from '../../api/jobApi';
+import { clientAPI, jobAPI } from '../../api/api';
 import Navbar from "../../layout/navbar";
 import Toast from '../toast/Toast';
 import CandidateDetailsModal from './CandidateDetailsModal';
@@ -101,15 +101,45 @@ const JobManagement = () => {
     // Sort jobs
     switch(sortBy) {
       case 'newest':
-        result.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+        result.sort((a, b) => {
+          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return dateB - dateA; // Newest first (descending)
+        });
         break;
       case 'oldest':
-        result.sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+        result.sort((a, b) => {
+          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return dateA - dateB; // Oldest first (ascending)
+        });
         break;
       case 'name':
         result.sort((a, b) => (a.jobName || '').localeCompare(b.jobName || ''));
         break;
+      case 'id_asc':
+        // Sort by ID: 1 to last (ascending)
+        result.sort((a, b) => {
+          const idA = a.id || 0;
+          const idB = b.id || 0;
+          return idA - idB; // Lowest ID first
+        });
+        break;
+      case 'id_desc':
+        // Sort by ID: last to 1 (descending)
+        result.sort((a, b) => {
+          const idA = a.id || 0;
+          const idB = b.id || 0;
+          return idB - idA; // Highest ID first
+        });
+        break;
       default:
+        // Default to newest first
+        result.sort((a, b) => {
+          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return dateB - dateA; // Newest first (descending)
+        });
         break;
     }
 
@@ -364,6 +394,8 @@ const JobManagement = () => {
                 <option value="newest">Newest First</option>
                 <option value="oldest">Oldest First</option>
                 <option value="name">By Name</option>
+                <option value="id_asc">ID: 1 to Last</option>
+                <option value="id_desc">ID: Last to 1</option>
               </select>
             </div>
           </div>
@@ -385,9 +417,9 @@ const JobManagement = () => {
           </button>
         </div>
 
-        {/* Job Form */}
+        {/* Job Form - Inline */}
         {showJobForm && (
-          <div className="bg-white rounded-xl shadow-sm p-5 mb-6 border border-gray-100">
+          <div className="mb-6">
             <JobForm
               clients={clients}
               onJobAdded={() => {

@@ -7,7 +7,7 @@ import ClientModal from './ClientModal';
 import ClientJobsModal from './ClientJobsModal';
 import DeleteConfirmationModal from './DeleteConfirmationModal';
 import JobDetailsModal from '../job/JobDetailsModal';
-import { clientAPI, jobAPI } from '../../api/clientAPI';
+import { clientAPI, jobAPI } from '../../api/api';
 
 const ClientManagement = () => {
   const [clients, setClients] = useState([]);
@@ -237,7 +237,7 @@ const ClientManagement = () => {
         {showDeleteModal && selectedClient && (
           <DeleteConfirmationModal
             title="Delete Client"
-            message={`Are you sure you want to delete client "${selectedClient.client_name}"? This action cannot be undone.`}
+            message={`Are you sure you want to delete client "${selectedClient.clientName || selectedClient.client_name}"? This action cannot be undone.`}
             onConfirm={confirmDeleteClient}
             onClose={() => {
               setShowDeleteModal(false);

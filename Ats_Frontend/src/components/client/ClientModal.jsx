@@ -9,9 +9,9 @@ const ClientModal = ({ client, onSave, onClose }) => {
 
   useEffect(() => {
     if (client) {
-      setClientName(client.client_name || '');
+      setClientName(client.clientName || client.client_name || '');
       setClientAddress(client.address || '');
-      setClientNumber(client.client_number || '');
+      setClientNumber(client.clientNumber || client.client_number || '');
     } else {
       setClientName('');
       setClientAddress('');
@@ -33,7 +33,7 @@ const ClientModal = ({ client, onSave, onClose }) => {
     if (!validateForm()) return;
 
     const clientData = {
-      client_name: clientName,
+      clientName: clientName,
       address: clientAddress,
       client_number: clientNumber,
     };

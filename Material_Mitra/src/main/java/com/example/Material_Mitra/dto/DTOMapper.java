@@ -36,6 +36,7 @@ public class DTOMapper {
 	    dto.setCreatedAt(job.getCreatedAt() != null ? job.getCreatedAt().toString() : null);
 	    dto.setJobExperience(job.getJobExperience());
 	    dto.setJobSalaryRange(job.getJobSalaryRange());
+	    dto.setRolesAndResponsibilities(job.getRolesAndResponsibilities());
 
 	    if (job.getClient() != null) {
 	        ClientDTO clientDTO = new ClientDTO();

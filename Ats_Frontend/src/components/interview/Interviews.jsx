@@ -3,7 +3,7 @@ import Navbar from '../../layout/navbar';
 import Toast from '../toast/Toast';
 import InterviewsTable from './InterviewsTable';
 import InterviewModal from './InterviewModal';
-import { interviewAPI } from '../../api/interviewApi';
+import { interviewAPI } from '../../api/api';
 
 const InterviewManagement = () => {
   const [interviews, setInterviews] = useState([]);

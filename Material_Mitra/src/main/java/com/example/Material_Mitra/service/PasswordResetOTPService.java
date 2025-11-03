@@ -42,18 +42,13 @@ public class PasswordResetOTPService {
             System.out.println("🔍 Looking for user with email: " + email);
             
             // Check if user exists with this email
-            List<User> users = userRepository.findByEmail(email);
-            if (users.isEmpty()) {
+            Optional<User> userOptional = userRepository.findByEmail(email);
+            if (userOptional.isEmpty()) {
                 System.out.println("❌ No user found with email: " + email);
                 return false; // Return false if email doesn't exist
             }
             
-            if (users.size() > 1) {
-                System.out.println("⚠️ Multiple users found with email: " + email + " (count: " + users.size() + ")");
-                // Use the first user (usually the admin)
-            }
-            
-            User user = users.get(0);
+            User user = userOptional.get();
             System.out.println("✅ User found: " + user.getUsername() + " (ID: " + user.getId() + ")");
             
             // Clean up old OTPs for this email
@@ -95,12 +90,12 @@ public class PasswordResetOTPService {
             PasswordResetOTP otp = otpOpt.get();
             
             // Find user
-            List<User> users = userRepository.findByEmail(email);
-            if (users.isEmpty()) {
+            Optional<User> userOptional = userRepository.findByEmail(email);
+            if (userOptional.isEmpty()) {
                 return false; // User not found
             }
             
-            User user = users.get(0); // Use the first user
+            User user = userOptional.get();
             
             // Update password
             user.setPassword(passwordEncoder.encode(newPassword));

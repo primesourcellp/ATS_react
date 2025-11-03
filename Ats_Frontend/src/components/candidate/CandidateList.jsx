@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { candidateAPI } from '../../api/candidate';
+import { candidateAPI } from '../../api/api';
 import CandidateCard from './CandidateCard';
 import CandidateFilters from './CandidateFilters';
 

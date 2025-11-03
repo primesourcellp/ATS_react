@@ -56,7 +56,7 @@ public class CandidateService {
     private InterviewRepository interviewRepository;
     
     @Autowired
-    private FileStorageService fileStorageService;
+    private S3FileStorageService fileStorageService;
 
 
     private final NameFinderME nameFinder;
@@ -281,16 +281,132 @@ public class CandidateService {
         Matcher matcher = Pattern.compile(regex).matcher(text);
         return matcher.find() ? matcher.group().trim() : null;
     }
+    
+    // Improved email extraction - avoid extracting from URLs
+    private String extractEmail(String text) {
+        // Email pattern that excludes common false positives in URLs
+        String emailPattern = "(?<!http://)(?<!https://)(?<!www\\.)[\\w._%+-]+@[\\w.-]+\\.[a-zA-Z]{2,}(?!\\.(com|net|org|edu|gov))";
+        Matcher matcher = Pattern.compile(emailPattern, Pattern.CASE_INSENSITIVE).matcher(text);
+        if (matcher.find()) {
+            String email = matcher.group().trim().toLowerCase();
+            // Additional validation - email should not be in a URL context
+            int start = matcher.start();
+            String context = text.substring(Math.max(0, start - 10), Math.min(text.length(), start + email.length() + 10));
+            if (!context.contains("http") && !context.contains("www.")) {
+                return email;
+            }
+        }
+        // Fallback to simple pattern if sophisticated one doesn't work
+        return extractPattern(text, "[\\w._%+-]+@[\\w.-]+\\.[a-zA-Z]{2,}");
+    }
+    
+    // Extract years of experience
+    private String extractExperience(String text) {
+        // Patterns for experience: "5 years", "5+ years", "5 yrs", etc.
+        String[] experiencePatterns = {
+            "(\\d+)\\s*(?:\\+)?\\s*(?:years?|yrs?|years of experience)",
+            "(\\d+)\\s*(?:\\+)?\\s*(?:years?|yrs?)\\s*of\\s*experience",
+            "experience:\\s*(\\d+)\\s*(?:\\+)?\\s*(?:years?|yrs?)",
+            "(\\d+)\\s*(?:\\+)?\\s*(?:years?|yrs?)\\s*(?:of)?\\s*(?:relevant)?\\s*experience"
+        };
+        
+        for (String pattern : experiencePatterns) {
+            Matcher matcher = Pattern.compile(pattern, Pattern.CASE_INSENSITIVE).matcher(text);
+            if (matcher.find()) {
+                String years = matcher.group(1);
+                return years + " years";
+            }
+        }
+        return null;
+    }
+    
+    // Extract Current CTC
+    private String extractCurrentCTC(String text) {
+        String[] ctcPatterns = {
+            "(?:current|present|current ctc|present ctc|ctc)[\\s:]*[₹]?\\s*(\\d+(?:\\.\\d+)?)\\s*(?:lakh|lacs|lac|lpa|lakhs|thousand)",
+            "[₹]?\\s*(\\d+(?:\\.\\d+)?)\\s*(?:lakh|lacs|lac|lpa|lakhs)[\\s]*(?:current|present|ctc)",
+            "(?:drawing|earning|current salary)[\\s:]*[₹]?\\s*(\\d+(?:\\.\\d+)?)\\s*(?:lakh|lacs|lac|lpa|lakhs)"
+        };
+        
+        for (String pattern : ctcPatterns) {
+            Matcher matcher = Pattern.compile(pattern, Pattern.CASE_INSENSITIVE).matcher(text);
+            if (matcher.find()) {
+                return matcher.group(1) + " LPA";
+            }
+        }
+        return null;
+    }
+    
+    // Extract Expected CTC
+    private String extractExpectedCTC(String text) {
+        String[] ctcPatterns = {
+            "(?:expected|expected ctc|expected salary)[\\s:]*[₹]?\\s*(\\d+(?:\\.\\d+)?)\\s*(?:lakh|lacs|lac|lpa|lakhs)",
+            "[₹]?\\s*(\\d+(?:\\.\\d+)?)\\s*(?:lakh|lacs|lac|lpa|lakhs)[\\s]*(?:expected|expecting)",
+            "(?:looking for|seeking|expect)[\\s:]*[₹]?\\s*(\\d+(?:\\.\\d+)?)\\s*(?:lakh|lacs|lac|lpa|lakhs)"
+        };
+        
+        for (String pattern : ctcPatterns) {
+            Matcher matcher = Pattern.compile(pattern, Pattern.CASE_INSENSITIVE).matcher(text);
+            if (matcher.find()) {
+                return matcher.group(1) + " LPA";
+            }
+        }
+        return null;
+    }
+    
+    // Extract About/Summary section (usually Objective or Summary)
+    private String extractAboutSection(String text) {
+        // Look for common section headers
+        String[] sectionHeaders = {
+            "objective", "summary", "profile", "about", "career objective", "professional summary",
+            "executive summary", "professional profile"
+        };
+        
+        for (String header : sectionHeaders) {
+            Pattern pattern = Pattern.compile("(?i)" + Pattern.quote(header) + "[\\s:]*\\n?\\s*(.{50,500})", Pattern.DOTALL);
+            Matcher matcher = pattern.matcher(text);
+            if (matcher.find()) {
+                String about = matcher.group(1).trim();
+                // Clean up - remove extra whitespace, newlines
+                about = about.replaceAll("\\s+", " ").trim();
+                // Limit length
+                if (about.length() > 500) {
+                    about = about.substring(0, 500) + "...";
+                }
+                return about;
+            }
+        }
+        
+        // Fallback: Extract first meaningful paragraph (100-300 chars)
+        String[] sentences = text.split("[\\.!?]");
+        for (String sentence : sentences) {
+            sentence = sentence.trim();
+            if (sentence.length() >= 50 && sentence.length() <= 300) {
+                // Check if it looks like an objective/summary (not a bullet point or too technical)
+                if (!sentence.matches("^[•\\-*]") && !sentence.toLowerCase().matches(".*(skill|technology|framework|tool).*")) {
+                    return sentence;
+                }
+            }
+        }
+        
+        return null;
+    }
 // ---------------------------------------------------------extract name 
     private String extractName(String text) {
         if (text == null || text.isBlank()) return null;
 
-        String[] sentences = sentenceDetector.sentDetect(text);
+        // First, try to find name in the very top lines (usually first 3-5 lines)
+        String[] lines = text.split("\\r?\\n");
+        String topLines = String.join("\n", Arrays.copyOf(lines, Math.min(5, lines.length)));
+        
+        // Prioritize top lines for name extraction
+        String[] sentences = sentenceDetector.sentDetect(topLines);
         SimpleTokenizer tokenizer = SimpleTokenizer.INSTANCE;
 
         Map<String, Integer> nameCandidates = new LinkedHashMap<>();
 
-        for (int i = 0; i < Math.min(sentences.length, 10); i++) { // Limit to first 10 sentences (top of resume)
+        // Focus on first 5 sentences (top of resume where name usually appears)
+        for (int i = 0; i < Math.min(sentences.length, 5); i++) {
             String sentence = sentences[i];
             String[] tokens = tokenizer.tokenize(sentence);
             Span[] spans = nameFinder.find(tokens);
@@ -307,12 +423,39 @@ public class CandidateService {
                     String cleanName = normalizeName(rawName);
                     int score = nameCandidates.getOrDefault(cleanName, 0);
 
-                    // Increase score for appearing early
-                    score += (10 - i); // Higher weight for top lines
+                    // Significantly increase score for appearing in first sentence
+                    score += (10 - i) * 2; // Much higher weight for top lines
                     nameCandidates.put(cleanName, score);
                 }
             }
             nameFinder.clearAdaptiveData(); // reset adaptive learning for next sentence
+        }
+        
+        // If no name found in top lines, try first 10 sentences of full text
+        if (nameCandidates.isEmpty()) {
+            String[] allSentences = sentenceDetector.sentDetect(text);
+            for (int i = 0; i < Math.min(allSentences.length, 10); i++) {
+                String sentence = allSentences[i];
+                String[] tokens = tokenizer.tokenize(sentence);
+                Span[] spans = nameFinder.find(tokens);
+
+                for (Span span : spans) {
+                    StringBuilder nameBuilder = new StringBuilder();
+                    for (int j = span.getStart(); j < span.getEnd(); j++) {
+                        nameBuilder.append(tokens[j]).append(" ");
+                    }
+
+                    String rawName = nameBuilder.toString().trim();
+
+                    if (isLikelyValidName(rawName)) {
+                        String cleanName = normalizeName(rawName);
+                        int score = nameCandidates.getOrDefault(cleanName, 0);
+                        score += (10 - i); // Higher weight for top lines
+                        nameCandidates.put(cleanName, score);
+                    }
+                }
+                nameFinder.clearAdaptiveData();
+            }
         }
 
         return nameCandidates.entrySet().stream()
@@ -342,30 +485,99 @@ public class CandidateService {
     }
 //                 --------skills -------------------
     private String extractSkills(String text) {
+        // Comprehensive skills list - Programming Languages, Frameworks, Tools, etc.
         String[] skillsList = {
-            "Java", "Python", "Spring", "Hibernate", "SQL", "JavaScript",
-            "React", "Angular", "Docker", "Kubernetes", "AWS", "Azure"
+            // Programming Languages
+            "Java", "Python", "JavaScript", "TypeScript", "C++", "C#", "C", "Go", "Rust", "Kotlin", 
+            "Swift", "Scala", "Ruby", "PHP", "Perl", "R", "MATLAB", "Dart", "Groovy", "Shell Scripting",
+            
+            // Web Frameworks
+            "Spring", "Spring Boot", "Spring MVC", "Spring Security", "Hibernate", "JPA", "Struts",
+            "React", "Angular", "Vue.js", "Vue", "Next.js", "Nuxt.js", "Express.js", "Node.js",
+            "Django", "Flask", "FastAPI", "Laravel", "CodeIgniter", "Symfony", "ASP.NET", ".NET", "DotNet",
+            "Ruby on Rails", "Rails", "Ember.js", "Backbone.js", "Meteor.js", "Svelte",
+            
+            // Databases
+            "SQL", "MySQL", "PostgreSQL", "MongoDB", "Oracle", "SQL Server", "SQLite", "MariaDB",
+            "Cassandra", "Redis", "Elasticsearch", "DynamoDB", "Neo4j", "Firebase", "Firestore",
+            "CouchDB", "HBase", "InfluxDB",
+            
+            // Cloud & DevOps
+            "AWS", "Amazon Web Services", "Azure", "Google Cloud Platform", "GCP", "Docker", "Kubernetes", "K8s",
+            "Jenkins", "CI/CD", "GitLab", "GitHub Actions", "Terraform", "Ansible", "Chef", "Puppet",
+            "CloudFormation", "Lambda", "EC2", "S3", "RDS", "CloudFront", "VPC",
+            
+            // Tools & Technologies
+            "Git", "SVN", "JIRA", "Confluence", "Maven", "Gradle", "Ant", "npm", "Yarn", "Webpack",
+            "Gulp", "Grunt", "Babel", "ESLint", "Postman", "Swagger", "REST API", "GraphQL", "SOAP",
+            "Microservices", "Service-Oriented Architecture", "SOA", "Agile", "Scrum", "DevOps",
+            
+            // Frontend Technologies
+            "HTML", "HTML5", "CSS", "CSS3", "SASS", "SCSS", "LESS", "Bootstrap", "Tailwind CSS",
+            "Material UI", "Ant Design", "jQuery", "Redux", "MobX", "Zustand", "Webpack", "Vite",
+            
+            // Testing
+            "JUnit", "TestNG", "Mockito", "Jest", "Cypress", "Selenium", "Selenium WebDriver",
+            "Appium", "Protractor", "Karma", "Mocha", "Chai", "Jasmine", "Pytest", "Unit Testing",
+            
+            // Mobile
+            "Android", "iOS", "React Native", "Flutter", "Xamarin", "Ionic", "Cordova",
+            "Swift", "Objective-C", "Kotlin", "Android Studio", "Xcode",
+            
+            // Data & Analytics
+            "Data Science", "Machine Learning", "ML", "Deep Learning", "AI", "Artificial Intelligence",
+            "TensorFlow", "PyTorch", "Keras", "Pandas", "NumPy", "Scikit-learn", "NLTK", "SpaCy",
+            "Hadoop", "Spark", "Apache Spark", "Kafka", "Storm", "Flink", "Airflow",
+            
+            // Other Technologies
+            "Linux", "Unix", "Windows Server", "Apache", "Nginx", "Tomcat", "WebLogic", "JBoss",
+            "OAuth", "JWT", "JWT Token", "OAuth2", "LDAP", "Active Directory", "SAML",
+            "Blockchain", "Bitcoin", "Ethereum", "Solidity", "Smart Contracts",
+            "GraphQL", "gRPC", "RabbitMQ", "Apache Kafka", "Apache Airflow", "Prometheus", "Grafana"
         };
 
+        String textLower = text.toLowerCase();
         List<String> found = new ArrayList<>();
+        Map<String, String> skillMap = new LinkedHashMap<>(); // Preserve order and avoid duplicates
+        
         for (String skill : skillsList) {
-            if (text.toLowerCase().contains(skill.toLowerCase())) {
-                found.add(skill);
+            String skillLower = skill.toLowerCase();
+            // Check for exact word match or as part of a word (for better matching)
+            Pattern pattern = Pattern.compile("\\b" + Pattern.quote(skillLower) + "\\b", Pattern.CASE_INSENSITIVE);
+            Matcher matcher = pattern.matcher(textLower);
+            if (matcher.find() && !skillMap.containsKey(skillLower)) {
+                skillMap.put(skillLower, skill); // Store original case
             }
         }
+        
+        found.addAll(skillMap.values());
 
         return found.isEmpty() ? null : String.join(", ", found);
     }
 
     private String extractLocation(String text) {
+        // Expanded list of Indian cities and locations
         String[] knownLocations = {
-            "Chennai", "Bangalore", "Tirunelveli", "Hyderabad", "Mumbai", "Delhi",
-            "Coimbatore", "Pune", "Trichy"
+            "Chennai", "Bangalore", "Bengaluru", "Tirunelveli", "Hyderabad", "Mumbai", "Delhi",
+            "New Delhi", "Coimbatore", "Pune", "Trichy", "Tiruchirappalli", "Kolkata", "Calcutta",
+            "Ahmedabad", "Surat", "Vadodara", "Baroda", "Jaipur", "Lucknow", "Kanpur", "Nagpur",
+            "Indore", "Thane", "Bhopal", "Visakhapatnam", "Vizag", "Patna", "Vadodara", "Ghaziabad",
+            "Ludhiana", "Agra", "Nashik", "Faridabad", "Meerut", "Rajkot", "Kalyan", "Vasai",
+            "Varanasi", "Srinagar", "Amritsar", "Navi Mumbai", "Aurangabad", "Solapur", "Ranchi",
+            "Jodhpur", "Gwalior", "Jammu", "Madurai", "Raipur", "Kota", "Guwahati", "Chandigarh",
+            "Noida", "Gurgaon", "Gurugram", "Faridabad", "Mysore", "Mysuru", "Vijayawada",
+            "Tirupati", "Warangal", "Salem", "Erode", "Tiruppur", "Dindigul", "Thoothukudi",
+            "Tuticorin", "Kochi", "Cochin", "Thiruvananthapuram", "Trivandrum", "Calicut", "Kozhikode",
+            "Mangalore", "Hubli", "Belgaum", "Goa", "Panaji", "Margao", "Vasco"
         };
 
+        String textLower = text.toLowerCase();
+        // Prioritize by checking in order and looking for word boundaries
         for (String loc : knownLocations) {
-            if (text.toLowerCase().contains(loc.toLowerCase())) {
-                return loc;
+            Pattern pattern = Pattern.compile("\\b" + Pattern.quote(loc.toLowerCase()) + "\\b", Pattern.CASE_INSENSITIVE);
+            Matcher matcher = pattern.matcher(textLower);
+            if (matcher.find()) {
+                return loc; // Return original case
             }
         }
         return null;
@@ -380,22 +592,38 @@ public class CandidateService {
     }
 
     public Candidate parseResumeWithoutSaving(MultipartFile file) throws Exception {
+        // Use more efficient parsing with memory limit
         AutoDetectParser parser = new AutoDetectParser();
-        BodyContentHandler handler = new BodyContentHandler(-1);
+        BodyContentHandler handler = new BodyContentHandler(1000000); // Limit to 1MB of text
         Metadata metadata = new Metadata();
-        parser.parse(file.getInputStream(), handler, metadata);
+        
+        // Parse the file
+        try (InputStream inputStream = file.getInputStream()) {
+            parser.parse(inputStream, handler, metadata);
+        }
 
         String content = handler.toString();
+        
+        // Extract top section (first 2000 chars) for name extraction - resumes usually have name at top
+        String topSection = content.length() > 2000 ? content.substring(0, 2000) : content;
 
-        String email = extractPattern(content, "[\\w._%+-]+@[\\w.-]+\\.[a-zA-Z]{2,}");
+        // Extract information with improved methods
+        String email = extractEmail(content);
         String phone = extractPhoneNumber(content);
-
         String skills = extractSkills(content);
         String location = extractLocation(content);
-        String name = extractName(content);
+        String experience = extractExperience(content);
+        String currentCtc = extractCurrentCTC(content);
+        String expectedCtc = extractExpectedCTC(content);
+        
+        // Name extraction - prioritize top section for better accuracy
+        String name = extractName(topSection);
         if (name == null && email != null) {
             name = generateNameFromEmail(email);
         }
+        
+        // Extract about/summary section (usually first paragraph or objective)
+        String about = extractAboutSection(content);
 
         Candidate candidate = new Candidate();
         candidate.setName(name);
@@ -403,6 +631,11 @@ public class CandidateService {
         candidate.setPhone(phone);
         candidate.setSkills(skills);
         candidate.setLocation(location);
+        candidate.setExperience(experience);
+        candidate.setCurrentCtc(currentCtc);
+        candidate.setExpectedCtc(expectedCtc);
+        candidate.setAbout(about);
+        
         // Store resume file
         String resumePath = fileStorageService.storeFile(file, "resumes/candidates");
         candidate.setResumePath(resumePath);
@@ -411,31 +644,44 @@ public class CandidateService {
         return candidate;
     }
     private String extractPhoneNumber(String text) {
+        // More comprehensive phone number patterns for Indian numbers
         String[] regexPatterns = {
-            "(\\+91[-\\s]?)?[6-9]\\d{9}",        // +91 9876543210 or 9876543210
-            "0[6-9]\\d{9}",                      // 09876543210
-            "[6-9]\\d{4}[-\\s][0-9]{5}"          // 98765-43210 or 98765 43210
+            "(\\+91[-\\s]?)?[6-9]\\d{9}",                    // +91 9876543210 or 9876543210
+            "0[6-9]\\d{9}",                                  // 09876543210
+            "[6-9]\\d{4}[-\\s]\\d{5}",                       // 98765-43210 or 98765 43210
+            "[6-9]\\d{2}[-\\s]\\d{3}[-\\s]\\d{4}",          // 987-654-3210
+            "[6-9]\\d{3}[-\\s]\\d{3}[-\\s]\\d{3}",          // 9876-543-210
+            "\\(91\\)[-\\s]?[6-9]\\d{9}",                   // (91) 9876543210
+            "91[-\\s]?[6-9]\\d{9}",                          // 91 9876543210
+            "(?:mobile|phone|contact|tel)[\\s:]*[\\+]?[0-9\\-\\s\\(\\)]+", // Mobile: 9876543210
         };
 
         for (String regex : regexPatterns) {
-            Matcher matcher = Pattern.compile(regex).matcher(text);
+            Matcher matcher = Pattern.compile(regex, Pattern.CASE_INSENSITIVE).matcher(text);
             if (matcher.find()) {
-                String rawPhone = matcher.group();
+                String rawPhone = matcher.group().replaceAll("(?i)(mobile|phone|contact|tel)[\\s:]*", ""); // Remove labels
                 String digitsOnly = rawPhone.replaceAll("[^\\d]", ""); // remove all non-digit characters
 
                 // Normalize to standard 10-digit number (Indian format)
-                if (digitsOnly.length() == 10) {
+                if (digitsOnly.length() == 10 && digitsOnly.charAt(0) >= '6') {
                     return digitsOnly;
-                } else if (digitsOnly.length() == 11 && digitsOnly.startsWith("0")) {
+                } else if (digitsOnly.length() == 11 && digitsOnly.startsWith("0") && digitsOnly.charAt(1) >= '6') {
                     return digitsOnly.substring(1);
-                } else if (digitsOnly.length() == 12 && digitsOnly.startsWith("91")) {
+                } else if (digitsOnly.length() == 12 && digitsOnly.startsWith("91") && digitsOnly.charAt(2) >= '6') {
                     return digitsOnly.substring(2);
-                } else if (digitsOnly.length() == 13 && digitsOnly.startsWith("091")) {
+                } else if (digitsOnly.length() == 13 && digitsOnly.startsWith("091") && digitsOnly.charAt(3) >= '6') {
                     return digitsOnly.substring(3);
-                } else if (digitsOnly.length() == 14 && digitsOnly.startsWith("0091")) {
+                } else if (digitsOnly.length() == 14 && digitsOnly.startsWith("0091") && digitsOnly.charAt(4) >= '6') {
                     return digitsOnly.substring(4);
                 }
             }
+        }
+        
+        // Additional pattern: Look for numbers near "mobile", "phone", "contact" keywords
+        Pattern keywordPattern = Pattern.compile("(?i)(?:mobile|phone|contact|tel|mob|cell)[\\s:]*[\\+]?[\\s]*(?:91[-\\s]?)?([6-9]\\d{9})");
+        Matcher keywordMatcher = keywordPattern.matcher(text);
+        if (keywordMatcher.find()) {
+            return keywordMatcher.group(1);
         }
 
         return null;

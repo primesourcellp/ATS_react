@@ -5,11 +5,11 @@ import java.util.List;
 
 import com.example.Material_Mitra.enums.JobStatus;
 import com.example.Material_Mitra.enums.JobType;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 
 import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -32,7 +32,13 @@ public class Job {
     private String jobLocation;
     private LocalDate createdAt;
     private String skillsname;
+	
+	@Column(columnDefinition = "LONGTEXT")
     private String jobDiscription;
+    
+    @Column(columnDefinition = "LONGTEXT")
+    private String rolesAndResponsibilities;
+    
     private String jobExperience;
     private String jobSalaryRange;
 
@@ -148,7 +154,15 @@ public class Job {
 	}
 	public String getJobExperience() {
 		return jobExperience;
-	} 
+	}
+	
+	public String getRolesAndResponsibilities() {
+		return rolesAndResponsibilities;
+	}
+	
+	public void setRolesAndResponsibilities(String rolesAndResponsibilities) {
+		this.rolesAndResponsibilities = rolesAndResponsibilities;
+	}
 	
 	
 }
