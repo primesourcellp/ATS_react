@@ -197,9 +197,10 @@ const JobDetailsModal = ({ job, onClose, onViewCandidates }) => {
               </button>
               {showRolesResponsibilities && (
                 <div className="mt-2 p-4 bg-gray-50 rounded-lg border border-gray-200 max-h-96 overflow-y-auto">
-                  <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                    {job.rolesAndResponsibilities}
-                  </p>
+                  <div 
+                    className="text-sm text-gray-700 prose prose-sm max-w-none"
+                    dangerouslySetInnerHTML={{ __html: (job.rolesAndResponsibilities || '').replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>') }}
+                  />
                 </div>
               )}
             </div>

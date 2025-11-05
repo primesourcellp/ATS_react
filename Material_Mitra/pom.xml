@@ -97,13 +97,6 @@
     <version>2.3.1</version>
 </dependency>
 
-<!-- DotEnv for .env file support -->
-<dependency>
-    <groupId>io.github.cdimascio</groupId>
-    <artifactId>dotenv-java</artifactId>
-    <version>3.0.0</version>
-</dependency>
-
 		<!--start security-->		
 		<dependency>
     <groupId>org.springframework.boot</groupId>

@@ -39,6 +39,8 @@ public class Candidate {
     private String currentCtc;
     private String expectedCtc;
     private String location;
+    
+    @Column(columnDefinition = "TEXT")
     private String skills;
 
     @Column(name = "resume_path", length = 500)
@@ -56,6 +58,7 @@ public class Candidate {
     @JsonManagedReference("candidate-applications")
     private List<JobApplication> applications;
 
+    @Column(columnDefinition = "TEXT")
     private String about;
     
     // Getters and Setters
@@ -150,10 +153,4 @@ public class Candidate {
 	public void setAbout(String about) {
 		this.about = about;
 	}
-	
-	
-
-    
-    
-
   }

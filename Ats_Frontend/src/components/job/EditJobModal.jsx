@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { jobAPI } from '../../api/api';
+import RichTextEditor from './RichTextEditor';
 
 const EditJobModal = ({ job, onClose, onJobUpdated, showToast }) => {
   const [formData, setFormData] = useState({
@@ -219,19 +220,16 @@ const EditJobModal = ({ job, onClose, onJobUpdated, showToast }) => {
 
               <div>
                 <label htmlFor="rolesAndResponsibilities" className="block text-sm font-medium text-gray-700 mb-2">
-                  Detailed Roles & Responsibilities <span className="text-gray-500 text-sm font-normal">(Supports 2000+ words)</span>
+                  Detailed Roles & Responsibilities <span className="text-gray-500 text-sm font-normal">(Supports formatting: bold, italic, lists, etc.)</span>
                 </label>
-                <textarea
-                  id="rolesAndResponsibilities"
-                  rows="8"
+                <RichTextEditor
                   value={formData.rolesAndResponsibilities}
-                  onChange={handleChange}
-                  placeholder="Enter detailed roles and responsibilities... (Supports 2000+ words)"
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all resize-y"
-                  style={{ minHeight: '200px' }}
-                ></textarea>
-                <p className="text-xs text-gray-500 mt-1">
-                  Word count: {formData.rolesAndResponsibilities ? formData.rolesAndResponsibilities.split(/\s+/).filter(word => word.length > 0).length : 0}
+                  onChange={(html) => setFormData({ ...formData, rolesAndResponsibilities: html })}
+                  placeholder="Enter detailed roles and responsibilities... You can use formatting like bold, italic, lists, etc."
+                  minHeight="200px"
+                />
+                <p className="text-xs text-gray-500 mt-2">
+                  Tip: Use the toolbar to format text with <strong>bold</strong>, <em>italic</em>, lists, and more.
                 </p>
               </div>
             </div>

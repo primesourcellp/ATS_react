@@ -369,9 +369,9 @@ public class CandidateService {
                 String about = matcher.group(1).trim();
                 // Clean up - remove extra whitespace, newlines
                 about = about.replaceAll("\\s+", " ").trim();
-                // Limit length
-                if (about.length() > 500) {
-                    about = about.substring(0, 500) + "...";
+                // Limit length to 2000 characters (TEXT column can hold up to 65KB, but we'll keep it reasonable)
+                if (about.length() > 2000) {
+                    about = about.substring(0, 2000) + "...";
                 }
                 return about;
             }

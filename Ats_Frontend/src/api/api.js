@@ -1,8 +1,8 @@
 // ===================== UNIFIED API FILE =====================
 // All frontend API calls consolidated into one file
 
-const BASE_URL = "https://atsapi.primesourcellp.com";
-// const BASE_URL = "http://localhost:8080";
+// const BASE_URL = "https://atsapi.primesourcellp.com";
+const BASE_URL = "http://localhost:8080";
 
 // ===================== Helper Functions =====================
 const getAuthHeaders = (contentType = "application/json") => {
