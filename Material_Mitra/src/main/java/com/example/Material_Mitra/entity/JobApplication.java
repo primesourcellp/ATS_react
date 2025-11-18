@@ -5,6 +5,7 @@ import java.util.List;
 
 import com.example.Material_Mitra.enums.ResultStatus;
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -44,6 +45,7 @@ public class JobApplication {
     private String applicationResumePath;	
 
     @Enumerated(EnumType.STRING)
+    @Column(length = 100)
     private ResultStatus status;
 
     private LocalDate appliedAt;
@@ -54,6 +56,24 @@ public class JobApplication {
     
     @OneToMany(mappedBy = "application", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Interview> interviews;
+    
+    @OneToMany(mappedBy = "application", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "application"})
+    private List<ApplicationStatusHistory> statusHistory;
+    
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "created_by_id")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    private User createdBy;
+
+    @Column(name = "created_by_user_id")
+    private Long createdByUserId;
+
+    @Column(name = "created_by_name", length = 150)
+    private String createdByName;
+
+    @Column(name = "created_by_email", length = 200)
+    private String createdByEmail;
 
 
 	public Long getId() {
@@ -98,7 +118,6 @@ public class JobApplication {
 		return status;
 	}
 
-
 	public void setStatus(ResultStatus status) {
 		this.status = status;
 	}
@@ -132,6 +151,12 @@ public class JobApplication {
 	public void setInterviews(List<Interview> interviews) {
 		this.interviews = interviews;
 	}
+	public User getCreatedBy() {
+		return createdBy;
+	}
+	public void setCreatedBy(User createdBy) {
+		this.createdBy = createdBy;
+	}
 
 	public Boolean getUseMasterResume() {
 	    return useMasterResume;
@@ -141,12 +166,35 @@ public class JobApplication {
 	    this.useMasterResume = useMasterResume != null ? useMasterResume : false;
 	}
 
+    public Long getCreatedByUserId() {
+        return createdByUserId;
+    }
 
-    // Getters and Setters
+    public void setCreatedByUserId(Long createdByUserId) {
+        this.createdByUserId = createdByUserId;
+    }
 
-	
-    
-    
-    
-    
+    public String getCreatedByName() {
+        return createdByName;
+    }
+
+    public void setCreatedByName(String createdByName) {
+        this.createdByName = createdByName;
+    }
+
+    public String getCreatedByEmail() {
+        return createdByEmail;
+    }
+
+    public void setCreatedByEmail(String createdByEmail) {
+        this.createdByEmail = createdByEmail;
+    }
+
+    public List<ApplicationStatusHistory> getStatusHistory() {
+        return statusHistory;
+    }
+
+    public void setStatusHistory(List<ApplicationStatusHistory> statusHistory) {
+        this.statusHistory = statusHistory;
+    }
 }

@@ -1,5 +1,7 @@
 package com.example.Material_Mitra.dto;
 
+import java.util.List;
+
 public class JobDTO {
     private Long id;
     private String jobName;
@@ -14,7 +16,8 @@ public class JobDTO {
     private String jobExperience;
     private String jobSalaryRange;
     private String rolesAndResponsibilities;
-    private boolean hasApplications; 
+    private boolean hasApplications;
+    private List<JobApplicationDTO> applications; 
 
     // getter/setter
     public String getStatus() {
@@ -63,4 +66,6 @@ public class JobDTO {
     public String getRolesAndResponsibilities() { return rolesAndResponsibilities; }
     public void setRolesAndResponsibilities(String rolesAndResponsibilities) { this.rolesAndResponsibilities = rolesAndResponsibilities; }
     
+    public List<JobApplicationDTO> getApplications() { return applications; }
+    public void setApplications(List<JobApplicationDTO> applications) { this.applications = applications; }
 }

@@ -27,6 +27,36 @@ const handleResponse = async (response) => {
   const isJson = contentType && contentType.includes("application/json");
 
   if (!response.ok) {
+    if (response.status === 401) {
+      const existingToken = localStorage.getItem("jwtToken");
+      if (existingToken) {
+        localStorage.removeItem("jwtToken");
+        if (
+          window.location.pathname !== "/" &&
+          window.location.pathname !== "/login" &&
+          window.location.pathname !== "/forgot-password"
+        ) {
+          window.location.href = "/login";
+        }
+        throw new Error("Session expired. Please log in again.");
+      }
+      throw new Error("Unauthorized");
+    }
+    if (response.status === 403) {
+      const existingToken = localStorage.getItem("jwtToken");
+      if (existingToken) {
+        localStorage.removeItem("jwtToken");
+        if (
+          window.location.pathname !== "/" &&
+          window.location.pathname !== "/login" &&
+          window.location.pathname !== "/forgot-password"
+        ) {
+          window.location.href = "/login";
+        }
+        throw new Error("Session expired. Please log in again.");
+      }
+      throw new Error("Forbidden");
+    }
     const errorData = isJson 
       ? await response.json().catch(() => ({}))
       : await response.text().catch(() => "");
@@ -127,6 +157,15 @@ export const userAPI = {
     const response = await fetch(`${BASE_URL}/api/users/create-admin`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(userData),
+    });
+    return handleResponse(response);
+  },
+
+  createSecondaryAdmin: async (userData) => {
+    const response = await fetch(`${BASE_URL}/api/users/create-secondary-admin`, {
+      method: "POST",
+      headers: getAuthHeaders(),
       body: JSON.stringify(userData),
     });
     return handleResponse(response);
@@ -476,23 +515,22 @@ export const applicationAPI = {
     const token = localStorage.getItem("jwtToken");
     const url = `${BASE_URL}/api/applications/apply/${formData.candidateId}/job/${formData.jobId}`;
 
-    let options;
-    if (formData.resumeFile) {
-      const fd = new FormData();
-      if (formData.status) fd.append("status", formData.status);
-      fd.append("resumeFile", formData.resumeFile);
-      options = {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-        body: fd,
-      };
-    } else {
-      options = {
-        method: "POST",
-        headers: getAuthHeaders("application/json"),
-        body: JSON.stringify({ status: formData.status }),
-      };
+    // Always use FormData to support both file and non-file requests
+    const fd = new FormData();
+    if (formData.status) fd.append("status", formData.status);
+    if (formData.statusDescription) fd.append("statusDescription", formData.statusDescription);
+    if (typeof formData.useMasterResume !== "undefined") {
+      fd.append("useMasterResume", formData.useMasterResume);
     }
+    if (formData.resumeFile) {
+      fd.append("resumeFile", formData.resumeFile);
+    }
+
+    const options = {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: fd,
+    };
 
     const response = await fetch(url, options);
     return handleResponse(response);
@@ -508,6 +546,7 @@ export const applicationAPI = {
     if (formData.resumeFile) {
       const fd = new FormData();
       if (formData.status) fd.append("status", formData.status);
+      if (formData.statusDescription) fd.append("statusDescription", formData.statusDescription);
       fd.append("resumeFile", formData.resumeFile);
       
       const response = await fetch(`${BASE_URL}/api/applications/${id}`, {
@@ -519,6 +558,7 @@ export const applicationAPI = {
     } else {
       const fd = new FormData();
       if (formData.status) fd.append("status", formData.status);
+      if (formData.statusDescription) fd.append("statusDescription", formData.statusDescription);
       
       const response = await fetch(`${BASE_URL}/api/applications/${id}`, {
         method: "PUT",
@@ -544,11 +584,19 @@ export const applicationAPI = {
       headers: { Authorization: `Bearer ${token}` },
     });
     
+    if (response.status === 404) {
+      throw new Error("Resume not found for this application.");
+    }
+    
     if (!response.ok) {
       throw new Error(`Failed to fetch resume. Status: ${response.status}`);
     }
     
     const data = await response.json();
+    if (!data || !data.url) {
+      throw new Error("Resume not found for this application.");
+    }
+
     return data.url;
   },
 
@@ -755,6 +803,38 @@ export const websiteApplicationAPI = {
     }
     
     return response.blob();
+  },
+};
+
+// ===================== REPORT API =====================
+export const reportAPI = {
+  getRecruiterReports: async ({ range, startDate, endDate, recruiterId } = {}) => {
+    const params = new URLSearchParams();
+    if (range) params.append("range", range);
+    if (startDate) params.append("startDate", startDate);
+    if (endDate) params.append("endDate", endDate);
+    if (recruiterId) params.append("recruiterId", recruiterId);
+
+    const url = `${BASE_URL}/api/reports/recruiters${params.toString() ? `?${params.toString()}` : ""}`;
+    const response = await fetch(url, {
+      method: "GET",
+      headers: getAuthHeaders(null),
+    });
+    return handleResponse(response);
+  },
+
+  getMyReport: async ({ range, startDate, endDate } = {}) => {
+    const params = new URLSearchParams();
+    if (range) params.append("range", range);
+    if (startDate) params.append("startDate", startDate);
+    if (endDate) params.append("endDate", endDate);
+
+    const url = `${BASE_URL}/api/reports/recruiters/me${params.toString() ? `?${params.toString()}` : ""}`;
+    const response = await fetch(url, {
+      method: "GET",
+      headers: getAuthHeaders(null),
+    });
+    return handleResponse(response);
   },
 };
 

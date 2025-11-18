@@ -1,29 +1,66 @@
 package com.example.Material_Mitra.dto;
 
 public class AppliedJobInfo {
+    private Long applicationId;
+    private Long jobId;
     private String jobName;
     private String clientName;
-    
-    public AppliedJobInfo() {}
-    
+    private String assignedByUsername;
+    private String assignedByEmail;
+
+    public AppliedJobInfo() {
+    }
+
     public AppliedJobInfo(String jobName, String clientName) {
         this.jobName = jobName;
         this.clientName = clientName;
     }
-    
-    public String getJobName() { 
-        return jobName; 
+
+    public Long getApplicationId() {
+        return applicationId;
     }
-    
-    public void setJobName(String jobName) { 
-        this.jobName = jobName; 
+
+    public void setApplicationId(Long applicationId) {
+        this.applicationId = applicationId;
     }
-    
-    public String getClientName() { 
-        return clientName; 
+
+    public Long getJobId() {
+        return jobId;
     }
-    
-    public void setClientName(String clientName) { 
-        this.clientName = clientName; 
+
+    public void setJobId(Long jobId) {
+        this.jobId = jobId;
+    }
+
+    public String getJobName() {
+        return jobName;
+    }
+
+    public void setJobName(String jobName) {
+        this.jobName = jobName;
+    }
+
+    public String getClientName() {
+        return clientName;
+    }
+
+    public void setClientName(String clientName) {
+        this.clientName = clientName;
+    }
+
+    public String getAssignedByUsername() {
+        return assignedByUsername;
+    }
+
+    public void setAssignedByUsername(String assignedByUsername) {
+        this.assignedByUsername = assignedByUsername;
+    }
+
+    public String getAssignedByEmail() {
+        return assignedByEmail;
+    }
+
+    public void setAssignedByEmail(String assignedByEmail) {
+        this.assignedByEmail = assignedByEmail;
     }
 }

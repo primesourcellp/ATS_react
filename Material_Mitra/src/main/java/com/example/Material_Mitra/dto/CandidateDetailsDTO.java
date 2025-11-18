@@ -15,6 +15,10 @@ public class CandidateDetailsDTO {
     private JobDTO jobDTO;
 
     private List<JobDTO> jobs; // ✔️ This replaced individual jobName/jobLocation
+    private LocalDateTime createdAt;
+    private Long createdById;
+    private String createdByUsername;
+    private String createdByEmail;
 
     // Job Info
 //    private String jobName;
@@ -63,6 +67,30 @@ public class CandidateDetailsDTO {
 	}
 	public JobDTO getJobDTO() {
 		return jobDTO;
+	}
+	public LocalDateTime getCreatedAt() {
+		return createdAt;
+	}
+	public void setCreatedAt(LocalDateTime createdAt) {
+		this.createdAt = createdAt;
+	}
+	public Long getCreatedById() {
+		return createdById;
+	}
+	public void setCreatedById(Long createdById) {
+		this.createdById = createdById;
+	}
+	public String getCreatedByUsername() {
+		return createdByUsername;
+	}
+	public void setCreatedByUsername(String createdByUsername) {
+		this.createdByUsername = createdByUsername;
+	}
+	public String getCreatedByEmail() {
+		return createdByEmail;
+	}
+	public void setCreatedByEmail(String createdByEmail) {
+		this.createdByEmail = createdByEmail;
 	}
     
 }

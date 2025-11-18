@@ -1,7 +1,9 @@
 // components/ClientTable.jsx
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const ClientTable = ({ clients, loading, onEditClient, onViewJobDetails, onDeleteClient, searchTerm }) => {
+  const navigate = useNavigate();
   const [expandedClient, setExpandedClient] = useState(null);
   
   // Function to highlight search term in text
@@ -77,9 +79,6 @@ const ClientTable = ({ clients, loading, onEditClient, onViewJobDetails, onDelet
               <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Client
               </th>
-              <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">
-                Address
-              </th>
               <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">
                 Contact
               </th>
@@ -107,19 +106,22 @@ const ClientTable = ({ clients, loading, onEditClient, onViewJobDetails, onDelet
                         </span>
                       </div>
                       <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/clients/${client.id}`);
+                          }}
+                          className="text-sm font-medium text-blue-600 hover:text-blue-700 underline text-left"
+                        >
                           <span dangerouslySetInnerHTML={{ 
                             __html: highlightSearchTerm(client.clientName, searchTerm) 
                           }} />
-                        </div>
+                        </button>
                         <div className="text-sm text-gray-500">
                           ID: {client.id}
                         </div>
                       </div>
                     </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden md:table-cell">
-                    {client.address || 'N/A'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden lg:table-cell">
                     {client.clientNumber || client.client_number || 'N/A'}
@@ -141,7 +143,7 @@ const ClientTable = ({ clients, loading, onEditClient, onViewJobDetails, onDelet
                           e.stopPropagation();
                           onEditClient(client);
                         }}
-                        className="text-yellow-600 hover:text-yellow-900 p-2 rounded-full hover:bg-yellow-50 transition-colors"
+                        className="p-2 rounded-full transition-colors text-yellow-600 hover:text-yellow-900 hover:bg-yellow-50"
                         title="Edit Client"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -165,7 +167,7 @@ const ClientTable = ({ clients, loading, onEditClient, onViewJobDetails, onDelet
                 </tr>
                 {expandedClient === client.id && (
                   <tr className="bg-blue-50">
-                    <td colSpan="5" className="px-6 py-4">
+                    <td colSpan="4" className="px-6 py-4">
                       <div className="space-y-6">
                         {/* Action Buttons Section */}
                         <div className="bg-white rounded-lg p-4 border border-gray-200">
@@ -177,7 +179,7 @@ const ClientTable = ({ clients, loading, onEditClient, onViewJobDetails, onDelet
                                   key={job.id}
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    onViewJobDetails(job);
+                                    navigate(`/jobs/${job.id}`);
                                   }}
                                   className="flex items-center px-3 py-2 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition-colors"
                                   title={`View Details for ${job.jobName}`}
@@ -198,7 +200,7 @@ const ClientTable = ({ clients, loading, onEditClient, onViewJobDetails, onDelet
                                 e.stopPropagation();
                                 onEditClient(client);
                               }}
-                              className="flex items-center px-3 py-2 bg-yellow-100 text-yellow-700 rounded-md hover:bg-yellow-200 transition-colors"
+                              className="flex items-center px-3 py-2 rounded-md transition-colors bg-yellow-100 text-yellow-700 hover:bg-yellow-200"
                               title="Edit Client"
                             >
                               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -206,7 +208,7 @@ const ClientTable = ({ clients, loading, onEditClient, onViewJobDetails, onDelet
                               </svg>
                               Edit Client
                             </button>
-                            
+
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();

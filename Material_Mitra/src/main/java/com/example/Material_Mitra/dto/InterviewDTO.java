@@ -5,6 +5,7 @@ import java.time.LocalTime;
 
 public class InterviewDTO {
     private Long id;
+    private Long candidateId;
     private String candidateName;
     private String jobTitle;
     private String clientName; // ✅ Added client name
@@ -14,9 +15,10 @@ public class InterviewDTO {
 
     public InterviewDTO() {}
 
-    public InterviewDTO(Long id, String candidateName, String jobTitle, String clientName,
+    public InterviewDTO(Long id, Long candidateId, String candidateName, String jobTitle, String clientName,
                             LocalDate interviewDate, LocalTime interviewTime, LocalTime endTime) {
         this.id = id;
+        this.candidateId = candidateId;
         this.candidateName = candidateName;
         this.jobTitle = jobTitle;
         this.clientName = clientName;
@@ -28,6 +30,8 @@ public class InterviewDTO {
     // Getters and Setters
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
+    public Long getCandidateId() { return candidateId; }
+    public void setCandidateId(Long candidateId) { this.candidateId = candidateId; }
     public String getCandidateName() { return candidateName; }
     public void setCandidateName(String candidateName) { this.candidateName = candidateName; }
     public String getJobTitle() { return jobTitle; }

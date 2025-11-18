@@ -1,17 +1,49 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Navbar from '../../layout/navbar';
 import Toast from '../toast/Toast';
 import CandidateTable from './CandidateTable';
-import CandidateDetailsModal from './CandidateDetail';
 import CreateCandidateModal from './CreateCandidateModal';
 import EditCandidateModal from './EditCandidateModal';
 import { candidateAPI } from '../../api/api';
+
+const candidateStatusOptions = [
+  { value: 'NEW_CANDIDATE', label: 'New Candidate' },
+  { value: 'PENDING', label: 'Pending' },
+  { value: 'SCHEDULED', label: 'Scheduled' },
+  { value: 'INTERVIEWED', label: 'Interviewed' },
+  { value: 'PLACED', label: 'Placed' },
+  { value: 'REJECTED', label: 'Rejected' },
+  { value: 'NOT_INTERESTED', label: 'Not Interested' },
+  { value: 'HOLD', label: 'Hold' },
+  { value: 'HIGH_CTC', label: 'High CTC' },
+  { value: 'DROPPED_BY_CLIENT', label: 'Dropped by Client' },
+  { value: 'SUBMITTED_TO_CLIENT', label: 'Submitted to Client' },
+  { value: 'NO_RESPONSE', label: 'No Response' },
+  { value: 'IMMEDIATE', label: 'Immediate' },
+  { value: 'REJECTED_BY_CLIENT', label: 'Rejected by Client' },
+  { value: 'CLIENT_SHORTLIST', label: 'Client Shortlist' },
+  { value: 'FIRST_INTERVIEW_SCHEDULED', label: '1st Interview Scheduled' },
+  { value: 'FIRST_INTERVIEW_FEEDBACK_PENDING', label: '1st Interview Feedback Pending' },
+  { value: 'FIRST_INTERVIEW_REJECT', label: '1st Interview Reject' },
+  { value: 'SECOND_INTERVIEW_SCHEDULED', label: '2nd Interview Scheduled' },
+  { value: 'SECOND_INTERVIEW_FEEDBACK_PENDING', label: '2nd Interview Feedback Pending' },
+  { value: 'SECOND_INTERVIEW_REJECT', label: '2nd Interview Reject' },
+  { value: 'THIRD_INTERVIEW_SCHEDULED', label: '3rd Interview Scheduled' },
+  { value: 'THIRD_INTERVIEW_FEEDBACK_PENDING', label: '3rd Interview Feedback Pending' },
+  { value: 'THIRD_INTERVIEW_REJECT', label: '3rd Interview Reject' },
+  { value: 'INTERNEL_REJECT', label: 'Internal Reject' },
+  { value: 'CLIENT_REJECT', label: 'Client Reject' },
+  { value: 'FINAL_SELECT', label: 'Final Select' },
+  { value: 'JOINED', label: 'Joined' },
+  { value: 'BACKEDOUT', label: 'Backed Out' },
+  { value: 'NOT_RELEVANT', label: 'Not Relevant' },
+];
 
 const CandidateManagement = () => {
   const [candidates, setCandidates] = useState([]);
   const [filteredCandidates, setFilteredCandidates] = useState([]);
   const [selectedCandidate, setSelectedCandidate] = useState(null);
-  const [showCandidateDetails, setShowCandidateDetails] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [toasts, setToasts] = useState([]);
@@ -24,18 +56,48 @@ const CandidateManagement = () => {
   const [sortBy, setSortBy] = useState('newest');
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState('');
+  const [currentUserName, setCurrentUserName] = useState(localStorage.getItem("username") || "");
+  const [showMyCandidates, setShowMyCandidates] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(10);
+  const [itemsPerPage] = useState(20);
+  const navigate = useNavigate();
+  const displayedCandidateCount = filteredCandidates.length;
+  const recruiterDisplayName = currentUserName || "You";
+  const recruiterCandidatesCount = useMemo(() => {
+    if (!currentUserName) return 0;
+    const normalized = currentUserName.trim().toLowerCase();
+    return candidates.filter((candidate) => {
+      const owner = (candidate.createdByUsername || "").toLowerCase();
+      const ownerEmail = (candidate.createdByEmail || "").toLowerCase();
+      return owner === normalized || ownerEmail === normalized;
+    }).length;
+  }, [candidates, currentUserName]);
 
   useEffect(() => {
     const role = localStorage.getItem("role")?.replace("ROLE_", "") || "";
     setUserRole(role);
+    setCurrentUserName(localStorage.getItem("username") || "");
     loadCandidates();
   }, []);
 
   useEffect(() => {
+    setCurrentPage(1); // Reset to first page when filters change
+  }, [searchTerm, candidateIdSearch, statusFilter, locationFilter, includeSkillsFilter, excludeSkillsFilter, sortBy, showMyCandidates]);
+
+  useEffect(() => {
     filterCandidates();
-  }, [candidates, searchTerm, candidateIdSearch, statusFilter, locationFilter, includeSkillsFilter, excludeSkillsFilter, sortBy]);
+  }, [
+    candidates,
+    searchTerm,
+    candidateIdSearch,
+    statusFilter,
+    locationFilter,
+    includeSkillsFilter,
+    excludeSkillsFilter,
+    sortBy,
+    showMyCandidates,
+    currentUserName
+  ]);
 
   const loadCandidates = async () => {
     try {
@@ -109,6 +171,15 @@ const CandidateManagement = () => {
       });
     }
     
+    if (showMyCandidates && currentUserName) {
+      const normalizedUser = currentUserName.trim().toLowerCase();
+      result = result.filter(c => {
+        const owner = (c.createdByUsername || "").toLowerCase();
+        const ownerEmail = (c.createdByEmail || "").toLowerCase();
+        return owner === normalizedUser || ownerEmail === normalizedUser;
+      });
+    }
+    
     // Sort candidates
     switch(sortBy) {
       case 'newest':
@@ -164,16 +235,26 @@ const CandidateManagement = () => {
     setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 5000);
   };
 
-  const handleViewCandidate = async (candidate) => {
+  const handleCandidateStatusChange = async (candidate, newStatus) => {
+    if (!candidate?.id || !newStatus) return;
     try {
-      setLoading(true);
-      const candidateDetails = await candidateAPI.getById(candidate.id);
-      setSelectedCandidate(candidateDetails);
-      setShowCandidateDetails(true);
+      await candidateAPI.update(candidate.id, { status: newStatus });
+      showToast('Success', 'Candidate status updated', 'success');
+      setCandidates(prev =>
+        prev.map(c => (c.id === candidate.id ? { ...c, status: newStatus } : c))
+      );
+      setSelectedCandidate(prev =>
+        prev && prev.id === candidate.id ? { ...prev, status: newStatus } : prev
+      );
     } catch (error) {
-      showToast('Error', error.message || 'Failed to load candidate details', 'error');
-    } finally {
-      setLoading(false);
+      showToast('Error', error.message || 'Failed to update candidate status', 'error');
+      throw error;
+    }
+  };
+
+  const handleViewCandidate = (candidate) => {
+    if (candidate?.id) {
+      navigate(`/candidates/${candidate.id}`);
     }
   };
 
@@ -200,44 +281,22 @@ const CandidateManagement = () => {
   };
 
   // Pagination logic
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const totalPages = Math.max(1, Math.ceil(filteredCandidates.length / itemsPerPage));
+  const indexOfFirstItem = (currentPage - 1) * itemsPerPage;
+  const indexOfLastItem = indexOfFirstItem + itemsPerPage;
   const currentItems = filteredCandidates.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(filteredCandidates.length / itemsPerPage);
-
-  const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
   // Get status counts for stats
-  const getStatusCounts = () => {
-    const statusCounts = {
-      'NEW_CANDIDATE': 0,
-      'PENDING': 0,
-      'SCHEDULED': 0,
-      'INTERVIEWED': 0,
-      'PLACED': 0,
-      'REJECTED': 0
-    };
-    
-    candidates.forEach(candidate => {
-      if (candidate.status && statusCounts.hasOwnProperty(candidate.status)) {
-        statusCounts[candidate.status]++;
-      }
-    });
-    
-    return statusCounts;
-  };
-
-  const statusCounts = getStatusCounts();
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-gray-50 mt-2">
       {/* Sidebar-style Navbar */}
       <Navbar />
 
       {/* Main content */}
       <main className="flex-1 p-6">
         {/* Header */}
-        <div className="mb-6 py-10">
+        <div className="py-10">
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Candidate Management</h1>
@@ -258,95 +317,65 @@ const CandidateManagement = () => {
         </div>
 
         {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
-          <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
-            <div className="flex items-center">
-              <div className="rounded-lg bg-blue-100 p-3">
-                <svg className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
+        <div className="grid grid-cols-1 gap-4 mb-1">
+          <div className="bg-white rounded-xl shadow-sm p-4 md:p-5 border border-gray-100">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex items-start gap-4">
+                <div className="rounded-lg bg-blue-100 p-3">
+                  <svg className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-gray-600">
+                    {showMyCandidates
+                      ? `My Candidates (${recruiterDisplayName})`
+                      : "Total Candidates"}
+                  </h3>
+                  <p className="text-xs text-gray-500">
+                    {showMyCandidates
+                      ? `Showing candidates added by ${recruiterDisplayName}.`
+                      : "Across all recruiters"}
+                  </p>
+                </div>
               </div>
-              <div className="ml-4">
-                <h3 className="text-sm font-medium text-gray-600">Total Candidates</h3>
-                <p className="text-2xl font-semibold text-gray-900">{candidates.length}</p>
-              </div>
+              <button
+                type="button"
+                onClick={() => setShowMyCandidates((prev) => !prev)}
+                className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors ${
+                  showMyCandidates
+                    ? "border-green-500 bg-green-50 text-green-700"
+                    : "border-gray-300 bg-white text-gray-700 hover:border-green-400 hover:text-green-600"
+                }`}
+              >
+                <i className="fas fa-user-check"></i>
+                {showMyCandidates ? "Show All Candidates" : "My Candidates"}
+              </button>
             </div>
-          </div>
-          
-          <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
-            <div className="flex items-center">
-              <div className="rounded-lg bg-emerald-100 p-3">
-                <svg className="h-6 w-6 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                </svg>
-              </div>
-              <div className="ml-4">
-                <h3 className="text-sm font-medium text-gray-600">New Candidate</h3>
-                <p className="text-2xl font-semibold text-gray-900">{statusCounts.NEW_CANDIDATE}</p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
-            <div className="flex items-center">
-              <div className="rounded-lg bg-yellow-100 p-3">
-                <svg className="h-6 w-6 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <div className="ml-4">
-                <h3 className="text-sm font-medium text-gray-600">Pending</h3>
-                <p className="text-2xl font-semibold text-gray-900">{statusCounts.PENDING}</p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
-            <div className="flex items-center">
-              <div className="rounded-lg bg-blue-100 p-3">
-                <svg className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-              </div>
-              <div className="ml-4">
-                <h3 className="text-sm font-medium text-gray-600">Scheduled</h3>
-                <p className="text-2xl font-semibold text-gray-900">{statusCounts.SCHEDULED}</p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
-            <div className="flex items-center">
-              <div className="rounded-lg bg-purple-100 p-3">
-                <svg className="h-6 w-6 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                </svg>
-              </div>
-              <div className="ml-4">
-                <h3 className="text-sm font-medium text-gray-600">Interviewed</h3>
-                <p className="text-2xl font-semibold text-gray-900">{statusCounts.INTERVIEWED}</p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
-            <div className="flex items-center">
-              <div className="rounded-lg bg-green-100 p-3">
-                <svg className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <div className="ml-4">
-                <h3 className="text-sm font-medium text-gray-600">Placed</h3>
-                <p className="text-2xl font-semibold text-gray-900">{statusCounts.PLACED}</p>
-              </div>
+            <div className="mt-4">
+              <p className="text-3xl font-semibold text-gray-900">
+                {displayedCandidateCount}
+              </p>
+              {currentUserName && (
+                <p className="text-xs text-gray-500 mt-1">
+                  {showMyCandidates
+                    ? `${recruiterDisplayName
+                        .charAt(0)
+                        .toUpperCase()}${recruiterDisplayName.slice(1)} has ${recruiterCandidatesCount} candidate${
+                        recruiterCandidatesCount === 1 ? "" : "s"
+                      } in total.`
+                    : `You have added ${recruiterCandidatesCount} candidate${
+                        recruiterCandidatesCount === 1 ? "" : "s"
+                      }.`}
+                </p>
+              )}
             </div>
           </div>
         </div>
 
         {/* Filters */}
         <div className="bg-white rounded-xl shadow-sm p-5 mb-6 border border-gray-100">
-          <div className="grid grid-cols-1 md:grid-cols-8 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-2">Search Candidates</label>
               <div className="relative">
@@ -365,7 +394,7 @@ const CandidateManagement = () => {
               </div>
             </div>
 
-            <div className="md:col-span-1">
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Search by ID</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
@@ -384,6 +413,28 @@ const CandidateManagement = () => {
             </div>
 
             <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Search by Location</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <svg className="h-4 w-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path
+                      fillRule="evenodd"
+                      d="M5.05 4.05a7 7 0 119.9 9.9L10 19l-4.95-5.05a7 7 0 010-9.9zM10 11a3 3 0 100-6 3 3 0 000 6z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                </div>
+                <input
+                  type="text"
+                  placeholder="Enter location (e.g., Chennai)"
+                  className="pl-10 w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  value={locationFilter}
+                  onChange={(e) => setLocationFilter(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Status</label>
               <select
                 className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -397,7 +448,14 @@ const CandidateManagement = () => {
                 <option value="INTERVIEWED">Interviewed</option>
                 <option value="PLACED">Placed</option>
                 <option value="REJECTED">Rejected</option>
-                <option value="SUBMITTED_BY_CLIENT">Submitted by Client</option>
+                <option value="NOT_INTERESTED">Not Interested</option>
+                <option value="HOLD">Hold</option>
+                <option value="HIGH_CTC">High CTC</option>
+                <option value="DROPPED_BY_CLIENT">Dropped by Client</option>
+                <option value="SUBMITTED_TO_CLIENT">Submitted to Client</option>
+                <option value="NO_RESPONSE">No Response</option>
+                <option value="IMMEDIATE">Immediate</option>
+                <option value="REJECTED_BY_CLIENT">Rejected by Client</option>
                 <option value="CLIENT_SHORTLIST">Client Shortlist</option>
                 <option value="FIRST_INTERVIEW_SCHEDULED">1st Interview Scheduled</option>
                 <option value="FIRST_INTERVIEW_FEEDBACK_PENDING">1st Interview Feedback Pending</option>
@@ -413,18 +471,8 @@ const CandidateManagement = () => {
                 <option value="FINAL_SELECT">Final Select</option>
                 <option value="JOINED">Joined</option>
                 <option value="BACKEDOUT">Backed Out</option>
+                <option value="NOT_RELEVANT">Not Relevant</option>
               </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Search by Location</label>
-              <input
-                type="text"
-                placeholder="Enter location (e.g., Chennai, Bangalore, Pune...)"
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                value={locationFilter}
-                onChange={(e) => setLocationFilter(e.target.value)}
-              />
             </div>
 
             <div>
@@ -441,6 +489,7 @@ const CandidateManagement = () => {
                 <option value="id_desc">ID: Last to 1</option>
               </select>
             </div>
+
           </div>
           
           {/* Skills Filters Row */}
@@ -512,66 +561,53 @@ const CandidateManagement = () => {
             onViewCandidate={handleViewCandidate}
             onEditCandidate={handleEditCandidate}
             onDeleteCandidate={handleDeleteCandidate}
+            onStatusChange={handleCandidateStatusChange}
+            statusOptions={candidateStatusOptions}
           />
           
           {/* Pagination */}
-          {filteredCandidates.length > 0 && (
-            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
-              <div className="flex items-center justify-between">
-                <div className="text-sm text-gray-700">
-                  Showing <span className="font-medium">{indexOfFirstItem + 1}</span> to{" "}
-                  <span className="font-medium">
-                    {Math.min(indexOfLastItem, filteredCandidates.length)}
-                  </span>{" "}
-                  of <span className="font-medium">{filteredCandidates.length}</span> candidates
-                </div>
-                
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() => paginate(currentPage - 1)}
-                    disabled={currentPage === 1}
-                    className="px-3 py-1 rounded-md border border-gray-300 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Previous
-                  </button>
-                  
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((number) => (
-                    <button
-                      key={number}
-                      onClick={() => paginate(number)}
-                      className={`px-3 py-1 rounded-md text-sm font-medium ${
-                        currentPage === number
-                          ? "bg-blue-600 text-white"
-                          : "border border-gray-300 text-gray-700 bg-white hover:bg-gray-50"
-                      }`}
-                    >
-                      {number}
-                    </button>
-                  ))}
-                  
-                  <button
-                    onClick={() => paginate(currentPage + 1)}
-                    disabled={currentPage === totalPages}
-                    className="px-3 py-1 rounded-md border border-gray-300 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Next
-                  </button>
-                </div>
+          <div className="mt-6 flex flex-col md:flex-row items-center justify-between gap-3 px-6 py-4 bg-gray-50 border-t border-gray-200">
+            <p className="text-sm text-gray-600">
+              Showing <span className="font-semibold">{currentItems.length}</span> of{' '}
+              <span className="font-semibold">{filteredCandidates.length}</span> candidates
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                className={`px-3 py-2 rounded-lg border border-gray-300 text-sm ${
+                  currentPage === 1
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                Prev
+              </button>
+
+              <div className="flex items-center gap-2 text-sm text-gray-700">
+                Page
+                <span className="px-3 py-1 rounded-lg border border-gray-200 bg-white font-semibold">
+                  {currentPage}
+                </span>
+                of {totalPages}
               </div>
+
+              <button
+                onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+                className={`px-3 py-2 rounded-lg border border-gray-300 text-sm ${
+                  currentPage === totalPages
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                Next
+              </button>
             </div>
-          )}
+          </div>
         </div>
 
         {/* Modals */}
-        {showCandidateDetails && selectedCandidate && (
-          <CandidateDetailsModal
-            candidate={selectedCandidate}
-            onClose={() => setShowCandidateDetails(false)}
-            onEdit={() => handleEditCandidate(selectedCandidate)}
-            onDelete={() => handleDeleteCandidate(selectedCandidate.id)}
-          />
-        )}
-
         {showCreateModal && (
           <CreateCandidateModal
             onClose={() => setShowCreateModal(false)}

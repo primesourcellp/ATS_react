@@ -87,19 +87,38 @@ public class UserController {
     @PostMapping("/create-recruiter")
     public ResponseEntity<?> createRecruiter(@RequestBody User user) {
         try {
+            if (user.getPassword() == null || user.getPassword().isBlank()) {
+                return ResponseEntity.badRequest().body("Password is required for recruiter creation.");
+            }
             user.setRole(RoleStatus.RECRUITER);
-            user.setPassword(passwordEncoder.encode(user.getPassword()));
             userService.createRecruiter(user);
             return ResponseEntity.ok("Recruiter created successfully");
         } catch (RuntimeException e) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(e.getMessage());
         }
     }
+
+    @PostMapping("/create-secondary-admin")
+    public ResponseEntity<?> createSecondaryAdmin(@RequestBody User user) {
+        try {
+            if (user.getPassword() == null || user.getPassword().isBlank()) {
+                return ResponseEntity.badRequest().body("Password is required for secondary admin creation.");
+            }
+            user.setRole(RoleStatus.SECONDARY_ADMIN);
+            userService.createSecondaryAdmin(user);
+            return ResponseEntity.ok("Secondary admin created successfully");
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(e.getMessage());
+        }
+    }
+
     @PostMapping("/create-user")
     public ResponseEntity<?> createUser(@RequestBody User user) {
     	 try {
+             if (user.getPassword() == null || user.getPassword().isBlank()) {
+                 return ResponseEntity.badRequest().body("Password is required for user creation.");
+             }
              user.setRole(RoleStatus.SUB_USER);
-             user.setPassword(passwordEncoder.encode(user.getPassword()));
              userService.createUser(user);
              return ResponseEntity.ok("User created successfully");
          } catch (RuntimeException e) {

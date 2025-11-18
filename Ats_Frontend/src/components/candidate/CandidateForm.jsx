@@ -34,7 +34,28 @@ const CandidateFormModal = ({ candidate, onSave, onCancel }) => {
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
-    if (file) setResumeFile(file);
+    if (file) {
+      // Validate file type
+      const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+      const allowedExtensions = ['.pdf', '.doc', '.docx'];
+      const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
+      
+      if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(fileExtension)) {
+        alert('Please select a PDF, DOC, or DOCX file');
+        e.target.value = ''; // Clear the input
+        return;
+      }
+
+      // Validate file size (5MB max)
+      const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+      if (file.size > maxSize) {
+        alert('File size exceeds the maximum limit of 5MB. Please upload a smaller file.');
+        e.target.value = ''; // Clear the input
+        return;
+      }
+
+      setResumeFile(file);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -154,6 +175,10 @@ const CandidateFormModal = ({ candidate, onSave, onCancel }) => {
                 <option value="INTERVIEWED">Interviewed</option>
                 <option value="PLACED">Placed</option>
                 <option value="REJECTED">Rejected</option>
+                <option value="NOT_INTERESTED">Not Interested</option>
+                <option value="HOLD">Hold</option>
+                <option value="HIGH_CTC">High CTC</option>
+                <option value="DROPPED_BY_CLIENT">Dropped by Client</option>
               </select>
             </div>
           </div>
@@ -242,11 +267,11 @@ const CandidateFormModal = ({ candidate, onSave, onCancel }) => {
 
           {/* Resume Upload */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Resume (PDF) - Optional</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Resume (PDF, DOC, DOCX) - Optional (Max 5MB)</label>
             <input
               type="file"
               id="resume"
-              accept=".pdf"
+              accept=".pdf,.doc,.docx"
               onChange={handleFileChange}
               className="w-full p-2 border border-gray-300 rounded-lg"
             />

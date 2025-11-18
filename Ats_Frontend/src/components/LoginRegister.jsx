@@ -63,10 +63,18 @@ const LoginRegister = () => {
       localStorage.setItem("role", data.role);
       navigate("/dashboard");
     } catch (err) {
-      if (err.message.includes("401") || err.message.includes("Invalid")) {
+      const msg = err.message || "";
+      if (
+        msg.includes("Invalid") ||
+        msg.includes("401") ||
+        msg === "Unauthorized" ||
+        msg === "Forbidden"
+      ) {
         showMessage("Invalid username/email or password", "error");
+      } else if (msg.includes("Session expired")) {
+        showMessage("Session expired. Please log in again.", "error");
       } else {
-        showMessage(err.message, "error");
+        showMessage(msg || "Unable to log in. Please try again.", "error");
       }
     }
   };

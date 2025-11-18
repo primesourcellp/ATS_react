@@ -1,6 +1,7 @@
 package com.example.Material_Mitra.dto;
 
 import java.time.LocalDate;
+import java.util.List;
 
 public class JobApplicationDTO {
     private Long id;
@@ -14,6 +15,11 @@ public class JobApplicationDTO {
     private String applicationResumeUrl;
     private boolean hasInterviews;
 //    private boolean useMasterResume;
+    private Long createdById;
+    private String createdByUsername;
+    private String createdByEmail;
+    private List<StatusHistoryDTO> statusHistory;
+    private List<InterviewDTO> interviews;
     
     
     // Getters
@@ -40,7 +46,7 @@ public class JobApplicationDTO {
     public void setCandidateName(String candidateName) {
         this.candidateName = candidateName;
     }
-	public String getApplicationResumePath() {
+    public String getApplicationResumePath() {
 		return applicationResumePath;
 	}
 	public void setApplicationResumePath(String applicationResumePath) {
@@ -58,5 +64,39 @@ public class JobApplicationDTO {
 //	public void setUseMasterResume(boolean useMasterResume) {
 //		this.useMasterResume = useMasterResume;
 //	}
+	public Long getCreatedById() {
+		return createdById;
+	}
+	public void setCreatedById(Long createdById) {
+		this.createdById = createdById;
+	}
+	public String getCreatedByUsername() {
+		return createdByUsername;
+	}
+	public void setCreatedByUsername(String createdByUsername) {
+		this.createdByUsername = createdByUsername;
+	}
+	public String getCreatedByEmail() {
+		return createdByEmail;
+	}
+	public void setCreatedByEmail(String createdByEmail) {
+		this.createdByEmail = createdByEmail;
+	}
+	
+	public List<StatusHistoryDTO> getStatusHistory() {
+		return statusHistory;
+	}
+	
+	public void setStatusHistory(List<StatusHistoryDTO> statusHistory) {
+		this.statusHistory = statusHistory;
+	}
+	
+	public List<InterviewDTO> getInterviews() {
+		return interviews;
+	}
+	
+	public void setInterviews(List<InterviewDTO> interviews) {
+		this.interviews = interviews;
+	}
 	
 }

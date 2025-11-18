@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { candidateAPI } from '../../api/api';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { candidateAPI, jobAPI, applicationAPI } from '../../api/api';
 
 const CreateCandidateModal = ({ onClose, onCandidateCreated, showToast }) => {
   const [formData, setFormData] = useState({
@@ -20,6 +20,44 @@ const CreateCandidateModal = ({ onClose, onCandidateCreated, showToast }) => {
   const [parsingStatus, setParsingStatus] = useState('');
   const [loading, setLoading] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
+  const [jobs, setJobs] = useState([]);
+  const [jobDropdownOpen, setJobDropdownOpen] = useState(false);
+  const [jobSearchTerm, setJobSearchTerm] = useState('');
+  const [selectedJob, setSelectedJob] = useState(null);
+  const jobDropdownRef = useRef(null);
+
+  useEffect(() => {
+    const fetchJobs = async () => {
+      try {
+        const data = await jobAPI.getAll();
+        setJobs(data || []);
+      } catch (error) {
+        console.error('Failed to load jobs:', error);
+      }
+    };
+    fetchJobs();
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (jobDropdownRef.current && !jobDropdownRef.current.contains(event.target)) {
+        setJobDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const filteredJobs = useMemo(() => {
+    if (!jobSearchTerm) return jobs;
+    const term = jobSearchTerm.toLowerCase();
+    return jobs.filter(job => {
+      const jobId = job.id?.toString().toLowerCase() || '';
+      const jobName = (job.jobName || job.job_name || '').toLowerCase();
+      const clientName = (job.client?.clientName || job.client_name || '').toLowerCase();
+      return jobId.includes(term) || jobName.includes(term) || clientName.includes(term) || `${jobName} ${clientName}`.includes(term);
+    });
+  }, [jobs, jobSearchTerm]);
 
   const handleInputChange = (e) => {
     const { id, value } = e.target;
@@ -40,6 +78,25 @@ const CreateCandidateModal = ({ onClose, onCandidateCreated, showToast }) => {
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
     if (file) {
+      // Validate file type
+      const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+      const allowedExtensions = ['.pdf', '.doc', '.docx'];
+      const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
+      
+      if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(fileExtension)) {
+        showToast('Error', 'Please select a PDF, DOC, or DOCX file', 'error');
+        e.target.value = ''; // Clear the input
+        return;
+      }
+
+      // Validate file size (5MB max)
+      const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+      if (file.size > maxSize) {
+        showToast('Error', 'File size exceeds the maximum limit of 5MB. Please upload a smaller file.', 'error');
+        e.target.value = ''; // Clear the input
+        return;
+      }
+
       setResumeFile(file);
       setResumeFileName(file.name);
       await parseResume(file);
@@ -82,7 +139,25 @@ const CreateCandidateModal = ({ onClose, onCandidateCreated, showToast }) => {
     try {
       setLoading(true);
       setFieldErrors({}); // Clear previous errors
-      await candidateAPI.create(formData, resumeFile);
+      const savedCandidate = await candidateAPI.create(formData, resumeFile);
+
+      if (selectedJob && savedCandidate?.id) {
+        try {
+          await applicationAPI.create({
+            candidateId: savedCandidate.id,
+            jobId: selectedJob.id,
+            status: formData.status || 'NEW_CANDIDATE',
+            useMasterResume: true
+          });
+          showToast('Success', `Candidate assigned to job ${selectedJob.jobName || selectedJob.job_name}`, 'success');
+        } catch (assignmentError) {
+          console.error('Failed to assign candidate to job:', assignmentError);
+          showToast('Heads up', assignmentError.message || 'Candidate saved but failed to assign to the selected job.', 'warning');
+        }
+      }
+
+      setSelectedJob(null);
+      setJobSearchTerm('');
       onCandidateCreated();
     } catch (error) {
       // Check if it's a validation error with field information
@@ -230,7 +305,14 @@ const CreateCandidateModal = ({ onClose, onCandidateCreated, showToast }) => {
                       <option value="INTERVIEWED">Interviewed</option>
                       <option value="PLACED">Placed</option>
                       <option value="REJECTED">Rejected</option>
-                      <option value="SUBMITTED_BY_CLIENT">Submitted by Client</option>
+                      <option value="NOT_INTERESTED">Not Interested</option>
+                      <option value="HOLD">Hold</option>
+                      <option value="HIGH_CTC">High CTC</option>
+                      <option value="DROPPED_BY_CLIENT">Dropped by Client</option>
+                      <option value="SUBMITTED_TO_CLIENT">Submitted to Client</option>
+                      <option value="NO_RESPONSE">No Response</option>
+                      <option value="IMMEDIATE">Immediate</option>
+                      <option value="REJECTED_BY_CLIENT">Rejected by Client</option>
                       <option value="CLIENT_SHORTLIST">Client Shortlist</option>
                       <option value="FIRST_INTERVIEW_SCHEDULED">1st Interview Scheduled</option>
                       <option value="FIRST_INTERVIEW_FEEDBACK_PENDING">1st Interview Feedback Pending</option>
@@ -246,6 +328,7 @@ const CreateCandidateModal = ({ onClose, onCandidateCreated, showToast }) => {
                       <option value="FINAL_SELECT">Final Select</option>
                       <option value="JOINED">Joined</option>
                       <option value="BACKEDOUT">Backed Out</option>
+                      <option value="NOT_RELEVANT">Not Relevant</option>
                     </select>
                     <i className="fas fa-chevron-down absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none"></i>
                   </div>
@@ -312,18 +395,18 @@ const CreateCandidateModal = ({ onClose, onCandidateCreated, showToast }) => {
                 </div>
                 
                 <div>
-                  <label htmlFor="skills" className="block text-sm font-medium text-gray-700 mb-2">
-                    Skills
+                  <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-2">
+                    Location
                   </label>
                   <div className="relative">
-                    <i className="fas fa-tools absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                    <i className="fas fa-map-marker-alt absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
                     <input
                       type="text"
-                      id="skills"
-                      value={formData.skills}
+                      id="location"
+                      value={formData.location}
                       onChange={handleInputChange}
                       className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                      placeholder="e.g., React, Node.js, Python"
+                      placeholder="e.g., Chennai, Tamil Nadu"
                     />
                   </div>
                 </div>
@@ -366,19 +449,134 @@ const CreateCandidateModal = ({ onClose, onCandidateCreated, showToast }) => {
               </div>
               
               <div className="mt-5">
-                <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-2">
-                  Location
+                <label htmlFor="skills" className="block text-sm font-medium text-gray-700 mb-2">
+                  Skills
                 </label>
                 <div className="relative">
-                  <i className="fas fa-map-marker-alt absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                  <input
-                    type="text"
-                    id="location"
-                    value={formData.location}
+                  <i className="fas fa-tools absolute left-3 top-3 text-gray-400"></i>
+                  <textarea
+                    id="skills"
+                    value={formData.skills}
                     onChange={handleInputChange}
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                    placeholder="e.g., Chennai, Tamil Nadu"
-                  />
+                    rows="4"
+                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all resize-y min-h-[120px]"
+                    placeholder="List skills separated by commas (e.g., React, Node.js, Python)"
+                  ></textarea>
+                </div>
+              </div>
+            </div>
+
+            {/* Optional Job Assignment */}
+            <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+              <div className="flex items-center mb-4">
+                <div className="bg-indigo-100 rounded-lg p-2 mr-3">
+                  <i className="fas fa-briefcase text-indigo-600"></i>
+                </div>
+                <h3 className="text-lg font-semibold text-gray-800">Job Assignment (Optional)</h3>
+              </div>
+
+              <div className="space-y-3">
+                <label className="block text-sm font-medium text-gray-700">
+                  Assign to Job <span className="text-gray-400 text-xs">(optional)</span>
+                </label>
+
+                <div className="relative" ref={jobDropdownRef}>
+                  <button
+                    type="button"
+                    className="w-full flex items-center justify-between px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white"
+                    onClick={() => setJobDropdownOpen(prev => !prev)}
+                  >
+                    <span className="flex flex-col text-left">
+                      <span className="text-sm text-gray-700 font-medium">
+                        {selectedJob
+                          ? selectedJob.jobName || selectedJob.job_name
+                          : '-- No job selected --'}
+                      </span>
+                      {selectedJob && (
+                        <span className="text-xs text-gray-500">
+                          {selectedJob.client?.clientName || selectedJob.client_name || 'Unknown Client'}
+                        </span>
+                      )}
+                    </span>
+                    <i className={`fas fa-chevron-${jobDropdownOpen ? 'up' : 'down'} text-gray-400`}></i>
+                  </button>
+
+                  {jobDropdownOpen && (
+                    <div className="absolute z-30 mt-2 w-full bg-white border border-gray-200 rounded-lg shadow-lg">
+                      <div className="p-2 border-b border-gray-200">
+                        <div className="relative">
+                          <i className="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none"></i>
+                          <input
+                            type="text"
+                          value={jobSearchTerm}
+                          onChange={(e) => setJobSearchTerm(e.target.value)}
+                          placeholder="Search jobs by title, client, or ID..."
+                            className="w-full pl-10 pr-4 py-2 text-sm border border-gray-200 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                          />
+                          {jobSearchTerm && (
+                            <button
+                              type="button"
+                              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                              onClick={() => setJobSearchTerm('')}
+                              aria-label="Clear search"
+                            >
+                              <i className="fas fa-times"></i>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="max-h-60 overflow-y-auto">
+                        {filteredJobs.length > 0 ? (
+                          filteredJobs.map((job) => (
+                            <button
+                              key={job.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedJob(job);
+                                setJobDropdownOpen(false);
+                              }}
+                              className={`w-full px-4 py-2 text-sm text-left transition-colors ${
+                                selectedJob?.id === job.id ? 'bg-blue-100 font-medium' : 'hover:bg-gray-50'
+                              }`}
+                            >
+                              <div className="flex justify-between">
+                                <span>{job.jobName || job.job_name}</span>
+                                <span className="text-xs text-gray-500">
+                                  {job.client?.clientName || job.client_name || ''}
+                                </span>
+                              </div>
+                              <div className="text-xs text-gray-400 mt-1">
+                                ID: {job.id}
+                              </div>
+                              <div className="text-xs text-gray-400 mt-1">
+                                {job.jobLocation || job.job_location || 'Location not specified'}
+                              </div>
+                            </button>
+                          ))
+                        ) : (
+                          <div className="px-4 py-3 text-sm text-gray-500 text-center">
+                            No jobs match the search
+                          </div>
+                        )}
+                      </div>
+
+                      {selectedJob && (
+                        <div className="border-t border-gray-200 p-2 bg-gray-50 text-right">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedJob(null);
+                              setJobDropdownOpen(false);
+                            }}
+                            className="text-xs text-red-600 hover:text-red-800"
+                          >
+                            Remove selection
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -396,7 +594,7 @@ const CreateCandidateModal = ({ onClose, onCandidateCreated, showToast }) => {
                 <input
                   type="file"
                   id="resume"
-                  accept=".pdf"
+                  accept=".pdf,.doc,.docx"
                   onChange={handleFileChange}
                   className="hidden"
                 />
@@ -404,10 +602,10 @@ const CreateCandidateModal = ({ onClose, onCandidateCreated, showToast }) => {
                   <div className="mb-4">
                     <i className="fas fa-cloud-upload-alt text-4xl text-blue-500 mb-2"></i>
                     <p className="text-gray-700 font-medium">
-                      {resumeFileName || 'Click to upload resume (PDF)'}
+                      {resumeFileName || 'Click to upload resume (PDF, DOC, DOCX)'}
                     </p>
                     <p className="text-gray-500 text-sm mt-1">
-                      {resumeFileName ? 'Click to change file' : 'Drag and drop or click to browse'}
+                      {resumeFileName ? 'Click to change file' : 'Drag and drop or click to browse (Max 5MB)'}
                     </p>
                   </div>
                   {resumeFileName && (

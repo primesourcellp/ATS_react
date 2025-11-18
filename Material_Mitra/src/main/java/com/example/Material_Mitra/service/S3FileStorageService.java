@@ -67,6 +67,12 @@ public class S3FileStorageService {
             throw new RuntimeException("Failed to store empty file");
         }
 
+        // Validate file size (5MB max)
+        long maxSize = 5 * 1024 * 1024; // 5MB in bytes
+        if (file.getSize() > maxSize) {
+            throw new RuntimeException("File size exceeds the maximum limit of 5MB. Please upload a smaller file.");
+        }
+
         // Validate file type
         String contentType = file.getContentType();
         if (contentType == null || !isValidFileType(contentType)) {

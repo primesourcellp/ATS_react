@@ -25,7 +25,28 @@ const EditCandidateModal = ({ candidate, onClose, onCandidateUpdated, showToast 
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
-    if (file) setResumeFile(file);
+    if (file) {
+      // Validate file type
+      const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+      const allowedExtensions = ['.pdf', '.doc', '.docx'];
+      const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
+      
+      if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(fileExtension)) {
+        showToast('Error', 'Please select a PDF, DOC, or DOCX file', 'error');
+        e.target.value = ''; // Clear the input
+        return;
+      }
+
+      // Validate file size (5MB max)
+      const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+      if (file.size > maxSize) {
+        showToast('Error', 'File size exceeds the maximum limit of 5MB. Please upload a smaller file.', 'error');
+        e.target.value = ''; // Clear the input
+        return;
+      }
+
+      setResumeFile(file);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -133,7 +154,14 @@ const EditCandidateModal = ({ candidate, onClose, onCandidateUpdated, showToast 
                 <option value="INTERVIEWED">Interviewed</option>
                 <option value="PLACED">Placed</option>
                 <option value="REJECTED">Rejected</option>
-                <option value="SUBMITTED_BY_CLIENT">Submitted by Client</option>
+              <option value="NOT_INTERESTED">Not Interested</option>
+              <option value="HOLD">Hold</option>
+              <option value="HIGH_CTC">High CTC</option>
+              <option value="DROPPED_BY_CLIENT">Dropped by Client</option>
+                <option value="SUBMITTED_TO_CLIENT">Submitted to Client</option>
+                <option value="NO_RESPONSE">No Response</option>
+                <option value="IMMEDIATE">Immediate</option>
+                <option value="REJECTED_BY_CLIENT">Rejected by Client</option>
                 <option value="CLIENT_SHORTLIST">Client Shortlist</option>
                 <option value="FIRST_INTERVIEW_SCHEDULED">1st Interview Scheduled</option>
                 <option value="FIRST_INTERVIEW_FEEDBACK_PENDING">1st Interview Feedback Pending</option>
@@ -149,6 +177,7 @@ const EditCandidateModal = ({ candidate, onClose, onCandidateUpdated, showToast 
                 <option value="FINAL_SELECT">Final Select</option>
                 <option value="JOINED">Joined</option>
                 <option value="BACKEDOUT">Backed Out</option>
+                <option value="NOT_RELEVANT">Not Relevant</option>
               </select>
             </div>
           </div>
@@ -167,7 +196,7 @@ const EditCandidateModal = ({ candidate, onClose, onCandidateUpdated, showToast 
             ></textarea>
           </div>
 
-          {/* Experience / Notice / Skills */}
+          {/* Experience / Notice / Location */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -195,12 +224,12 @@ const EditCandidateModal = ({ candidate, onClose, onCandidateUpdated, showToast 
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Skills
+                Location
               </label>
               <input
                 type="text"
-                id="skills"
-                value={formData.skills}
+                id="location"
+                value={formData.location}
                 onChange={handleInputChange}
                 className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
               />
@@ -235,29 +264,33 @@ const EditCandidateModal = ({ candidate, onClose, onCandidateUpdated, showToast 
             </div>
           </div>
 
-          {/* Location */}
+          {/* Skills */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Location
+              Skills
             </label>
-            <input
-              type="text"
-              id="location"
-              value={formData.location}
-              onChange={handleInputChange}
-              className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            />
+            <div className="relative">
+              <i className="fas fa-tools absolute left-3 top-3 text-gray-400"></i>
+              <textarea
+                id="skills"
+                value={formData.skills}
+                onChange={handleInputChange}
+                rows="4"
+                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all resize-y min-h-[120px]"
+                placeholder="List skills separated by commas (e.g., React, Node.js, Python)"
+              ></textarea>
+            </div>
           </div>
 
           {/* Resume Upload */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Resume (PDF) - Optional
+              Resume (PDF, DOC, DOCX) - Optional (Max 5MB)
             </label>
             <input
               type="file"
               id="resume"
-              accept=".pdf"
+              accept=".pdf,.doc,.docx"
               onChange={handleFileChange}
               className="w-full p-2 border border-gray-300 rounded-lg"
             />

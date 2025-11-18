@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { jobAPI } from '../../api/api';
 import RichTextEditor from './RichTextEditor';
 
@@ -16,6 +16,9 @@ const JobForm = ({ clients, onJobAdded, showToast }) => {
     jobExperience: ''
   });
   const [loading, setLoading] = useState(false);
+  const [clientSearchTerm, setClientSearchTerm] = useState('');
+  const [clientDropdownOpen, setClientDropdownOpen] = useState(false);
+  const clientDropdownRef = useRef(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -64,6 +67,41 @@ const JobForm = ({ clients, onJobAdded, showToast }) => {
       ...formData,
       [e.target.name || e.target.id]: e.target.value
     });
+  };
+
+  const filteredClients = clients.filter(client => {
+    const term = clientSearchTerm.trim().toLowerCase();
+    if (!term) return true;
+    const name = (client.clientName || client.client_name || '').toLowerCase();
+    const id = client.id?.toString().toLowerCase() || '';
+    return name.includes(term) || id.includes(term);
+  });
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (clientDropdownRef.current && !clientDropdownRef.current.contains(event.target)) {
+        setClientDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!clientDropdownOpen) {
+      setClientSearchTerm('');
+    }
+  }, [clientDropdownOpen]);
+
+  const handleClientSelect = (clientId) => {
+    setFormData(prev => ({
+      ...prev,
+      clientId: clientId
+    }));
+    setClientSearchTerm('');
+    setClientDropdownOpen(false);
   };
 
   return (
@@ -181,23 +219,70 @@ const JobForm = ({ clients, onJobAdded, showToast }) => {
               <label htmlFor="clientId" className="block text-sm font-medium text-gray-700 mb-2">
                 Assign to Client <span className="text-red-500">*</span>
               </label>
-              <div className="relative">
-                <i className="fas fa-users absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none"></i>
-                <select
-                  id="clientId"
-                  value={formData.clientId}
-                  onChange={handleChange}
-                  className="w-full pl-10 pr-10 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white appearance-none cursor-pointer transition-all"
-                  required
+              <div className="relative" ref={clientDropdownRef}>
+                <button
+                  type="button"
+                  className="w-full flex items-center justify-between px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all bg-white"
+                  onClick={() => setClientDropdownOpen((prev) => !prev)}
                 >
-                  <option value="">-- Select a client --</option>
-                  {clients.map(client => (
-                    <option key={client.id} value={client.id}>
-                      {client.clientName || client.client_name}
-                    </option>
-                  ))}
-                </select>
-                <i className="fas fa-chevron-down absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none"></i>
+                  <span className="flex items-center text-sm text-gray-700">
+                    <i className="fas fa-users text-gray-400 mr-2"></i>
+                    {formData.clientId
+                      ? (clients.find((client) => client.id === formData.clientId)?.clientName ||
+                          clients.find((client) => client.id === formData.clientId)?.client_name ||
+                          'Selected Client')
+                      : '-- Select a client --'}
+                  </span>
+                  <i className={`fas fa-chevron-${clientDropdownOpen ? 'up' : 'down'} text-gray-400`}></i>
+                </button>
+
+                {clientDropdownOpen && (
+                  <div className="absolute z-20 mt-2 w-full bg-white border border-gray-200 rounded-lg shadow-lg">
+                    <div className="p-2 border-b border-gray-200">
+                      <div className="relative">
+                        <i className="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none"></i>
+                        <input
+                          type="text"
+                          value={clientSearchTerm}
+                          onChange={(e) => setClientSearchTerm(e.target.value)}
+                          placeholder="Search clients..."
+                          className="w-full pl-10 pr-4 py-2 text-sm border border-gray-200 rounded-md focus:ring-1 focus:ring-green-500 focus:border-green-500"
+                        />
+                        {clientSearchTerm && (
+                          <button
+                            type="button"
+                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                            onClick={() => setClientSearchTerm('')}
+                            aria-label="Clear search"
+                          >
+                            <i className="fas fa-times"></i>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="max-h-60 overflow-y-auto">
+                      {filteredClients.length > 0 ? (
+                        filteredClients.map((client) => (
+                          <button
+                            key={client.id}
+                            type="button"
+                            onClick={() => handleClientSelect(client.id)}
+                            className={`w-full px-4 py-2 text-sm text-left hover:bg-green-50 transition-colors ${
+                              formData.clientId === client.id ? 'bg-green-100 font-medium' : 'bg-white'
+                            }`}
+                          >
+                            {client.clientName || client.client_name}
+                          </button>
+                        ))
+                      ) : (
+                        <div className="px-4 py-3 text-sm text-gray-500 text-center">
+                          No clients match the search
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -294,53 +379,48 @@ const JobForm = ({ clients, onJobAdded, showToast }) => {
           </div>
         </div>
 
-        {/* Job Description Section */}
+        {/* Job Description & Roles & Responsibilities Section - Side by Side */}
         <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-200">
           <div className="flex items-center mb-4">
             <div className="bg-indigo-100 rounded-lg p-2 mr-3">
               <i className="fas fa-file-alt text-indigo-600"></i>
             </div>
-            <h3 className="text-lg font-semibold text-gray-800">Job Description</h3>
+            <h3 className="text-lg font-semibold text-gray-800">Job Details</h3>
           </div>
 
-          <div>
-            <label htmlFor="jobDiscription" className="block text-sm font-medium text-gray-700 mb-2">
-              Description <span className="text-red-500">*</span>
-            </label>
-            <textarea
-              id="jobDiscription"
-              rows="4"
-              value={formData.jobDiscription}
-              onChange={handleChange}
-              placeholder="Enter detailed job description..."
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all resize-none"
-              required
-            ></textarea>
-          </div>
-        </div>
-
-        {/* Roles & Responsibilities Section */}
-        <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-200">
-          <div className="flex items-center mb-4">
-            <div className="bg-orange-100 rounded-lg p-2 mr-3">
-              <i className="fas fa-tasks text-orange-600"></i>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Job Description Column */}
+            <div>
+              <label htmlFor="jobDiscription" className="block text-sm font-medium text-gray-700 mb-2">
+                Job Description <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                id="jobDiscription"
+                rows="8"
+                value={formData.jobDiscription}
+                onChange={handleChange}
+                placeholder="Enter detailed job description..."
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all resize-y"
+                style={{ minHeight: '200px' }}
+                required
+              ></textarea>
             </div>
-            <h3 className="text-lg font-semibold text-gray-800">Roles & Responsibilities</h3>
-          </div>
 
-          <div>
-            <label htmlFor="rolesAndResponsibilities" className="block text-sm font-medium text-gray-700 mb-2">
-              Detailed Roles & Responsibilities <span className="text-gray-500 text-sm font-normal">(Supports formatting: bold, italic, lists, etc.)</span>
-            </label>
-            <RichTextEditor
-              value={formData.rolesAndResponsibilities}
-              onChange={(html) => setFormData({ ...formData, rolesAndResponsibilities: html })}
-              placeholder="Enter detailed roles and responsibilities... You can use formatting like bold, italic, lists, etc."
-              minHeight="200px"
-            />
-            <p className="text-xs text-gray-500 mt-2">
-              Tip: Use the toolbar to format text with <strong>bold</strong>, <em>italic</em>, lists, and more.
-            </p>
+            {/* Roles & Responsibilities Column */}
+            <div>
+              <label htmlFor="rolesAndResponsibilities" className="block text-sm font-medium text-gray-700 mb-2">
+                Roles & Responsibilities <span className="text-gray-500 text-xs font-normal">(Supports formatting)</span>
+              </label>
+              <RichTextEditor
+                value={formData.rolesAndResponsibilities}
+                onChange={(html) => setFormData({ ...formData, rolesAndResponsibilities: html })}
+                placeholder="Enter detailed roles and responsibilities... You can use formatting like bold, italic, lists, etc."
+                minHeight="200px"
+              />
+              <p className="text-xs text-gray-500 mt-2">
+                Tip: Use Ctrl+B for <strong>bold</strong> formatting.
+              </p>
+            </div>
           </div>
         </div>
 

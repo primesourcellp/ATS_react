@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+
 const statusStyles = {
   ACTIVE: "bg-green-100 text-green-800",
   INACTIVE: "bg-red-100 text-red-800",
@@ -6,6 +8,7 @@ const statusStyles = {
 };
 
 const JobsTable = ({ jobs, loading, onSelectJob, onEditJob, onDeleteJob }) => {
+  const navigate = useNavigate();
   const [expandedJobId, setExpandedJobId] = useState(null);
 
   const toggleExpand = (jobId) => {
@@ -80,7 +83,7 @@ const JobsTable = ({ jobs, loading, onSelectJob, onEditJob, onDeleteJob }) => {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            onSelectJob(job);
+                            navigate(`/jobs/${job.id}`);
                           }}
                           className="text-blue-600 hover:text-blue-800 font-semibold focus:outline-none text-left underline hover:no-underline transition-all duration-200"
                         >
@@ -126,7 +129,7 @@ const JobsTable = ({ jobs, loading, onSelectJob, onEditJob, onDeleteJob }) => {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          onSelectJob(job);
+                          navigate(`/jobs/${job.id}`);
                         }}
                         className="text-blue-600 hover:text-blue-800 p-1 rounded-md hover:bg-blue-50 transition-colors"
                         title="View Details"

@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { jobStatus } from "../../api/api"; 
 
-const JobDetailsModal = ({ job, onClose, onViewCandidates }) => {
+const JobDetailsModal = ({ job, onClose, onViewCandidates, onEditJob }) => {
   const [status, setStatus] = useState(job.status || "NOT_SELECTED");
   const [showRolesResponsibilities, setShowRolesResponsibilities] = useState(false);
   const [showScrollButton, setShowScrollButton] = useState(false);
@@ -220,6 +220,17 @@ const JobDetailsModal = ({ job, onClose, onViewCandidates }) => {
 
         {/* ===== Footer ===== */}
         <div className="flex justify-end space-x-3 px-6 py-4 border-t">
+          <button
+            onClick={() => {
+              if (onEditJob) {
+                onEditJob(job);
+              }
+            }}
+            className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-lg flex items-center"
+          >
+            <i className="fas fa-edit mr-2"></i>
+            Edit Job
+          </button>
           <button
             onClick={() => onViewCandidates(job)}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center"

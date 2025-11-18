@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const CandidateTable = ({
   candidates,
@@ -7,11 +8,15 @@ const CandidateTable = ({
   onEditCandidate,
   onDeleteCandidate,
   onAssignJob,
-  onCopyCandidate
+  onCopyCandidate,
+  onStatusChange,
+  statusOptions = []
 }) => {
+  const navigate = useNavigate();
   const [expandedCandidateId, setExpandedCandidateId] = useState(null);
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [searchTerm, setSearchTerm] = useState('');
+  const [updatingStatusId, setUpdatingStatusId] = useState(null);
 
   const toggleExpand = (candidateId) => {
     setExpandedCandidateId(expandedCandidateId === candidateId ? null : candidateId);
@@ -19,34 +24,53 @@ const CandidateTable = ({
 
   const getStatusClass = (status) => {
     const statusClassMap = {
-      'NEW_CANDIDATE': 'bg-emerald-100 text-emerald-800',
-      'PENDING': 'bg-yellow-100 text-yellow-800',
-      'SCHEDULED': 'bg-blue-100 text-blue-800',
-      'INTERVIEWED': 'bg-purple-100 text-purple-800',
-      'PLACED': 'bg-green-100 text-green-800',
-      'REJECTED': 'bg-red-100 text-red-800',
-      'SUBMITTED_BY_CLIENT': 'bg-indigo-100 text-indigo-800',
-      'CLIENT_SHORTLIST': 'bg-teal-100 text-teal-800',
-      'FIRST_INTERVIEW_SCHEDULED': 'bg-blue-100 text-blue-800',
-      'FIRST_INTERVIEW_FEEDBACK_PENDING': 'bg-orange-100 text-orange-800',
-      'FIRST_INTERVIEW_REJECT': 'bg-red-100 text-red-800',
-      'SECOND_INTERVIEW_SCHEDULED': 'bg-blue-100 text-blue-800',
-      'SECOND_INTERVIEW_FEEDBACK_PENDING': 'bg-orange-100 text-orange-800',
-      'SECOND_INTERVIEW_REJECT': 'bg-red-100 text-red-800',
-      'THIRD_INTERVIEW_SCHEDULED': 'bg-blue-100 text-blue-800',
-      'THIRD_INTERVIEW_FEEDBACK_PENDING': 'bg-orange-100 text-orange-800',
-      'THIRD_INTERVIEW_REJECT': 'bg-red-100 text-red-800',
-      'INTERNEL_REJECT': 'bg-red-100 text-red-800',
-      'CLIENT_REJECT': 'bg-red-100 text-red-800',
-      'FINAL_SELECT': 'bg-green-100 text-green-800',
-      'JOINED': 'bg-green-100 text-green-800',
-      'BACKEDOUT': 'bg-gray-100 text-gray-800'
+      NEW_CANDIDATE: 'bg-emerald-100 text-emerald-800',
+      PENDING: 'bg-yellow-100 text-yellow-800',
+      SCHEDULED: 'bg-blue-100 text-blue-800',
+      INTERVIEWED: 'bg-purple-100 text-purple-800',
+      PLACED: 'bg-green-100 text-green-800',
+      REJECTED: 'bg-red-100 text-red-800',
+      NOT_INTERESTED: 'bg-gray-100 text-gray-800',
+      HOLD: 'bg-amber-100 text-amber-800',
+      HIGH_CTC: 'bg-rose-100 text-rose-800',
+      DROPPED_BY_CLIENT: 'bg-red-100 text-red-800',
+      SUBMITTED_TO_CLIENT: 'bg-indigo-100 text-indigo-800',
+      NO_RESPONSE: 'bg-orange-100 text-orange-800',
+      IMMEDIATE: 'bg-emerald-100 text-emerald-800',
+      REJECTED_BY_CLIENT: 'bg-rose-100 text-rose-700',
+      CLIENT_SHORTLIST: 'bg-teal-100 text-teal-800',
+      FIRST_INTERVIEW_SCHEDULED: 'bg-blue-100 text-blue-800',
+      FIRST_INTERVIEW_FEEDBACK_PENDING: 'bg-orange-100 text-orange-800',
+      FIRST_INTERVIEW_REJECT: 'bg-red-100 text-red-800',
+      SECOND_INTERVIEW_SCHEDULED: 'bg-blue-100 text-blue-800',
+      SECOND_INTERVIEW_FEEDBACK_PENDING: 'bg-orange-100 text-orange-800',
+      SECOND_INTERVIEW_REJECT: 'bg-red-100 text-red-800',
+      THIRD_INTERVIEW_SCHEDULED: 'bg-blue-100 text-blue-800',
+      THIRD_INTERVIEW_FEEDBACK_PENDING: 'bg-orange-100 text-orange-800',
+      THIRD_INTERVIEW_REJECT: 'bg-red-100 text-red-800',
+      INTERNEL_REJECT: 'bg-red-100 text-red-800',
+      CLIENT_REJECT: 'bg-red-100 text-red-800',
+      FINAL_SELECT: 'bg-green-100 text-green-800',
+      JOINED: 'bg-green-100 text-green-800',
+      BACKEDOUT: 'bg-gray-100 text-gray-800',
+      NOT_RELEVANT: 'bg-gray-100 text-gray-800'
     };
     
     return statusClassMap[status] || 'bg-gray-100 text-gray-800';
   };
 
+  const statusLabelMap = {
+    SUBMITTED_TO_CLIENT: 'Submitted to Client',
+    NO_RESPONSE: 'No Response',
+    IMMEDIATE: 'Immediate',
+    REJECTED_BY_CLIENT: 'Rejected by Client'
+  };
+
   const formatStatusText = (status) => {
+    if (statusLabelMap[status]) {
+      return statusLabelMap[status];
+    }
+
     return status
       .toLowerCase()
       .split('_')
@@ -110,6 +134,9 @@ const CandidateTable = ({
                 Status
               </th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                Added By
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                 Job Count
               </th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
@@ -134,7 +161,7 @@ const CandidateTable = ({
                         <div>
                           <button
                             onClick={() => onViewCandidate(candidate)}
-                            className="text-gray-900 font-semibold hover:text-blue-700 focus:outline-none text-left"
+                            className="text-blue-600 hover:text-blue-700 underline focus:outline-none text-left"
                           >
                             {candidate.name || 'N/A'}
                           </button>
@@ -147,9 +174,47 @@ const CandidateTable = ({
                       <div className="text-sm text-gray-500">{candidate.phone || 'N/A'}</div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusClass(candidate.status)}`}>
-                        {candidate.status ? formatStatusText(candidate.status) : 'N/A'}
-                      </span>
+                      <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                        <div className="relative inline-flex items-center">
+                          <select
+                            value={candidate.status || ''}
+                            onChange={async (e) => {
+                              const newStatus = e.target.value;
+                              if (!newStatus || newStatus === candidate.status) return;
+                              if (!onStatusChange) return;
+                              setUpdatingStatusId(candidate.id);
+                              try {
+                                await onStatusChange(candidate, newStatus);
+                              } finally {
+                                setUpdatingStatusId(null);
+                              }
+                            }}
+                            className={`inline-flex items-center px-2.5 py-2 rounded-full text-xs font-medium cursor-pointer appearance-none pr-6 focus:outline-none focus:ring-2 focus:ring-offset-1 ${getStatusClass(candidate.status)}`}
+                            style={{ 
+                              backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='currentColor'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E")`,
+                              backgroundRepeat: 'no-repeat',
+                              backgroundPosition: 'right 0.25rem center',
+                              backgroundSize: '1em 1em',
+                              paddingRight: '1.75rem'
+                            }}
+                          >
+                            {statusOptions.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        {updatingStatusId === candidate.id && (
+                          <i className="fas fa-spinner fa-spin text-blue-500 text-xs"></i>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-sm text-gray-900">{candidate.createdByUsername || 'N/A'}</div>
+                      <div className="text-xs text-gray-500">
+                        {candidate.createdAt ? new Date(candidate.createdAt).toLocaleDateString() : ''}
+                      </div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center">
@@ -213,20 +278,44 @@ const CandidateTable = ({
                   </tr>
                   {expandedCandidateId === candidate.id && jobCount > 0 && (
                     <tr className="bg-blue-50">
-                      <td colSpan="5" className="px-6 py-4">
+                      <td colSpan="6" className="px-6 py-4">
                         <div className="mb-2 font-medium text-gray-700">Applied Jobs:</div>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                          {candidate.appliedJobsWithClient && candidate.appliedJobsWithClient.map((jobInfo, idx) => (
-                            <div key={idx} className="bg-white p-3 rounded-md border border-gray-200 shadow-sm">
-                              <div className="font-medium text-gray-900">{jobInfo.jobName}</div>
-                              <div className="text-sm text-blue-600 mt-1">
-                                Client: {jobInfo.clientName}
+                          {candidate.appliedJobsWithClient && candidate.appliedJobsWithClient.map((jobInfo, idx) => {
+                            const assignedByName = jobInfo.assignedByUsername || '';
+                            const assignedByEmail = jobInfo.assignedByEmail || '';
+                            const assignedDisplay = assignedByName || assignedByEmail || 'Not Available';
+                            const jobLabel = jobInfo.jobId ? `Job #${jobInfo.jobId}` : `Job ${idx + 1}`;
+
+                            return (
+                              <div key={jobInfo.applicationId || idx} className="bg-white p-3 rounded-md border border-gray-200 shadow-sm">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (jobInfo.jobId) {
+                                      navigate(`/jobs/${jobInfo.jobId}`);
+                                    }
+                                  }}
+                                  className="font-medium text-blue-600 hover:text-blue-700 underline text-left"
+                                >
+                                  {jobInfo.jobName || 'Unknown Job'}
+                                </button>
+                                <div className="text-sm text-blue-600 mt-1">
+                                  Client: {jobInfo.clientName || 'Unknown Client'}
+                                </div>
+                                <div className="text-xs text-gray-500 mt-1">
+                                  {jobLabel}
+                                </div>
+                                <div className="text-xs text-gray-500 mt-2">
+                                  <span className="font-medium text-gray-700">Assigned By:</span>{' '}
+                                  <span className="text-gray-700">{assignedDisplay}</span>
+                                  {assignedByName && assignedByEmail && assignedByName !== assignedByEmail && (
+                                    <div className="text-[11px] text-gray-400 mt-0.5">{assignedByEmail}</div>
+                                  )}
+                                </div>
                               </div>
-                              <div className="text-xs text-gray-500 mt-1">
-                                Job #{idx + 1}
-                              </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                         {candidate.appliedJobsWithClient && candidate.appliedJobsWithClient.length === 0 && (
                           <div className="text-gray-500 text-center py-4">

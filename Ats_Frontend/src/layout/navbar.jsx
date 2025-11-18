@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   FaBars,
   FaTimes,
@@ -12,21 +13,28 @@ import {
   FaGlobe,
   FaUserCog,
   FaChevronDown,
-  FaSignOutAlt
+  FaSignOutAlt,
+  FaChartBar
 } from "react-icons/fa";
 import { authAPI } from "../api/api";
 import logo from "../assets/logo.png";
 
 const Navbar = () => {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const [currentPath, setCurrentPath] = useState(window.location.pathname);
+  const [currentPath, setCurrentPath] = useState(window.location.pathname.toLowerCase());
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [role, setRole] = useState("");
+  const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     const userRole = localStorage.getItem("role")?.replace("ROLE_", "") || "";
     setRole(userRole);
   }, []);
+
+  useEffect(() => {
+    setCurrentPath(location.pathname.toLowerCase());
+  }, [location.pathname]);
 
   const handleLogout = async () => {
     const token = localStorage.getItem("jwtToken");
@@ -43,18 +51,24 @@ const Navbar = () => {
   };
 
 
+  const normalizedRole = (role || "").toUpperCase();
+
   const navItems = [
     { name: "Dashboard", path: "/dashboard", icon: <FaChartLine className="text-sm" /> },
-    { name: "Jobs", path: "/Jobs", icon: <FaBriefcase className="text-sm" /> },
-    { name: "Candidates", path: "/Candidates", icon: <FaUsers className="text-sm" /> },
+    { name: "Jobs", path: "/jobs", icon: <FaBriefcase className="text-sm" /> },
+    { name: "Candidates", path: "/candidates", icon: <FaUsers className="text-sm" /> },
     { name: "Applications", path: "/applications", icon: <FaFileAlt className="text-sm" /> },
-    { name: "Interviews", path: "/Interviews", icon: <FaCalendarCheck className="text-sm" /> },
+    { name: "Interviews", path: "/interviews", icon: <FaCalendarCheck className="text-sm" /> },
     { name: "Clients", path: "/clients", icon: <FaUser className="text-sm" /> },
     { name: "Website Apps", path: "/wesiteapplication", icon: <FaGlobe className="text-sm" /> },
   ];
 
-  if (role === "ADMIN") {
-    navItems.push({ name: "Users", path: "/Users", icon: <FaUserCog className="text-sm" /> });
+  if (["ADMIN", "SECONDARY_ADMIN", "RECRUITER"].includes(normalizedRole)) {
+    navItems.push({ name: "Reports", path: "/reports", icon: <FaChartBar className="text-sm" /> });
+  }
+
+  if (normalizedRole.includes("ADMIN")) {
+    navItems.push({ name: "Users", path: "/users", icon: <FaUserCog className="text-sm" /> });
   }
 
   return (
@@ -120,15 +134,16 @@ const Navbar = () => {
         </div>
         <nav className="flex-1 px-2 py-6 space-y-2 overflow-hidden">
           {navItems.map((item, idx) => (
-            <a
+            <button
               key={idx}
-              href={item.path}
+              type="button"
               className={`flex items-center px-3 py-3 rounded-xl transition-all duration-200 ${
                 currentPath === item.path
                   ? "text-white bg-gradient-to-r from-green-600 to-teal-500 shadow-md"
                   : "text-gray-600 hover:bg-green-50 hover:text-green-600"
               }`}
               title={item.name}
+              onClick={() => navigate(item.path)}
             >
               <span className="min-w-[24px] flex justify-center">
                 {item.icon}
@@ -136,7 +151,7 @@ const Navbar = () => {
               <span className="ml-3 text-sm font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                 {item.name}
               </span>
-            </a>
+            </button>
           ))}
         </nav>
       </aside>
@@ -163,19 +178,22 @@ const Navbar = () => {
             </div>
             <nav className="space-y-2">
               {navItems.map((item, idx) => (
-                <a
+                <button
                   key={idx}
-                  href={item.path}
+                  type="button"
                   className={`flex items-center px-4 py-3 rounded-xl transition-all ${
                     currentPath === item.path
                       ? "text-white bg-gradient-to-r from-green-600 to-teal-500 shadow-md"
                       : "text-gray-600 hover:bg-green-50 hover:text-green-600"
                   }`}
-                  onClick={() => setMobileNavOpen(false)}
+                  onClick={() => {
+                    navigate(item.path);
+                    setMobileNavOpen(false);
+                  }}
                 >
                   {item.icon}
                   <span className="ml-3 text-sm font-medium">{item.name}</span>
-                </a>
+                </button>
               ))}
             </nav>
 

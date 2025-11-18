@@ -5,7 +5,8 @@ const ApplicationModal = ({ application, candidates, jobs, onSave, onClose, show
   const [formData, setFormData] = useState({
     candidateId: "",
     jobId: "",
-    status: "SCHEDULED",
+    status: "NEW_CANDIDATE",
+    statusDescription: "",
     resumeFile: null,
     useMasterResume: true,
   });
@@ -29,7 +30,8 @@ const ApplicationModal = ({ application, candidates, jobs, onSave, onClose, show
       const newFormData = {
         candidateId: application.candidate?.id || '',
         jobId: application.job?.id || '',
-        status: application.status || 'PENDING',
+        status: application.status || 'NEW_CANDIDATE',
+        statusDescription: "",
         resumeFile: null,
         useMasterResume: !application.applicationResumePath, // if applicationResumePath exists, assume uploaded
       };
@@ -49,7 +51,8 @@ const ApplicationModal = ({ application, candidates, jobs, onSave, onClose, show
       const newFormData = {
         candidateId: "",
         jobId: "",
-        status: "SCHEDULED",
+        status: "NEW_CANDIDATE",
+        statusDescription: "",
         resumeFile: null,
         useMasterResume: true,
       };
@@ -111,10 +114,25 @@ const ApplicationModal = ({ application, candidates, jobs, onSave, onClose, show
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      if (file.type !== 'application/pdf') {
-        showToast('Error', 'Please select a PDF file', 'error');
+      // Validate file type
+      const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+      const allowedExtensions = ['.pdf', '.doc', '.docx'];
+      const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
+      
+      if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(fileExtension)) {
+        showToast('Error', 'Please select a PDF, DOC, or DOCX file', 'error');
+        e.target.value = ''; // Clear the input
         return;
       }
+
+      // Validate file size (5MB max)
+      const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+      if (file.size > maxSize) {
+        showToast('Error', 'File size exceeds the maximum limit of 5MB. Please upload a smaller file.', 'error');
+        e.target.value = ''; // Clear the input
+        return;
+      }
+
       setFormData(prev => ({ ...prev, resumeFile: file, useMasterResume: false }));
       setFileName(file.name);
     }
@@ -321,28 +339,53 @@ const ApplicationModal = ({ application, candidates, jobs, onSave, onClose, show
               className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
             >
+              <option value="NEW_CANDIDATE">New Candidate</option>
               <option value="PENDING">Pending</option>
               <option value="SCHEDULED">Scheduled</option>
               <option value="INTERVIEWED">Interviewed</option>
               <option value="PLACED">Placed</option>
               <option value="REJECTED">Rejected</option>
-              <option value="SUBMITTED_BY_CLIENT">Submitted by Client</option>
+              <option value="NOT_INTERESTED">Not Interested</option>
+              <option value="HOLD">Hold</option>
+              <option value="HIGH_CTC">High CTC</option>
+              <option value="DROPPED_BY_CLIENT">Dropped by Client</option>
+              <option value="SUBMITTED_TO_CLIENT">Submitted to Client</option>
+              <option value="NO_RESPONSE">No Response</option>
+              <option value="IMMEDIATE">Immediate</option>
+              <option value="REJECTED_BY_CLIENT">Rejected by Client</option>
               <option value="CLIENT_SHORTLIST">Client Shortlist</option>
-              <option value="FIRST_INTERVIEW_SCHEDULED">First Interview Scheduled</option>
-              <option value="FIRST_INTERVIEW_FEEDBACK_PENDING">First Interview Feedback Pending</option>
-              <option value="FIRST_INTERVIEW_REJECT">First Interview Reject</option>
-              <option value="SECOND_INTERVIEW_SCHEDULED">Second Interview Scheduled</option>
-              <option value="SECOND_INTERVIEW_FEEDBACK_PENDING">Second Interview Feedback Pending</option>
-              <option value="SECOND_INTERVIEW_REJECT">Second Interview Reject</option>
-              <option value="THIRD_INTERVIEW_SCHEDULED">Third Interview Scheduled</option>
-              <option value="THIRD_INTERVIEW_FEEDBACK_PENDING">Third Interview Feedback Pending</option>
-              <option value="THIRD_INTERVIEW_REJECT">Third Interview Reject</option>
-              <option value="INTERNAL_REJECT">Internal Reject</option>
+              <option value="FIRST_INTERVIEW_SCHEDULED">1st Interview Scheduled</option>
+              <option value="FIRST_INTERVIEW_FEEDBACK_PENDING">1st Interview Feedback Pending</option>
+              <option value="FIRST_INTERVIEW_REJECT">1st Interview Reject</option>
+              <option value="SECOND_INTERVIEW_SCHEDULED">2nd Interview Scheduled</option>
+              <option value="SECOND_INTERVIEW_FEEDBACK_PENDING">2nd Interview Feedback Pending</option>
+              <option value="SECOND_INTERVIEW_REJECT">2nd Interview Reject</option>
+              <option value="THIRD_INTERVIEW_SCHEDULED">3rd Interview Scheduled</option>
+              <option value="THIRD_INTERVIEW_FEEDBACK_PENDING">3rd Interview Feedback Pending</option>
+              <option value="THIRD_INTERVIEW_REJECT">3rd Interview Reject</option>
+              <option value="INTERNEL_REJECT">Internel Reject</option>
               <option value="CLIENT_REJECT">Client Reject</option>
               <option value="FINAL_SELECT">Final Select</option>
               <option value="JOINED">Joined</option>
               <option value="BACKEDOUT">Backed Out</option>
+              <option value="NOT_RELEVANT">Not Relevant</option>
             </select>
+          </div>
+
+          {/* Status Description */}
+          <div>
+            <label className="block font-medium text-gray-700 mb-1" htmlFor="statusDescription">
+              Status Description (Optional)
+            </label>
+            <textarea
+              id="statusDescription"
+              name="statusDescription"
+              value={formData.statusDescription}
+              onChange={handleChange}
+              rows="3"
+              placeholder="Add a description or notes about this status change..."
+              className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+            />
           </div>
 
           {/* Resume Upload */}
@@ -361,7 +404,7 @@ const ApplicationModal = ({ application, candidates, jobs, onSave, onClose, show
               <div className="mt-2">
                 <input
                   type="file"
-                  accept="application/pdf"
+                  accept=".pdf,.doc,.docx"
                   onChange={handleFileChange}
                   className="block w-full text-sm text-gray-500"
                 />

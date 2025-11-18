@@ -1,6 +1,8 @@
 import React, { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const InterviewsTable = ({ interviews, loading, onEditInterview, onDeleteInterview, onBulkAction }) => {
+  const navigate = useNavigate();
   const [expandedInterviewId, setExpandedInterviewId] = useState(null);
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [dateFilter, setDateFilter] = useState('ALL');
@@ -61,6 +63,25 @@ const InterviewsTable = ({ interviews, loading, onEditInterview, onDeleteIntervi
     if (interview.application?.candidate?.name) return interview.application.candidate.name;
     if (interview.candidate?.name) return interview.candidate.name;
     return 'N/A';
+  };
+
+  // Helper function to extract candidate ID
+  const getCandidateId = (interview) => {
+    // First check if candidateId is directly available
+    if (interview.candidateId) return interview.candidateId;
+    // Fallback to nested structures
+    if (interview.application?.candidate?.id) return interview.application.candidate.id;
+    if (interview.candidate?.id) return interview.candidate.id;
+    return null;
+  };
+
+  const handleViewCandidate = (interview) => {
+    const candidateId = getCandidateId(interview);
+    if (candidateId) {
+      navigate(`/candidates/${candidateId}`);
+    } else {
+      console.warn('Candidate ID not found for interview:', interview);
+    }
   };
 
   // Helper function to extract job title
@@ -176,11 +197,13 @@ const InterviewsTable = ({ interviews, loading, onEditInterview, onDeleteIntervi
       }
       
       // Search filtering
+      const lowerSearch = searchTerm.toLowerCase();
       const searchMatch = searchTerm === '' || 
-        getCandidateName(interview).toLowerCase().includes(searchTerm.toLowerCase()) ||
-        getJobTitle(interview).toLowerCase().includes(searchTerm.toLowerCase()) ||
-        getClientName(interview).toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (interview.interviewer && interview.interviewer.toLowerCase().includes(searchTerm.toLowerCase()));
+        getCandidateName(interview).toLowerCase().includes(lowerSearch) ||
+        getJobTitle(interview).toLowerCase().includes(lowerSearch) ||
+        getClientName(interview).toLowerCase().includes(lowerSearch) ||
+        (interview.interviewer && interview.interviewer.toLowerCase().includes(lowerSearch)) ||
+        (interview.id && interview.id.toString().toLowerCase().includes(lowerSearch));
       
       return statusMatch && dateMatch && searchMatch;
     });
@@ -220,9 +243,15 @@ const InterviewsTable = ({ interviews, loading, onEditInterview, onDeleteIntervi
                   <div key={interview.id} className="p-3 hover:bg-gray-50 transition-colors duration-150">
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
-                        <div className="text-sm font-medium text-gray-900">{getCandidateName(interview)}</div>
+                        <button
+                          onClick={() => handleViewCandidate(interview)}
+                          className="text-sm font-medium text-blue-600 hover:text-blue-700 underline"
+                        >
+                          {getCandidateName(interview)}
+                        </button>
                         <div className="text-xs text-gray-500 mt-1">{getJobTitle(interview)}</div>
                         <div className="text-xs text-gray-500 mt-1">Client: {getClientName(interview)}</div>
+                        <div className="text-xs text-gray-400 mt-1">ID: {interview.id}</div>
                         <div className="text-xs text-gray-400 mt-1">
                           {interview.interviewTime} - {interview.endTime} • {duration} • {interview.interviewer || 'No interviewer'}
                         </div>
@@ -293,7 +322,7 @@ const InterviewsTable = ({ interviews, loading, onEditInterview, onDeleteIntervi
             <div className="relative">
               <input
                 type="text"
-                placeholder="Search interviews..."
+                placeholder="Search by candidate, job, or interview ID..."
                 className="w-full md:w-64 pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -412,8 +441,17 @@ const InterviewsTable = ({ interviews, loading, onEditInterview, onDeleteIntervi
                       <tr className="hover:bg-gray-50 transition-colors duration-150">
                         <td className="px-6 py-4">
                           <div className="min-w-0">
-                            <div className="text-sm font-semibold text-gray-900 truncate">{candidateName}</div>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleViewCandidate(interview);
+                              }}
+                              className="text-sm font-semibold text-blue-600 hover:text-blue-700 underline truncate block"
+                            >
+                              {candidateName}
+                            </button>
                             <div className="text-sm text-gray-600 truncate">{jobTitle}</div>
+                            <div className="text-xs text-gray-500 mt-1">ID: {interview.id}</div>
                           </div>
                         </td>
                         <td className="px-6 py-4">

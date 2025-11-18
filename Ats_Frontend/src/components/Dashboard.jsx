@@ -16,13 +16,17 @@ import {
   FaBell,
   FaArrowUp,
   FaArrowDown,
-  FaGlobe
+  FaGlobe,
+  FaChartBar
 } from "react-icons/fa";
 import { notificationAPI, jobAPI, candidateAPI, interviewAPI, applicationAPI, authAPI } from "../api/api";
 import logo from "../assets/logo.png";
 
 // Desktop Navigation Component
+const normalizeRole = (role) => (role || "").replace("ROLE_", "");
+
 const DesktopNav = ({ role, currentPath }) => {
+  const normalizedRole = normalizeRole(role);
   const navItems = [
     { name: "Dashboard", path: "/dashboard", icon: <FaChartLine className="text-lg" /> },
     { name: "Jobs", path: "/jobs", icon: <FaBriefcase className="text-lg" /> },
@@ -33,7 +37,15 @@ const DesktopNav = ({ role, currentPath }) => {
     { name: "Website Applications", path: "/wesiteapplication", icon: <FaGlobe className="text-lg" /> },
   ];
 
-  if (role === "ADMIN") {
+  if (["ADMIN", "SECONDARY_ADMIN", "RECRUITER"].includes(normalizedRole.toUpperCase())) {
+    navItems.push({
+      name: "Reports",
+      path: "/reports",
+      icon: <FaChartBar className="text-lg" />
+    });
+  }
+
+  if (normalizedRole.toUpperCase().includes("ADMIN")) {
     navItems.push({ 
       name: "User Management", 
       path: "/Users", 
@@ -70,12 +82,12 @@ const DesktopNav = ({ role, currentPath }) => {
         <div className="flex items-center px-2 py-3 text-gray-600 dark:text-gray-300">
           <div className="flex-shrink-0">
             <div className="w-10 h-10 rounded-full bg-gradient-to-r from-indigo-100 to-purple-100 dark:from-indigo-900 dark:to-purple-900 flex items-center justify-center text-indigo-600 dark:text-indigo-200 font-bold shadow-inner">
-              {role.charAt(0)}
+              {normalizedRole.charAt(0)}
             </div>
           </div>
           <div className="ml-3">
             <p className="text-sm font-medium">User Account</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">{role.toLowerCase()}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">{normalizedRole.toLowerCase()}</p>
           </div>
         </div>
       </div>
@@ -85,16 +97,25 @@ const DesktopNav = ({ role, currentPath }) => {
 
 // Mobile Navigation Component
 const MobileNav = ({ role, mobileNavOpen, setMobileNavOpen, currentPath }) => {
+    const normalizedRole = normalizeRole(role);
   const navItems = [
     { name: "Dashboard", path: "/dashboard", icon: <FaChartLine className="text-lg" /> },
     { name: "Jobs", path: "/jobs", icon: <FaBriefcase className="text-lg" /> },
     { name: "Candidates", path: "/Candidates", icon: <FaUsers className="text-lg" /> },
     { name: "Applications", path: "/applications", icon: <FaFileAlt className="text-lg" /> },
-    { name: "Interviews", path: "/interview", icon: <FaCalendarCheck className="text-lg" /> },
+    { name: "Interviews", path: "/Interviews", icon: <FaCalendarCheck className="text-lg" /> },
     { name: "Clients", path: "/clients", icon: <FaUser className="text-lg" /> },
   ];
 
-  if (role === "ADMIN") {
+  if (["ADMIN", "SECONDARY_ADMIN", "RECRUITER"].includes(normalizedRole.toUpperCase())) {
+    navItems.push({
+      name: "Reports",
+      path: "/reports",
+      icon: <FaChartBar className="text-lg" />
+    });
+  }
+
+  if (normalizedRole.toUpperCase().includes("ADMIN")) {
     navItems.push({ 
       name: "User Management", 
       path: "/user", 
@@ -144,12 +165,12 @@ const MobileNav = ({ role, mobileNavOpen, setMobileNavOpen, currentPath }) => {
               <div className="flex items-center px-2 py-3 text-gray-600 dark:text-gray-300">
                 <div className="flex-shrink-0">
                   <div className="w-10 h-10 rounded-full bg-gradient-to-r from-indigo-100 to-purple-100 dark:from-indigo-900 dark:to-purple-900 flex items-center justify-center text-indigo-600 dark:text-indigo-200 font-bold">
-                    {role.charAt(0)}
+                    {normalizedRole.charAt(0)}
                   </div>
                 </div>
                 <div className="ml-3">
                   <p className="text-sm font-medium">User Account</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">{role.toLowerCase()}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">{normalizedRole.toLowerCase()}</p>
                 </div>
                 </div>
             </div>
@@ -161,7 +182,9 @@ const MobileNav = ({ role, mobileNavOpen, setMobileNavOpen, currentPath }) => {
 };
 
 // Header Component
-const Header = ({ role, handleLogout, setMobileNavOpen }) => {
+const Header = ({ role, handleLogout, setMobileNavOpen, displayName }) => {
+  const navigate = useNavigate();
+  const normalizedRole = normalizeRole(role);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [showNotificationDropdown, setShowNotificationDropdown] = useState(false);
@@ -357,18 +380,27 @@ const Header = ({ role, handleLogout, setMobileNavOpen }) => {
         </div>
         
         <div className="hidden md:flex items-center space-x-2 bg-indigo-50 dark:bg-gray-700 rounded-lg px-3 py-1.5">
+          {normalizedRole.toUpperCase().includes("ADMIN") && (
+            <button
+              onClick={() => navigate("/Users")}
+              className="mr-3 inline-flex items-center gap-2 text-xs font-semibold text-indigo-600 dark:text-indigo-300 hover:text-indigo-800 dark:hover:text-indigo-100 bg-white dark:bg-gray-800 border border-indigo-100 dark:border-indigo-700 rounded-full px-3 py-1 transition-colors duration-200"
+            >
+              <FaUserCog className="text-sm" />
+              Manage Users
+            </button>
+          )}
           <span
             className={`px-2 py-1 text-xs font-semibold rounded-full ${
-              role === "ADMIN"
+              normalizedRole.toUpperCase() === "ADMIN"
                 ? "text-red-800 bg-red-100 dark:text-red-300 dark:bg-red-900"
                 : "text-blue-800 bg-blue-100 dark:text-blue-300 dark:bg-blue-900"
             }`}
           >
-            {role}
+            {normalizedRole || "User"}
           </span>
           <span className="text-sm text-gray-600 dark:text-gray-400">|</span>
           <button className="text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 text-sm flex items-center transition-colors duration-200">
-            Admin User <FaChevronDown className="ml-1 text-xs" />
+            {displayName || "User"} <FaChevronDown className="ml-1 text-xs" />
           </button>
         </div>
         
@@ -469,6 +501,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [role, setRole] = useState("");
+  const [displayName, setDisplayName] = useState("");
   const [stats, setStats] = useState({
     jobs: "--",
     candidates: "--",
@@ -510,13 +543,16 @@ const Dashboard = () => {
       document.documentElement.classList.remove('dark');
     }
 
-    const userRole = localStorage.getItem("role");
-    if (!userRole) {
+    const storedRole = localStorage.getItem("role");
+    if (!storedRole) {
       alert("User role not found. Please log in again.");
       window.location.href = "/";
       return;
     }
-    setRole(userRole);
+    const normalizedRole = normalizeRole(storedRole);
+    setRole(normalizedRole);
+    const storedUsername = localStorage.getItem("username") || "";
+    setDisplayName(storedUsername);
 
     // Set current date
     const date = new Date();
@@ -561,7 +597,20 @@ const Dashboard = () => {
       },
     ];
 
-    if (userRole === "ADMIN") {
+    if (normalizedRole && ["ADMIN", "SECONDARY_ADMIN", "RECRUITER"].includes(normalizedRole.toUpperCase())) {
+      baseCards.push({
+        title: "Reports",
+        text:
+          normalizedRole.toUpperCase() === "RECRUITER"
+            ? "Review your candidate, application, and interview activity."
+            : "Monitor recruiter performance and workload.",
+        btn: "Open Reports",
+        link: "/reports",
+        icon: <FaChartBar className="text-md" />,
+      });
+    }
+
+    if (normalizedRole.toUpperCase().includes("ADMIN")) {
       baseCards.push({
         title: "User Management",
         text: "Manage admin and recruiter accounts.",
@@ -665,7 +714,12 @@ const Dashboard = () => {
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
-        <Header role={role} handleLogout={handleLogout} setMobileNavOpen={setMobileNavOpen} />
+        <Header
+          role={role}
+          handleLogout={handleLogout}
+          setMobileNavOpen={setMobileNavOpen}
+          displayName={displayName}
+        />
         
         {/* Mobile Navigation */}
         <MobileNav 

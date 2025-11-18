@@ -1,17 +1,52 @@
 import React from 'react';
 
+const formatYears = (value) => {
+  if (!value) return null;
+  const normalized = value.toString().trim();
+  if (!normalized) return null;
+  const hasYears = /\b(?:years?|yrs?)\b/i.test(normalized);
+  if (!hasYears) {
+    return `${normalized} years`;
+  }
+  return normalized.replace(/\s+/g, ' ');
+};
+
 const CandidateCard = ({ candidate, onEdit, onDelete }) => {
   const getStatusColor = (status) => {
     const statusColors = {
-      'NEW_CANDIDATE': 'bg-emerald-100 text-emerald-800',
-      'SCHEDULED': 'bg-yellow-100 text-yellow-800',
-      'INTERVIEWED': 'bg-blue-100 text-blue-800',
-      'PLACED': 'bg-green-100 text-green-800',
-      'REJECTED': 'bg-red-100 text-red-800',
-      'PENDING': 'bg-gray-100 text-gray-800'
+      NEW_CANDIDATE: 'bg-emerald-100 text-emerald-800',
+      SCHEDULED: 'bg-yellow-100 text-yellow-800',
+      INTERVIEWED: 'bg-blue-100 text-blue-800',
+      PLACED: 'bg-green-100 text-green-800',
+      REJECTED: 'bg-red-100 text-red-800',
+      PENDING: 'bg-gray-100 text-gray-800',
+      NOT_INTERESTED: 'bg-gray-100 text-gray-800',
+      HOLD: 'bg-amber-100 text-amber-800',
+      HIGH_CTC: 'bg-rose-100 text-rose-800',
+      DROPPED_BY_CLIENT: 'bg-red-100 text-red-800',
+      SUBMITTED_TO_CLIENT: 'bg-indigo-100 text-indigo-800',
+      NO_RESPONSE: 'bg-orange-100 text-orange-800',
+      IMMEDIATE: 'bg-emerald-100 text-emerald-800',
+      REJECTED_BY_CLIENT: 'bg-rose-100 text-rose-700',
+      NOT_RELEVANT: 'bg-gray-100 text-gray-800'
     };
     return statusColors[status] || 'bg-gray-100 text-gray-800';
   };
+
+  const statusLabelMap = {
+    SUBMITTED_TO_CLIENT: 'Submitted to Client',
+    NO_RESPONSE: 'No Response',
+    IMMEDIATE: 'Immediate',
+    REJECTED_BY_CLIENT: 'Rejected by Client'
+  };
+
+  const getStatusLabel = (status) =>
+    statusLabelMap[status] ||
+    status
+      ?.toLowerCase()
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
 
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
@@ -22,7 +57,7 @@ const CandidateCard = ({ candidate, onEdit, onDelete }) => {
             <p className="text-gray-600 text-sm">{candidate.email}</p>
           </div>
           <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(candidate.status)}`}>
-            {candidate.status}
+            {getStatusLabel(candidate.status)}
           </span>
         </div>
 
@@ -30,6 +65,17 @@ const CandidateCard = ({ candidate, onEdit, onDelete }) => {
           <div className="flex items-center text-sm text-gray-600">
             <i className="fas fa-phone-alt mr-2 w-4"></i>
             <span>{candidate.phone || 'Not provided'}</span>
+          </div>
+          <div className="flex items-center text-sm text-gray-600">
+            <i className="fas fa-user-tag mr-2 w-4"></i>
+            <span>
+              {candidate.createdByUsername || 'Owner N/A'}
+              {candidate.createdAt && (
+                <span className="text-xs text-gray-400 ml-2">
+                  {new Date(candidate.createdAt).toLocaleDateString()}
+                </span>
+              )}
+            </span>
           </div>
           
           {candidate.skills && (
@@ -39,10 +85,10 @@ const CandidateCard = ({ candidate, onEdit, onDelete }) => {
             </div>
           )}
 
-          {candidate.experience && (
+          {candidate.experience && formatYears(candidate.experience) && (
             <div className="flex items-center text-sm text-gray-600">
               <i className="fas fa-briefcase mr-2 w-4"></i>
-              <span>{candidate.experience} years experience</span>
+              <span>{formatYears(candidate.experience)}</span>
             </div>
           )}
         </div>

@@ -1,8 +1,14 @@
 // components/DeleteConfirmationModal.jsx
 const DeleteConfirmationModal = ({ title, message, onConfirm, onClose }) => {
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+    <div
+      className="fixed inset-0 bg-gray-900/85 flex items-center justify-center z-50 transition-opacity"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-md border border-gray-100"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="p-6">
           <h2 className="text-xl font-bold text-gray-800 mb-4">
             {title}

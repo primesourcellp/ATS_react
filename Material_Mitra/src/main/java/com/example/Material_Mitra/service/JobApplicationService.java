@@ -2,21 +2,31 @@ package com.example.Material_Mitra.service;
 
 import java.io.IOException;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.example.Material_Mitra.dto.DTOMapper;
 import com.example.Material_Mitra.dto.JobApplicationDTO;
+import com.example.Material_Mitra.entity.ApplicationStatusHistory;
 import com.example.Material_Mitra.entity.Candidate;
 import com.example.Material_Mitra.entity.Job;
 import com.example.Material_Mitra.entity.JobApplication;
+import com.example.Material_Mitra.entity.User;
 import com.example.Material_Mitra.enums.ResultStatus;
+import com.example.Material_Mitra.repository.ApplicationStatusHistoryRepository;
 import com.example.Material_Mitra.repository.CandidateRepository;
 import com.example.Material_Mitra.repository.JobApplicationRepository;
 import com.example.Material_Mitra.repository.JobRepository;
+import com.example.Material_Mitra.repository.UserRepository;
 
 @Service
 public class JobApplicationService {
@@ -25,22 +35,33 @@ public class JobApplicationService {
     private final CandidateRepository candidateRepository;
     private final JobRepository jobRepository;
     private final S3FileStorageService fileStorageService;
+    private final UserRepository userRepository;
+    private final ApplicationStatusHistoryRepository statusHistoryRepository;
 
     public JobApplicationService(JobApplicationRepository jobApplicationRepository,
                                  CandidateRepository candidateRepository,
                                  JobRepository jobRepository,
-                                 S3FileStorageService fileStorageService) {
+                                 S3FileStorageService fileStorageService,
+                                 UserRepository userRepository,
+                                 ApplicationStatusHistoryRepository statusHistoryRepository) {
         this.jobApplicationRepository = jobApplicationRepository;
         this.candidateRepository = candidateRepository;
         this.jobRepository = jobRepository;
         this.fileStorageService = fileStorageService;
+        this.userRepository = userRepository;
+        this.statusHistoryRepository = statusHistoryRepository;
     }
 
     // ✅ Apply for job
     public JobApplication createApplication(Long candidateId, Long jobId,
                                             ResultStatus status,
+                                            String statusDescription,
                                             MultipartFile resumeFile,
                                             boolean useMasterResume) throws IOException {
+        if (jobApplicationRepository.existsByCandidateIdAndJobId(candidateId, jobId)) {
+            throw new IllegalStateException("Candidate is already assigned to this job.");
+        }
+
         Candidate candidate = candidateRepository.findById(candidateId)
                 .orElseThrow(() -> new RuntimeException("Candidate not found"));
         Job job = jobRepository.findById(jobId)
@@ -49,9 +70,32 @@ public class JobApplicationService {
         JobApplication app = new JobApplication();
         app.setCandidate(candidate);
         app.setJob(job);
-        app.setStatus(status != null ? status : ResultStatus.SCHEDULED);
+        app.setStatus(status != null ? status : ResultStatus.NEW_CANDIDATE);
         app.setAppliedAt(LocalDate.now());
         app.setCandidateName(candidate.getName());
+        resolveCurrentUser().ifPresent(user -> {
+            app.setCreatedBy(user);
+            app.setCreatedByUserId(user.getId());
+            app.setCreatedByName(user.getUsername());
+            app.setCreatedByEmail(user.getEmail());
+        });
+        if (app.getCreatedBy() != null) {
+            if (app.getCreatedByUserId() == null) {
+                app.setCreatedByUserId(app.getCreatedBy().getId());
+            }
+            if (app.getCreatedByName() == null || app.getCreatedByName().isBlank()) {
+                app.setCreatedByName(app.getCreatedBy().getUsername());
+            }
+            if (app.getCreatedByEmail() == null || app.getCreatedByEmail().isBlank()) {
+                app.setCreatedByEmail(app.getCreatedBy().getEmail());
+            }
+        }
+        if (app.getCreatedByName() == null) {
+            app.setCreatedByName(candidate.getCreatedByName());
+        }
+        if (app.getCreatedByEmail() == null) {
+            app.setCreatedByEmail(candidate.getCreatedByEmail());
+        }
 
         if (resumeFile != null && !resumeFile.isEmpty()) {
             String resumePath = fileStorageService.storeFile(resumeFile, "resumes/applications");
@@ -62,7 +106,12 @@ public class JobApplicationService {
             app.setUseMasterResume(true);
         }
 
-        return jobApplicationRepository.save(app);
+        JobApplication savedApp = jobApplicationRepository.save(app);
+        
+        // Create initial status history entry
+        createStatusHistory(savedApp, status, statusDescription);
+        
+        return savedApp;
     }
 
     // ✅ Get all
@@ -73,19 +122,61 @@ public class JobApplicationService {
     }
 
     // ✅ Get one
+    @Transactional
     public JobApplicationDTO getApplicationById(Long id) {
         JobApplication app = jobApplicationRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Application not found"));
+        
+        // Fetch status history separately to avoid lazy loading issues
+        List<ApplicationStatusHistory> history = statusHistoryRepository.findByApplicationIdOrderByChangedAtDesc(id);
+        if (history != null && !history.isEmpty()) {
+            history.forEach(h -> h.setApplication(app));
+            List<ApplicationStatusHistory> existing = app.getStatusHistory();
+            if (existing == null) {
+                existing = new ArrayList<>();
+                app.setStatusHistory(existing);
+            } else {
+                existing.clear();
+            }
+            existing.addAll(history);
+        }
+        
+        // Ensure interviews are loaded (they should be eager, but just in case)
+        if (app.getInterviews() != null) {
+            app.getInterviews().size(); // Force lazy loading
+        }
+        
         return DTOMapper.toJobApplicationDTO(app);
     }
 
     // ✅ Update
     public JobApplication updateApplication(Long id, ResultStatus status,
+                                            String statusDescription,
                                             MultipartFile resumeFile) throws IOException {
         JobApplication app = jobApplicationRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Application not found"));
 
-        if (status != null) app.setStatus(status);
+        // Check if current user is the one who assigned the job
+        if (status != null) {
+            Optional<User> currentUserOpt = resolveCurrentUser();
+            if (currentUserOpt.isPresent()) {
+                User currentUser = currentUserOpt.get();
+                String currentUsername = currentUser.getUsername();
+                String assignedByUsername = app.getCreatedByName() != null ? app.getCreatedByName() : 
+                    (app.getCreatedBy() != null ? app.getCreatedBy().getUsername() : null);
+                
+                if (assignedByUsername == null || !assignedByUsername.trim().equalsIgnoreCase(currentUsername.trim())) {
+                    throw new RuntimeException("Only the user who assigned this job to the candidate can change the application status.");
+                }
+            }
+        }
+
+        ResultStatus oldStatus = app.getStatus();
+        if (status != null && status != oldStatus) {
+            app.setStatus(status);
+            // Create status history entry when status changes
+            createStatusHistory(app, status, statusDescription);
+        }
         if (resumeFile != null && !resumeFile.isEmpty()) {
             // Delete old resume if exists
             if (app.getApplicationResumePath() != null) {
@@ -104,6 +195,19 @@ public class JobApplicationService {
     public void deleteApplication(Long id) {
         JobApplication app = jobApplicationRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Application not found"));
+        
+        // Check if current user is the one who assigned the job
+        Optional<User> currentUserOpt = resolveCurrentUser();
+        if (currentUserOpt.isPresent()) {
+            User currentUser = currentUserOpt.get();
+            String currentUsername = currentUser.getUsername();
+            String assignedByUsername = app.getCreatedByName() != null ? app.getCreatedByName() : 
+                (app.getCreatedBy() != null ? app.getCreatedBy().getUsername() : null);
+            
+            if (assignedByUsername == null || !assignedByUsername.trim().equalsIgnoreCase(currentUsername.trim())) {
+                throw new RuntimeException("Only the user who assigned this job to the candidate can delete the application.");
+            }
+        }
         
         // Check if application has interviews
         if (app.getInterviews() != null && !app.getInterviews().isEmpty()) {
@@ -194,5 +298,34 @@ public class JobApplicationService {
     // ✅ Get total application count
     public long getApplicationCount() {
         return jobApplicationRepository.count();
+    }
+
+    private Optional<User> resolveCurrentUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return Optional.empty();
+        }
+        String username = authentication.getName();
+        if (username == null || "anonymousUser".equalsIgnoreCase(username)) {
+            return Optional.empty();
+        }
+        return userRepository.findByUsername(username);
+    }
+
+    private void createStatusHistory(JobApplication application, ResultStatus status, String description) {
+        ApplicationStatusHistory history = new ApplicationStatusHistory();
+        history.setApplication(application);
+        history.setStatus(status);
+        history.setDescription(description != null && !description.isBlank() ? description : null);
+        history.setChangedAt(LocalDateTime.now());
+        
+        resolveCurrentUser().ifPresent(user -> {
+            history.setChangedBy(user);
+            history.setChangedByUserId(user.getId());
+            history.setChangedByName(user.getUsername());
+            history.setChangedByEmail(user.getEmail());
+        });
+        
+        statusHistoryRepository.save(history);
     }
 }

@@ -20,9 +20,13 @@ const UserManagement = () => {
   const [stats, setStats] = useState({
     total: 0,
     admins: 0,
+    secondaryAdmins: 0,
     recruiters: 0,
     users: 0
   });
+  const [userPendingDeletion, setUserPendingDeletion] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+  const normalizeRole = (role) => (role || '').replace('ROLE_', '');
 
   useEffect(() => {
     const role = localStorage.getItem("role")?.replace("ROLE_", "") || "";
@@ -56,13 +60,13 @@ const UserManagement = () => {
       result = result.filter(user => 
         (user.username && user.username.toLowerCase().includes(term)) ||
         (user.email && user.email.toLowerCase().includes(term)) ||
-        (user.role && user.role.toLowerCase().includes(term))
+        (normalizeRole(user.role).toLowerCase().includes(term))
       );
     }
 
     // Filter by role
     if (roleFilter !== 'all') {
-      result = result.filter(user => user.role === roleFilter);
+      result = result.filter(user => normalizeRole(user.role) === roleFilter);
     }
 
     // Sort users
@@ -86,11 +90,12 @@ const UserManagement = () => {
 
   const calculateStats = () => {
     const total = users.length;
-    const admins = users.filter(user => user.role === 'ADMIN').length;
-    const recruiters = users.filter(user => user.role === 'RECRUITER').length;
-    const subUsers = users.filter(user => user.role === 'SUB_USER').length;
+    const admins = users.filter(user => normalizeRole(user.role) === 'ADMIN').length;
+    const secondaryAdmins = users.filter(user => normalizeRole(user.role) === 'SECONDARY_ADMIN').length;
+    const recruiters = users.filter(user => normalizeRole(user.role) === 'RECRUITER').length;
+    const subUsers = users.filter(user => normalizeRole(user.role) === 'SUB_USER').length;
     
-    setStats({ total, admins, recruiters, users: subUsers });
+    setStats({ total, admins, secondaryAdmins, recruiters, users: subUsers });
   };
 
   const handleAddUser = () => {
@@ -103,15 +108,29 @@ const UserManagement = () => {
     setShowUserForm(true);
   };
 
-  const handleDeleteUser = async (id) => {
-    if (window.confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
-      try {
-        await userAPI.delete(id);
-        showToast('Success', 'User deleted successfully', 'success');
-        loadUsers();
-      } catch (error) {
-        showToast('Error', error.message || 'Failed to delete user', 'error');
-      }
+  const requestDeleteUser = (user) => {
+    setUserPendingDeletion(user);
+  };
+
+  const cancelDeleteUser = () => {
+    setUserPendingDeletion(null);
+    setDeleting(false);
+  };
+
+  const confirmDeleteUser = async () => {
+    if (!userPendingDeletion || deleting) {
+      return;
+    }
+    try {
+      setDeleting(true);
+      await userAPI.delete(userPendingDeletion.id);
+      showToast('Success', 'User deleted successfully', 'success');
+      setUserPendingDeletion(null);
+      loadUsers();
+    } catch (error) {
+      showToast('Error', error.message || 'Failed to delete user', 'error');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -130,6 +149,9 @@ const UserManagement = () => {
         switch (userData.role) {
           case 'ADMIN':
             await userAPI.createAdmin(userData);
+            break;
+          case 'SECONDARY_ADMIN':
+            await userAPI.createSecondaryAdmin(userData);
             break;
           case 'RECRUITER':
             await userAPI.createRecruiter(userData);
@@ -180,7 +202,7 @@ const UserManagement = () => {
         user.id,
         `"${user.username}"`,
         `"${user.email}"`,
-        user.role,
+        normalizeRole(user.role),
         user.status || 'Active',
         user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'
       ].join(','))
@@ -228,7 +250,7 @@ const UserManagement = () => {
         </div>
 
         {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
           <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
             <div className="flex items-center">
               <div className="rounded-lg bg-blue-100 p-3">
@@ -253,6 +275,20 @@ const UserManagement = () => {
               <div className="ml-4">
                 <h3 className="text-sm font-medium text-gray-600">Admins</h3>
                 <p className="text-2xl font-semibold text-gray-900">{stats.admins}</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+            <div className="flex items-center">
+              <div className="rounded-lg bg-indigo-100 p-3">
+                <svg className="h-6 w-6 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 11c0 1.105-.672 2-1.5 2S9 12.105 9 11s.672-2 1.5-2S12 9.895 12 11zm0 0c0 1.105.672 2 1.5 2S15 12.105 15 11s-.672-2-1.5-2S12 9.895 12 11zm-6 8h12a2 2 0 002-2v-.5c0-1.657-1.343-3-3-3H9a3 3 0 00-3 3v.5a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <div className="ml-4">
+                <h3 className="text-sm font-medium text-gray-600">Secondary Admins</h3>
+                <p className="text-2xl font-semibold text-gray-900">{stats.secondaryAdmins}</p>
               </div>
             </div>
           </div>
@@ -316,6 +352,7 @@ const UserManagement = () => {
               >
                 <option value="all">All Roles</option>
                 <option value="ADMIN">Admin</option>
+              <option value="SECONDARY_ADMIN">Secondary Admin</option>
                 <option value="RECRUITER">Recruiter</option>
                 <option value="SUB_USER">User</option>
               </select>
@@ -355,7 +392,7 @@ const UserManagement = () => {
             users={filteredUsers}
             loading={loading}
             onEditUser={handleEditUser}
-            onDeleteUser={handleDeleteUser}
+            onDeleteUser={requestDeleteUser}
             searchTerm={searchTerm}
           />
         </div>
@@ -369,6 +406,7 @@ const UserManagement = () => {
               setShowUserForm(false);
               setSelectedUser(null);
             }}
+            currentUserRole={userRole}
           />
         )}
 
@@ -385,6 +423,44 @@ const UserManagement = () => {
           ))}
         </div>
       </main>
+
+      {userPendingDeletion && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900 bg-opacity-50 px-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Delete User</h3>
+              <button
+                onClick={cancelDeleteUser}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <span className="sr-only">Close</span>
+                ×
+              </button>
+            </div>
+            <p className="text-sm text-gray-600 mb-6">
+              Are you sure you want to delete{' '}
+              <span className="font-medium text-gray-900">{userPendingDeletion.username}</span>
+              ? This will keep their history on candidates, applications, and interviews, but they will no longer be able to sign in.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={cancelDeleteUser}
+                className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                disabled={deleting}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDeleteUser}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-60"
+                disabled={deleting}
+              >
+                {deleting ? 'Deleting…' : 'Delete User'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

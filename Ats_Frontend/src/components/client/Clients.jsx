@@ -1,5 +1,6 @@
 // components/ClientManagement.jsx
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Navbar from '../../layout/navbar';
 import Toast from '../toast/Toast';
 import ClientTable from './ClientTable';
@@ -7,6 +8,7 @@ import ClientModal from './ClientModal';
 import ClientJobsModal from './ClientJobsModal';
 import DeleteConfirmationModal from './DeleteConfirmationModal';
 import JobDetailsModal from '../job/JobDetailsModal';
+import CandidateListModal from '../job/CandidateListModal';
 import { clientAPI, jobAPI } from '../../api/api';
 
 const ClientManagement = () => {
@@ -19,11 +21,13 @@ const ClientManagement = () => {
   const [showJobDeleteModal, setShowJobDeleteModal] = useState(false);
   const [showJobDetails, setShowJobDetails] = useState(false);
   const [selectedJob, setSelectedJob] = useState(null);
+  const [showJobCandidates, setShowJobCandidates] = useState(false);
   const [toasts, setToasts] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState('');
   const [currentJobId, setCurrentJobId] = useState(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const role = localStorage.getItem("role")?.replace("ROLE_", "") || "";
@@ -63,8 +67,24 @@ const ClientManagement = () => {
     }
 
     const result = clients.filter(client =>
-      Object.values(client).some(value =>
-        value && value.toString().toLowerCase().includes(term)
+      client &&
+      (
+        Object.values(client).some(value =>
+          value && value.toString().toLowerCase().includes(term)
+        ) ||
+        (client.jobs && Array.isArray(client.jobs) && client.jobs.some(job =>
+          [
+            job.jobName,
+            // job.jobLocation,
+            // job.skillsname,
+            // job.status,
+            // job.jobDiscription,
+            // job.jobExperience,
+            // job.jobSalaryRange
+          ].some(field =>
+            field && field.toString().toLowerCase().includes(term)
+          )
+        ))
       )
     );
 
@@ -105,6 +125,19 @@ const ClientManagement = () => {
     setShowJobDetails(true);
   };
 
+  const handleViewJobCandidates = (job) => {
+    setSelectedJob(job);
+    setShowJobDetails(false);
+    setShowJobCandidates(true);
+  };
+
+  const handleViewCandidateDetails = (candidate) => {
+    setShowJobCandidates(false);
+    if (candidate?.id) {
+      navigate(`/candidates/${candidate.id}`);
+    }
+  };
+
   const confirmDeleteClient = async () => {
     try {
       await clientAPI.delete(selectedClient.id);
@@ -112,7 +145,11 @@ const ClientManagement = () => {
       setShowDeleteModal(false);
       loadClients();
     } catch (error) {
-      showToast('Error', error.message || 'Failed to delete client', 'error');
+      let message = error?.message || 'Failed to delete client';
+      if (message.toLowerCase().includes('existing jobs')) {
+        message = 'This client still has jobs assigned. Please move or delete their jobs before removing the client.';
+      }
+      showToast('Heads up', message, 'warning');
     }
   };
 
@@ -262,10 +299,17 @@ const ClientManagement = () => {
               setShowJobDetails(false);
               setSelectedJob(null);
             }}
-            onViewCandidates={() => {
-              // Optional: Add candidate viewing functionality if needed
-              console.log('View candidates for job:', selectedJob.id);
+            onViewCandidates={handleViewJobCandidates}
+          />
+        )}
+
+        {showJobCandidates && selectedJob && (
+          <CandidateListModal
+            job={selectedJob}
+            onClose={() => {
+              setShowJobCandidates(false);
             }}
+            onViewCandidate={handleViewCandidateDetails}
           />
         )}
 

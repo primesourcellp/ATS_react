@@ -17,8 +17,6 @@ const WebsiteApplication = () => {
   const [selectedJobFilter, setSelectedJobFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortBy, setSortBy] = useState('newest');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(10);
 
   useEffect(() => {
     const role = localStorage.getItem("role")?.replace("ROLE_", "") || "";
@@ -59,6 +57,7 @@ const WebsiteApplication = () => {
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       result = result.filter(app => 
+        (app.id && app.id.toString().includes(term)) ||
         (app.applierName && app.applierName.toLowerCase().includes(term)) ||
         (app.email && app.email.toLowerCase().includes(term)) ||
         (app.phoneNumber && app.phoneNumber.includes(term)) ||
@@ -119,13 +118,8 @@ const WebsiteApplication = () => {
     });
   };
 
-  // Pagination logic
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = filteredApplications.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(filteredApplications.length / itemsPerPage);
-
-  const paginate = (pageNumber) => setCurrentPage(pageNumber);
+  // Display all filtered applications
+  const currentItems = filteredApplications;
 
   const getStatusBadge = (status) => {
     const statusConfig = {
@@ -344,13 +338,16 @@ const WebsiteApplication = () => {
                               </span>
                             </div>
                             <div className="ml-4">
-                              <div className="text-sm font-medium text-gray-900">
+                          <div className="text-sm font-medium text-gray-900">
                                 <button
                                   onClick={() => handleViewDetails(application)}
-                                  className="hover:text-blue-600 focus:outline-none focus:underline"
+                                  className="text-blue-600 hover:text-blue-700 focus:outline-none underline"
                                 >
                                   {application.applierName || 'N/A'}
                                 </button>
+                              </div>
+                              <div className="text-xs text-gray-400">
+                                ID: {application.id}
                               </div>
                               <div className="text-sm text-gray-500">
                                 {application.currentLocation || 'Location not specified'}

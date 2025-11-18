@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { clientAPI, jobAPI } from '../../api/api';
 import Navbar from "../../layout/navbar";
 import Toast from '../toast/Toast';
-import CandidateDetailsModal from './CandidateDetailsModal';
 import CandidateListModal from './CandidateListModal';
 import EditJobModal from './EditJobModal';
 import JobDetailsModal from './JobDetailsModal';
@@ -17,7 +17,6 @@ const JobManagement = () => {
   const [showJobForm, setShowJobForm] = useState(false);
   const [showJobDetails, setShowJobDetails] = useState(false);
   const [showCandidateList, setShowCandidateList] = useState(false);
-  const [showCandidateDetails, setShowCandidateDetails] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [toasts, setToasts] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -29,6 +28,7 @@ const JobManagement = () => {
   const [userRole, setUserRole] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const role = localStorage.getItem("role")?.replace("ROLE_", "") || "";
@@ -438,7 +438,10 @@ const JobManagement = () => {
             jobs={currentItems}
             loading={loading}
             onSelectJob={handleJobSelect}
-            onEditJob={handleEditJob}
+            onEditJob={(job) => {
+              setShowJobDetails(false);
+              handleEditJob(job);
+            }}
             onDeleteJob={handleDeleteJob}
           />
           
@@ -496,6 +499,10 @@ const JobManagement = () => {
             job={selectedJob}
             onClose={() => setShowJobDetails(false)}
             onViewCandidates={handleViewCandidates}
+            onEditJob={(job) => {
+              setShowJobDetails(false);
+              handleEditJob(job);
+            }}
           />
         )}
 
@@ -504,17 +511,11 @@ const JobManagement = () => {
             job={selectedJob}
             onClose={() => setShowCandidateList(false)}
             onViewCandidate={(candidate) => {
-              setSelectedJob({ ...selectedJob, candidate });
-              setShowCandidateDetails(true);
+              setShowCandidateList(false);
+              if (candidate?.id) {
+                navigate(`/candidates/${candidate.id}`);
+              }
             }}
-          />
-        )}
-
-        {showCandidateDetails && selectedJob && selectedJob.candidate && (
-          <CandidateDetailsModal
-            candidate={selectedJob.candidate}
-            jobId={selectedJob.id}
-            onClose={() => setShowCandidateDetails(false)}
           />
         )}
 

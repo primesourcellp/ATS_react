@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.example.Material_Mitra.dto.DTOMapper;
 import com.example.Material_Mitra.dto.JobApplicationDTO;
@@ -36,20 +37,54 @@ public class JobApplicationController {
     }
 
     // ✅ Apply for job
-    @PostMapping("/apply/{candidateId}/job/{jobId}")
-    public ResponseEntity<JobApplicationDTO> applyForJob(
+    @PostMapping(value = "/apply/{candidateId}/job/{jobId}")
+    public ResponseEntity<?> applyForJob(
             @PathVariable Long candidateId,
             @PathVariable Long jobId,
-            @RequestParam(defaultValue = "SCHEDULED") String status,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String statusDescription,
             @RequestParam(required = false) MultipartFile resumeFile,
-            @RequestParam(defaultValue = "false") boolean useMasterResume) throws IOException {
+            @RequestParam(required = false) Boolean useMasterResume) throws IOException {
 
-        JobApplication app = jobApplicationService.createApplication(
-                candidateId, jobId,
-                ResultStatus.valueOf(status.toUpperCase()),
-                resumeFile, useMasterResume);
+        ResultStatus resultStatus;
+        try {
+            resultStatus = (status != null && !status.isBlank())
+                    ? ResultStatus.valueOf(status.toUpperCase())
+                    : ResultStatus.NEW_CANDIDATE;
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid status value: " + status);
+        }
 
-        return ResponseEntity.ok(DTOMapper.toJobApplicationDTO(app));
+        Boolean resolvedUseMaster = useMasterResume;
+        if (resolvedUseMaster == null) {
+            resolvedUseMaster = Boolean.TRUE;
+        }
+
+        try {
+            JobApplication app = jobApplicationService.createApplication(
+                    candidateId, jobId,
+                    resultStatus,
+                    statusDescription,
+                    resumeFile,
+                    resolvedUseMaster);
+
+            return ResponseEntity.ok(DTOMapper.toJobApplicationDTO(app));
+        } catch (IllegalStateException duplicateEx) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(Map.of("message", duplicateEx.getMessage()));
+        } catch (RuntimeException e) {
+            // Handle file validation errors (size, type) and other runtime exceptions
+            if (e.getMessage() != null && (
+                e.getMessage().contains("File size exceeds") ||
+                e.getMessage().contains("Invalid file type") ||
+                e.getMessage().contains("Failed to store")
+            )) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(Map.of("message", e.getMessage()));
+            }
+            // Re-throw other runtime exceptions
+            throw e;
+        }
     }
 
     // ✅ Get all
@@ -66,14 +101,33 @@ public class JobApplicationController {
 
     // ✅ Update status or resume
     @PutMapping("/{id}")
-    public ResponseEntity<JobApplicationDTO> updateApplication(
+    public ResponseEntity<?> updateApplication(
             @PathVariable Long id,
             @RequestParam(required = false) String status,
+            @RequestParam(required = false) String statusDescription,
             @RequestParam(required = false) MultipartFile resumeFile) throws IOException {
 
-        ResultStatus resultStatus = status != null ? ResultStatus.valueOf(status.toUpperCase()) : null;
-        JobApplication app = jobApplicationService.updateApplication(id, resultStatus, resumeFile);
-        return ResponseEntity.ok(DTOMapper.toJobApplicationDTO(app));
+        try {
+            ResultStatus resultStatus = status != null ? ResultStatus.valueOf(status.toUpperCase()) : null;
+            JobApplication app = jobApplicationService.updateApplication(id, resultStatus, statusDescription, resumeFile);
+            return ResponseEntity.ok(DTOMapper.toJobApplicationDTO(app));
+        } catch (IllegalArgumentException e) {
+            // Handle invalid status value
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("message", "Invalid status value: " + status));
+        } catch (RuntimeException e) {
+            // Handle file validation errors (size, type) and other runtime exceptions
+            if (e.getMessage() != null && (
+                e.getMessage().contains("File size exceeds") ||
+                e.getMessage().contains("Invalid file type") ||
+                e.getMessage().contains("Failed to store")
+            )) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(Map.of("message", e.getMessage()));
+            }
+            // Re-throw other runtime exceptions
+            throw e;
+        }
     }
 
     // ✅ Delete
@@ -129,7 +183,7 @@ public class JobApplicationController {
                                                    @RequestParam("resume") MultipartFile resumeFile) {
         try {
             if (resumeFile.isEmpty()) {
-                return ResponseEntity.badRequest().body("Resume file is required");
+                return ResponseEntity.badRequest().body(Map.of("message", "Resume file is required"));
             }
             
             jobApplicationService.updateApplicationResume(id, resumeFile);
@@ -138,9 +192,25 @@ public class JobApplicationController {
                 "applicationId", id
             ));
         } catch (RuntimeException e) {
-            return ResponseEntity.status(404).body(e.getMessage());
+            // Handle file validation errors (size, type) and other runtime exceptions
+            if (e.getMessage() != null && (
+                e.getMessage().contains("File size exceeds") ||
+                e.getMessage().contains("Invalid file type") ||
+                e.getMessage().contains("Failed to store")
+            )) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(Map.of("message", e.getMessage()));
+            }
+            // Handle not found errors
+            if (e.getMessage() != null && e.getMessage().contains("not found")) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(Map.of("message", e.getMessage()));
+            }
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("message", e.getMessage() != null ? e.getMessage() : "An error occurred"));
         } catch (IOException e) {
-            return ResponseEntity.status(500).body("Failed to upload resume: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("message", "Failed to upload resume: " + e.getMessage()));
         }
     }
 

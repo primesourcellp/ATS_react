@@ -59,8 +59,9 @@ const InterviewManagement = () => {
       result = result.filter(interview => {
         const candidateName = getCandidateName(interview).toLowerCase();
         const jobTitle = getJobTitle(interview).toLowerCase();
+        const interviewId = interview.id ? interview.id.toString().toLowerCase() : '';
         
-        return candidateName.includes(term) || jobTitle.includes(term);
+        return candidateName.includes(term) || jobTitle.includes(term) || interviewId.includes(term);
       });
     }
 

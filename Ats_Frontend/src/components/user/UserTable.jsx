@@ -69,6 +69,7 @@ const UserTable = ({ users, loading, onEditUser, onDeleteUser, searchTerm }) => 
   const getRoleBadge = (role) => {
     const roleConfig = {
       'ADMIN': { color: 'bg-purple-100 text-purple-800', icon: '🔐' },
+      'SECONDARY_ADMIN': { color: 'bg-indigo-100 text-indigo-800', icon: '🛡️' },
       'USER': { color: 'bg-blue-100 text-blue-800', icon: '👤' },
       'RECRUITER': { color: 'bg-green-100 text-green-800', icon: '👔' },
       'SUB_USER': { color: 'bg-orange-100 text-orange-800', icon: '👥' },
@@ -288,7 +289,7 @@ const UserRow = ({ user, expandedUser, toggleExpand, onEditUser, onDeleteUser, s
           <button
             onClick={(e) => {
               e.stopPropagation();
-              onDeleteUser(user.id);
+              onDeleteUser(user);
             }}
             className="text-red-600 hover:text-red-900 p-2 rounded-full hover:bg-red-50 transition-colors"
             title="Delete User"
@@ -326,7 +327,7 @@ const UserRow = ({ user, expandedUser, toggleExpand, onEditUser, onDeleteUser, s
                   Edit User
                 </button>
                 <button
-                  onClick={() => onDeleteUser(user.id)}
+                  onClick={() => onDeleteUser(user)}
                   className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-full shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
                 >
                   Delete User

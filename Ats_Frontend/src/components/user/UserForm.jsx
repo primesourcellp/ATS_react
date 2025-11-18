@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { userAPI } from '../../api/api';
 
-const UserForm = ({ user, onSave, onClose }) => {
+const normalizeRole = (role) => (role || '').replace('ROLE_', '');
+
+const UserForm = ({ user, onSave, onClose, currentUserRole = '' }) => {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState(''); // ✅ New state
   const [password, setPassword] = useState('');
@@ -15,7 +17,7 @@ const UserForm = ({ user, onSave, onClose }) => {
       setUsername(user.username || '');
       setEmail(user.email || ''); // ✅ Prefill email if editing
       setPassword('');
-      setRole(user.role || 'RECRUITER');
+      setRole(normalizeRole(user.role) || 'RECRUITER');
     } else {
       setUsername('');
       setEmail('');
@@ -106,7 +108,7 @@ const UserForm = ({ user, onSave, onClose }) => {
     }
     
     // Additional validation for admin users
-    if (role === 'ADMIN' && user && user.role !== 'ADMIN') {
+    if (role === 'ADMIN' && user && normalizeRole(user.role) !== 'ADMIN') {
       newErrors.role = 'Only one admin user is allowed. Cannot change existing user to admin.';
     }
 
@@ -116,6 +118,20 @@ const UserForm = ({ user, onSave, onClose }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    const actingRole = normalizeRole(currentUserRole);
+    const isEditingSameRestrictedRole = user && normalizeRole(user.role) === role;
+    if (
+      actingRole !== 'ADMIN' &&
+      (role === 'ADMIN' || role === 'SECONDARY_ADMIN') &&
+      !isEditingSameRestrictedRole
+    ) {
+      setErrors(prev => ({ ...prev, role: 'Only the primary admin can assign admin roles.' }));
+      return;
+    }
+    setErrors(prev => {
+      const { role: _omit, ...rest } = prev;
+      return rest;
+    });
     if (!validateForm()) return;
 
     const userData = { username, email, password, role }; // ✅ Added email
@@ -262,13 +278,23 @@ const UserForm = ({ user, onSave, onClose }) => {
                 errors.role ? 'border-red-500' : 'border-gray-300'
               }`}
             >
-              <option value="ADMIN">ADMIN</option>
+            <option value="ADMIN" disabled={normalizeRole(currentUserRole) !== 'ADMIN'}>
+              ADMIN
+            </option>
+            <option value="SECONDARY_ADMIN" disabled={normalizeRole(currentUserRole) !== 'ADMIN'}>
+              SECONDARY_ADMIN
+            </option>
               <option value="RECRUITER">RECRUITER</option>
               <option value="SUB_USER">USER</option>
             </select>
             {errors.role && (
               <p className="text-red-500 text-xs mt-1">{errors.role}</p>
             )}
+          {normalizeRole(currentUserRole) === 'SECONDARY_ADMIN' && (
+            <p className="text-xs text-gray-500 mt-1">
+              Secondary admins can create recruiters and users. Contact the primary admin for admin role changes.
+            </p>
+          )}
           </div>
 
           {/* Buttons */}

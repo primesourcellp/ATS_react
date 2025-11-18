@@ -23,6 +23,11 @@ public class DTOMapper {
 	
 	
 	public static JobDTO toJobDTO(Job job) {
+	    return toJobDTO(job, true);
+	}
+	
+	// Overloaded method to control whether to include applications
+	public static JobDTO toJobDTO(Job job, boolean includeApplications) {
 	    if (job == null) return null;
 
 	    JobDTO dto = new JobDTO();
@@ -50,6 +55,90 @@ public class DTOMapper {
 	    // Check if job has applications
 	    boolean hasApplications = job.getApplications() != null && !job.getApplications().isEmpty();
 	    dto.setHasApplications(hasApplications);
+	    
+	    // Map applications if they exist and includeApplications is true
+	    if (includeApplications && job.getApplications() != null && !job.getApplications().isEmpty()) {
+	        List<JobApplicationDTO> applicationDTOs = job.getApplications().stream()
+	            .map(app -> {
+	                // Create application DTO without job to prevent circular reference
+	                JobApplicationDTO appDTO = new JobApplicationDTO();
+	                appDTO.setId(app.getId());
+	                appDTO.setCandidate(toCandidateDTO(app.getCandidate())); // Candidate is safe (doesn't include applications)
+	                appDTO.setStatus(app.getStatus() != null ? app.getStatus().name() : null);
+	                appDTO.setAppliedAt(app.getAppliedAt());
+	                appDTO.setCandidateName(app.getCandidateName());
+	                appDTO.setApplicationResumePath(app.getApplicationResumePath());
+	                appDTO.setApplicationResumeUrl(app.getApplicationResumePath() != null && !app.getApplicationResumePath().isEmpty()
+	                        ? "http://localhost:8080/api/files/" + app.getApplicationResumePath()
+	                        : null);
+	                if (app.getCreatedBy() != null) {
+	                    appDTO.setCreatedById(app.getCreatedBy().getId());
+	                    appDTO.setCreatedByUsername(app.getCreatedBy().getUsername());
+	                    appDTO.setCreatedByEmail(app.getCreatedBy().getEmail());
+	                } else {
+	                    appDTO.setCreatedById(app.getCreatedByUserId());
+	                    appDTO.setCreatedByUsername(app.getCreatedByName());
+	                    appDTO.setCreatedByEmail(app.getCreatedByEmail());
+	                }
+	                boolean hasCustomResume = app.getApplicationResumePath() != null && !app.getApplicationResumePath().isEmpty();
+	                appDTO.setResumeAvailable(hasCustomResume);
+	                boolean hasInterviews = app.getInterviews() != null && !app.getInterviews().isEmpty();
+	                appDTO.setHasInterviews(hasInterviews);
+	                
+	                // Map status history
+	                if (app.getStatusHistory() != null && !app.getStatusHistory().isEmpty()) {
+	                    List<StatusHistoryDTO> historyDTOs = app.getStatusHistory().stream()
+	                        .map(history -> {
+	                            StatusHistoryDTO historyDTO = new StatusHistoryDTO();
+	                            historyDTO.setId(history.getId());
+	                            historyDTO.setStatus(history.getStatus() != null ? history.getStatus().name() : null);
+	                            historyDTO.setDescription(history.getDescription());
+	                            historyDTO.setChangedAt(history.getChangedAt());
+	                            if (history.getChangedBy() != null) {
+	                                historyDTO.setChangedByName(history.getChangedBy().getUsername());
+	                                historyDTO.setChangedByEmail(history.getChangedBy().getEmail());
+	                            } else {
+	                                historyDTO.setChangedByName(history.getChangedByName());
+	                                historyDTO.setChangedByEmail(history.getChangedByEmail());
+	                            }
+	                            return historyDTO;
+	                        })
+	                        .collect(Collectors.toList());
+	                    appDTO.setStatusHistory(historyDTOs);
+	                }
+	                
+	                // Map interviews
+	                if (app.getInterviews() != null && !app.getInterviews().isEmpty()) {
+	                    List<InterviewDTO> interviewDTOs = app.getInterviews().stream()
+	                        .map(interview -> {
+	                            InterviewDTO interviewDTO = new InterviewDTO();
+	                            interviewDTO.setId(interview.getId());
+	                            interviewDTO.setInterviewDate(interview.getInterviewDate());
+	                            interviewDTO.setInterviewTime(interview.getInterviewTime());
+	                            interviewDTO.setEndTime(interview.getEndTime());
+	                            if (app.getCandidate() != null) {
+	                                interviewDTO.setCandidateId(app.getCandidate().getId());
+	                                interviewDTO.setCandidateName(app.getCandidate().getName());
+	                            }
+	                            if (app.getJob() != null) {
+	                                interviewDTO.setJobTitle(app.getJob().getJobName());
+	                                if (app.getJob().getClient() != null) {
+	                                    interviewDTO.setClientName(app.getJob().getClient().getClientName());
+	                                }
+	                            }
+	                            return interviewDTO;
+	                        })
+	                        .collect(Collectors.toList());
+	                    appDTO.setInterviews(interviewDTOs);
+	                }
+	                
+	                // Job is set to null to prevent circular reference
+	                appDTO.setJob(null);
+	                return appDTO;
+	            })
+	            .collect(Collectors.toList());
+	        dto.setApplications(applicationDTOs);
+	    }
 
 	    return dto;
 	}
@@ -74,6 +163,16 @@ public class DTOMapper {
         dto.setResumePath(candidate.getResumePath());
         dto.setResumeUrl(candidate.getResumePath() != null ? "http://localhost:8080/api/files/" + candidate.getResumePath() : null);
         dto.setHasResume(candidate.getResumePath() != null);
+        dto.setCreatedAt(candidate.getCreatedAt());
+        if (candidate.getCreatedBy() != null) {
+            dto.setCreatedById(candidate.getCreatedBy().getId());
+            dto.setCreatedByUsername(candidate.getCreatedBy().getUsername());
+            dto.setCreatedByEmail(candidate.getCreatedBy().getEmail());
+        } else {
+            dto.setCreatedById(candidate.getCreatedByUserId());
+            dto.setCreatedByUsername(candidate.getCreatedByName());
+            dto.setCreatedByEmail(candidate.getCreatedByEmail());
+        }
         
         // Check if candidate has applications
         boolean hasApplications = candidate.getApplications() != null && !candidate.getApplications().isEmpty();
@@ -96,13 +195,32 @@ public class DTOMapper {
             // Set applied jobs with client information
             appliedJobsWithClient = candidate.getApplications().stream()
                 .map(app -> {
-                    String jobName = app.getJob() != null ? app.getJob().getJobName() : "Unknown Job";
-                    String clientName = app.getJob() != null && app.getJob().getClient() != null ? 
-                        app.getJob().getClient().getClientName() : "Unknown Client";
-                    return new AppliedJobInfo(jobName, clientName);
+                    AppliedJobInfo info = new AppliedJobInfo();
+                    info.setApplicationId(app.getId());
+                    if (app.getJob() != null) {
+                        info.setJobId(app.getJob().getId());
+                        info.setJobName(app.getJob().getJobName());
+                        if (app.getJob().getClient() != null) {
+                            info.setClientName(app.getJob().getClient().getClientName());
+                        } else {
+                            info.setClientName("Unknown Client");
+                        }
+                    } else {
+                        info.setJobName("Unknown Job");
+                        info.setClientName("Unknown Client");
+                    }
+
+                    if (app.getCreatedBy() != null) {
+                        info.setAssignedByUsername(app.getCreatedBy().getUsername());
+                        info.setAssignedByEmail(app.getCreatedBy().getEmail());
+                    } else {
+                        info.setAssignedByUsername(app.getCreatedByName());
+                        info.setAssignedByEmail(app.getCreatedByEmail());
+                    }
+
+                    return info;
                 })
                 .filter(jobInfo -> jobInfo.getJobName() != null && !jobInfo.getJobName().isEmpty())
-                .distinct() // Remove duplicates based on job name
                 .collect(Collectors.toList());
         }
         dto.setAppliedJobs(appliedJobs);
@@ -119,22 +237,81 @@ public class DTOMapper {
 
         JobApplicationDTO dto = new JobApplicationDTO();
         dto.setId(app.getId());
-        dto.setJob(toJobDTO(app.getJob()));
+        // Use toJobDTO with includeApplications=false to prevent circular reference
+        dto.setJob(toJobDTO(app.getJob(), false));
         dto.setCandidate(toCandidateDTO(app.getCandidate()));
         dto.setStatus(app.getStatus() != null ? app.getStatus().name() : null);
         dto.setAppliedAt(app.getAppliedAt());
         dto.setCandidateName(app.getCandidateName());
         dto.setApplicationResumePath(app.getApplicationResumePath());
-        dto.setApplicationResumeUrl(app.getApplicationResumePath() != null ? "http://localhost:8080/api/files/" + app.getApplicationResumePath() : null);
+        dto.setApplicationResumeUrl(app.getApplicationResumePath() != null && !app.getApplicationResumePath().isEmpty()
+                ? "http://localhost:8080/api/files/" + app.getApplicationResumePath()
+                : null);
+        if (app.getCreatedBy() != null) {
+            dto.setCreatedById(app.getCreatedBy().getId());
+            dto.setCreatedByUsername(app.getCreatedBy().getUsername());
+            dto.setCreatedByEmail(app.getCreatedBy().getEmail());
+        } else {
+            dto.setCreatedById(app.getCreatedByUserId());
+            dto.setCreatedByUsername(app.getCreatedByName());
+            dto.setCreatedByEmail(app.getCreatedByEmail());
+        }
         
-        // Resume is available if either custom resume exists OR candidate has master resume
+        // Resume is available only if a custom resume exists for this application
         boolean hasCustomResume = app.getApplicationResumePath() != null && !app.getApplicationResumePath().isEmpty();
-        boolean hasMasterResume = app.getCandidate() != null && app.getCandidate().getResumePath() != null && !app.getCandidate().getResumePath().isEmpty();
-        dto.setResumeAvailable(hasCustomResume || hasMasterResume);
+        dto.setResumeAvailable(hasCustomResume);
         
         // Check if application has interviews
         boolean hasInterviews = app.getInterviews() != null && !app.getInterviews().isEmpty();
         dto.setHasInterviews(hasInterviews);
+        
+        // Map status history
+        if (app.getStatusHistory() != null && !app.getStatusHistory().isEmpty()) {
+            List<StatusHistoryDTO> historyDTOs = app.getStatusHistory().stream()
+                .map(history -> {
+                    StatusHistoryDTO historyDTO = new StatusHistoryDTO();
+                    historyDTO.setId(history.getId());
+                    historyDTO.setStatus(history.getStatus() != null ? history.getStatus().name() : null);
+                    historyDTO.setDescription(history.getDescription());
+                    historyDTO.setChangedAt(history.getChangedAt());
+                    if (history.getChangedBy() != null) {
+                        historyDTO.setChangedByName(history.getChangedBy().getUsername());
+                        historyDTO.setChangedByEmail(history.getChangedBy().getEmail());
+                    } else {
+                        historyDTO.setChangedByName(history.getChangedByName());
+                        historyDTO.setChangedByEmail(history.getChangedByEmail());
+                    }
+                    return historyDTO;
+                })
+                .collect(Collectors.toList());
+            dto.setStatusHistory(historyDTOs);
+        }
+        
+        // Map interviews
+        if (app.getInterviews() != null && !app.getInterviews().isEmpty()) {
+            List<InterviewDTO> interviewDTOs = app.getInterviews().stream()
+                .map(interview -> {
+                    InterviewDTO interviewDTO = new InterviewDTO();
+                    interviewDTO.setId(interview.getId());
+                    interviewDTO.setInterviewDate(interview.getInterviewDate());
+                    interviewDTO.setInterviewTime(interview.getInterviewTime());
+                    interviewDTO.setEndTime(interview.getEndTime());
+                    if (app.getCandidate() != null) {
+                        interviewDTO.setCandidateId(app.getCandidate().getId());
+                        interviewDTO.setCandidateName(app.getCandidate().getName());
+                    }
+                    if (app.getJob() != null) {
+                        interviewDTO.setJobTitle(app.getJob().getJobName());
+                        if (app.getJob().getClient() != null) {
+                            interviewDTO.setClientName(app.getJob().getClient().getClientName());
+                        }
+                    }
+                    return interviewDTO;
+                })
+                .collect(Collectors.toList());
+            dto.setInterviews(interviewDTOs);
+        }
+        
         return dto;
     }
 
@@ -167,10 +344,42 @@ public class DTOMapper {
             appDTO.setJob(jobDTO);
             appDTO.setStatus(app.getStatus() != null ? app.getStatus().name() : null);
             appDTO.setAppliedAt(app.getAppliedAt());
-//            appDTO.setResumePath(app.getResumePath());
+            appDTO.setApplicationResumePath(app.getApplicationResumePath());
+            appDTO.setResumeAvailable(app.getApplicationResumePath() != null && !app.getApplicationResumePath().isEmpty());
+            if (app.getCreatedBy() != null) {
+                appDTO.setCreatedById(app.getCreatedBy().getId());
+                appDTO.setCreatedByUsername(app.getCreatedBy().getUsername());
+                appDTO.setCreatedByEmail(app.getCreatedBy().getEmail());
+            } else {
+                appDTO.setCreatedById(app.getCreatedByUserId());
+                appDTO.setCreatedByUsername(app.getCreatedByName());
+                appDTO.setCreatedByEmail(app.getCreatedByEmail());
+            }
             
             // Optional
             appDTO.setCandidateName(candidate.getName());
+            
+            // Map status history
+            if (app.getStatusHistory() != null && !app.getStatusHistory().isEmpty()) {
+                List<StatusHistoryDTO> historyDTOs = app.getStatusHistory().stream()
+                    .map(history -> {
+                        StatusHistoryDTO historyDTO = new StatusHistoryDTO();
+                        historyDTO.setId(history.getId());
+                        historyDTO.setStatus(history.getStatus() != null ? history.getStatus().name() : null);
+                        historyDTO.setDescription(history.getDescription());
+                        historyDTO.setChangedAt(history.getChangedAt());
+                        if (history.getChangedBy() != null) {
+                            historyDTO.setChangedByName(history.getChangedBy().getUsername());
+                            historyDTO.setChangedByEmail(history.getChangedBy().getEmail());
+                        } else {
+                            historyDTO.setChangedByName(history.getChangedByName());
+                            historyDTO.setChangedByEmail(history.getChangedByEmail());
+                        }
+                        return historyDTO;
+                    })
+                    .collect(Collectors.toList());
+                appDTO.setStatusHistory(historyDTOs);
+            }
 
             return appDTO;
         }).toList();

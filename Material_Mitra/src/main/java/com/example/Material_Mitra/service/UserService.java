@@ -7,8 +7,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import com.example.Material_Mitra.entity.Candidate;
+import com.example.Material_Mitra.entity.Interview;
+import com.example.Material_Mitra.entity.JobApplication;
 import com.example.Material_Mitra.entity.User;
 import com.example.Material_Mitra.enums.RoleStatus;
+import com.example.Material_Mitra.repository.CandidateRepository;
+import com.example.Material_Mitra.repository.InterviewRepository;
+import com.example.Material_Mitra.repository.JobApplicationRepository;
 import com.example.Material_Mitra.repository.UserRepository;
 
 
@@ -21,12 +27,21 @@ public class UserService {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
- 
+    @Autowired
+    private CandidateRepository candidateRepository;
+
+    @Autowired
+    private JobApplicationRepository jobApplicationRepository;
+
+    @Autowired
+    private InterviewRepository interviewRepository;
+
+
 
     public User createAdmin(User user) {
         boolean adminExists = userRepository.existsByRole(RoleStatus.ADMIN);
         if (adminExists) {
-            throw new RuntimeException("Admin user already exists. Only one admin allowed.");
+            throw new RuntimeException("Primary admin already exists. Please create a secondary admin instead.");
         }
         
         // Validate required fields
@@ -58,7 +73,7 @@ public class UserService {
             throw new RuntimeException("Username '" + user.getUsername() + "' already exists.");
         }
         user.setRole(RoleStatus.RECRUITER);
-//        user.setPassword(passwordEncoder.encode(user.getPassword())); 
+        user.setPassword(passwordEncoder.encode(user.getPassword())); 
         return userRepository.save(user);
     }
 
@@ -69,7 +84,16 @@ public class UserService {
             throw new RuntimeException("Username already exists.");
         }
         user.setRole(RoleStatus.SUB_USER);
-//        user.setPassword(passwordEncoder.encode(user.getPassword()));
+        user.setPassword(passwordEncoder.encode(user.getPassword()));
+        return userRepository.save(user);
+    }
+
+    public User createSecondaryAdmin(User user) {
+        if (userRepository.findByUsername(user.getUsername()).isPresent()) {
+            throw new RuntimeException("Username '" + user.getUsername() + "' already exists.");
+        }
+        user.setRole(RoleStatus.SECONDARY_ADMIN);
+        user.setPassword(passwordEncoder.encode(user.getPassword()));
         return userRepository.save(user);
     }
 
@@ -129,11 +153,65 @@ public class UserService {
   
     public boolean deleteUser(Long id) {
         Optional<User> userOpt = userRepository.findById(id);
-        if (userOpt.isPresent()) {
-            userRepository.deleteById(id);
-            return true;
+        if (userOpt.isEmpty()) {
+            return false;
         }
-        return false;
+
+        User user = userOpt.get();
+
+        List<Candidate> ownedCandidates = candidateRepository.findByCreatedBy_Id(user.getId());
+        if (!ownedCandidates.isEmpty()) {
+            ownedCandidates.forEach(candidate -> {
+                if (candidate.getCreatedByName() == null || candidate.getCreatedByName().isBlank()) {
+                    candidate.setCreatedByName(user.getUsername());
+                }
+                if (candidate.getCreatedByEmail() == null || candidate.getCreatedByEmail().isBlank()) {
+                    candidate.setCreatedByEmail(user.getEmail());
+                }
+                if (candidate.getCreatedByUserId() == null) {
+                    candidate.setCreatedByUserId(user.getId());
+                }
+                candidate.setCreatedBy(null);
+            });
+            candidateRepository.saveAll(ownedCandidates);
+        }
+
+        List<JobApplication> ownedApplications = jobApplicationRepository.findByCreatedBy_Id(user.getId());
+        if (!ownedApplications.isEmpty()) {
+            ownedApplications.forEach(app -> {
+                if (app.getCreatedByName() == null || app.getCreatedByName().isBlank()) {
+                    app.setCreatedByName(user.getUsername());
+                }
+                if (app.getCreatedByEmail() == null || app.getCreatedByEmail().isBlank()) {
+                    app.setCreatedByEmail(user.getEmail());
+                }
+                if (app.getCreatedByUserId() == null) {
+                    app.setCreatedByUserId(user.getId());
+                }
+                app.setCreatedBy(null);
+            });
+            jobApplicationRepository.saveAll(ownedApplications);
+        }
+
+        List<Interview> scheduledInterviews = interviewRepository.findByScheduledBy_Id(user.getId());
+        if (!scheduledInterviews.isEmpty()) {
+            scheduledInterviews.forEach(interview -> {
+                if (interview.getScheduledByName() == null || interview.getScheduledByName().isBlank()) {
+                    interview.setScheduledByName(user.getUsername());
+                }
+                if (interview.getScheduledByEmail() == null || interview.getScheduledByEmail().isBlank()) {
+                    interview.setScheduledByEmail(user.getEmail());
+                }
+                if (interview.getScheduledByUserId() == null) {
+                    interview.setScheduledByUserId(user.getId());
+                }
+                interview.setScheduledBy(null);
+            });
+            interviewRepository.saveAll(scheduledInterviews);
+        }
+
+        userRepository.delete(user);
+        return true;
     }
 
     

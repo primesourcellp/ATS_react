@@ -166,9 +166,13 @@ public class SecurityConfig {
                 .requestMatchers("/api/candidates/resume/**").permitAll()
                 .requestMatchers("/candidates/resume/**").permitAll()
 
-                // Admin-only
-                .requestMatchers("/api/users/**").hasAuthority("ADMIN")
-                .requestMatchers(HttpMethod.POST, "/api/users/create-user").hasAuthority("ADMIN")
+                // Admin-only (primary and secondary)
+                .requestMatchers("/api/users/**").hasAnyAuthority("ADMIN", "SECONDARY_ADMIN")
+                .requestMatchers(HttpMethod.POST, "/api/users/create-user").hasAnyAuthority("ADMIN", "SECONDARY_ADMIN")
+                .requestMatchers(HttpMethod.POST, "/api/users/create-secondary-admin").hasAuthority("ADMIN")
+                .requestMatchers("/api/clients/**").hasAnyAuthority("ADMIN", "SECONDARY_ADMIN", "RECRUITER")
+                .requestMatchers("/api/reports/recruiters").hasAnyAuthority("ADMIN", "SECONDARY_ADMIN")
+                .requestMatchers("/api/reports/recruiters/**").hasAnyAuthority("ADMIN", "SECONDARY_ADMIN", "RECRUITER")
 
                 // Authenticated users
                 .requestMatchers("/api/applications/**").authenticated()

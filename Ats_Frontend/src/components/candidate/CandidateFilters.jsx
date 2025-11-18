@@ -9,7 +9,14 @@ const CandidateFilters = ({ onSearch, onStatusFilter, onLocationFilter, searchTe
     { value: 'INTERVIEWED', label: 'Interviewed' },
     { value: 'PLACED', label: 'Placed' },
     { value: 'REJECTED', label: 'Rejected' },
-    { value: 'SUBMITTED_BY_CLIENT', label: 'Submitted by Client' },
+    { value: 'NOT_INTERESTED', label: 'Not Interested' },
+    { value: 'HOLD', label: 'Hold' },
+    { value: 'HIGH_CTC', label: 'High CTC' },
+    { value: 'DROPPED_BY_CLIENT', label: 'Dropped by Client' },
+    { value: 'SUBMITTED_TO_CLIENT', label: 'Submitted to Client' },
+    { value: 'NO_RESPONSE', label: 'No Response' },
+    { value: 'IMMEDIATE', label: 'Immediate' },
+    { value: 'REJECTED_BY_CLIENT', label: 'Rejected by Client' },
     { value: 'CLIENT_SHORTLIST', label: 'Client Shortlist' },
     { value: 'FIRST_INTERVIEW_SCHEDULED', label: 'First Interview Scheduled' },
     { value: 'FIRST_INTERVIEW_FEEDBACK_PENDING', label: 'First Interview Feedback Pending' },
@@ -24,7 +31,8 @@ const CandidateFilters = ({ onSearch, onStatusFilter, onLocationFilter, searchTe
     { value: 'CLIENT_REJECT', label: 'Client Reject' },
     { value: 'FINAL_SELECT', label: 'Final Select' },
     { value: 'JOINED', label: 'Joined' },
-    { value: 'BACKEDOUT', label: 'Backed Out' }
+    { value: 'BACKEDOUT', label: 'Backed Out' },
+    { value: 'NOT_RELEVANT', label: 'Not Relevant' }
   ];
 
   const locationOptions = [

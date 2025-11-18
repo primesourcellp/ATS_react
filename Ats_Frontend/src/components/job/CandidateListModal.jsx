@@ -102,7 +102,14 @@ const CandidateListModal = ({ job, onClose, onViewCandidate }) => {
             <option value="INTERVIEWED">INTERVIEWED</option>
             <option value="PLACED">PLACED</option>
             <option value="REJECTED">REJECTED</option>
-            <option value="SUBMITTED_BY_CLIENT">Submitted by Client</option>
+          <option value="NOT_INTERESTED">Not Interested</option>
+          <option value="HOLD">Hold</option>
+          <option value="HIGH_CTC">High CTC</option>
+          <option value="DROPPED_BY_CLIENT">Dropped by Client</option>
+            <option value="SUBMITTED_TO_CLIENT">Submitted to Client</option>
+            <option value="NO_RESPONSE">No Response</option>
+            <option value="IMMEDIATE">Immediate</option>
+            <option value="REJECTED_BY_CLIENT">Rejected by Client</option>
             <option value="CLIENT_SHORTLIST">Client Shortlist</option>
             <option value="FIRST_INTERVIEW_SCHEDULED">First Interview Scheduled</option>
             <option value="FIRST_INTERVIEW_FEEDBACK_PENDING">First Interview Feedback Pending</option>
@@ -118,6 +125,7 @@ const CandidateListModal = ({ job, onClose, onViewCandidate }) => {
             <option value="FINAL_SELECT">Final Select</option>
             <option value="JOINED">Joined</option>
             <option value="BACKEDOUT">Backed Out</option>
+              <option value="NOT_RELEVANT">Not Relevant</option>
           </select>
         </div>
 
@@ -149,14 +157,26 @@ const CandidateListModal = ({ job, onClose, onViewCandidate }) => {
               ) : (
                 filteredCandidates.map((candidate) => (
                   <tr key={candidate.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-2">{candidate.name || ""}</td>
+                    <td className="px-4 py-2">
+                      {candidate.name ? (
+                        <button
+                          type="button"
+                          className="text-blue-600 hover:text-blue-700 underline"
+                          onClick={() => onViewCandidate(candidate)}
+                        >
+                          {candidate.name}
+                        </button>
+                      ) : (
+                        ""
+                      )}
+                    </td>
                     <td className="px-4 py-2">{candidate.email || ""}</td>
                     <td className="px-4 py-2">{candidate.phone || ""}</td>
                     <td className="px-4 py-2">{candidate.status || ""}</td>
                     <td className="px-4 py-2 text-center">
                       <button
                         className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded-md flex items-center gap-2 justify-center"
-                        onClick={() => onViewCandidate(candidate, job.id)}
+                        onClick={() => onViewCandidate(candidate)}
                       >
                         <i className="fas fa-eye"></i> View
                       </button>

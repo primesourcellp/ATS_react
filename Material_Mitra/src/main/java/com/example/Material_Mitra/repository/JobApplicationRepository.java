@@ -1,6 +1,6 @@
 package com.example.Material_Mitra.repository;
 
-
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -15,63 +15,62 @@ import com.example.Material_Mitra.enums.ResultStatus;
 
 @Repository
 public interface JobApplicationRepository extends JpaRepository<JobApplication, Long> {
-    
-    // Find all applications by status
+
     List<JobApplication> findByStatus(ResultStatus status);
-    
-    // Find all applications for a specific candidate
+
     List<JobApplication> findByCandidateId(Long candidateId);
-    
-    // Find all applications for a specific job
+
     List<JobApplication> findByJobId(Long jobId);
-    
-    // Find applications by candidate and status
+
     List<JobApplication> findByCandidateIdAndStatus(Long candidateId, ResultStatus status);
-    
-    // Find applications by job and status
+
     List<JobApplication> findByJobIdAndStatus(Long jobId, ResultStatus status);
-    
-    // Check if application exists for candidate and job
+
     boolean existsByCandidateIdAndJobId(Long candidateId, Long jobId);
-    
-    
+
     List<JobApplication> findByJob_JobNameIgnoreCase(String jobName);
-   
-    
-    //search by candidate name
+
     @Query("SELECT ja FROM JobApplication ja WHERE LOWER(ja.candidate.name) LIKE LOWER(CONCAT('%', :name, '%'))")
     List<JobApplication> findByCandidateNameContainingIgnoreCase(@Param("name") String name);
 
-
     @Query("SELECT ja.candidate FROM JobApplication ja WHERE ja.job.id = :jobId")
     List<Candidate> findCandidatesByJobId(@Param("jobId") Long jobId);
-    
-    
+
     List<JobApplication> findByStatusAndCandidate_NameContainingIgnoreCase(ResultStatus status, String name);
-
-
 
     List<JobApplication> findByJob_JobNameContainingIgnoreCase(String jobName);
 
     List<JobApplication> findByStatusAndCandidate_NameContainingIgnoreCaseAndJob_JobNameContainingIgnoreCase(
-        ResultStatus status, String candidateName, String jobName
-    );
+        ResultStatus status, String candidateName, String jobName);
 
-//    Optional<JobApplication> findFirstByCandidateId(Long candidateId);
-//    Optional<JobApplication> findByCandidateIdAndJobId(Long candidateId, Long jobId);
     @Query("SELECT ja FROM JobApplication ja " +
-    	       "JOIN FETCH ja.candidate c " +
-    	       "JOIN FETCH ja.job j " +
-    	       "WHERE j.id = :jobId AND c.id = :candidateId")
-    	Optional<JobApplication> findByJobIdAndCandidateId(@Param("jobId") Long jobId, @Param("candidateId") Long candidateId);
+           "JOIN FETCH ja.candidate c " +
+           "JOIN FETCH ja.job j " +
+           "WHERE j.id = :jobId AND c.id = :candidateId")
+    Optional<JobApplication> findByJobIdAndCandidateId(@Param("jobId") Long jobId, @Param("candidateId") Long candidateId);
+
     JobApplication findFirstByCandidateId(Long candidateId);
 
     List<JobApplication> findAllByCandidateId(Long candidateId);
 
- // inside JobApplicationRepository interface
     JobApplication findByCandidateIdAndJobId(Long candidateId, Long jobId);
-    
+
+    @Override
     long count();
 
-    
+    List<JobApplication> findByCreatedBy_IdAndAppliedAtBetween(Long recruiterId, LocalDate startDate, LocalDate endDate);
+
+    List<JobApplication> findByCreatedBy_Id(Long recruiterId);
+
+    long countByCreatedBy_IdAndAppliedAtBetween(Long recruiterId, LocalDate startDate, LocalDate endDate);
+
+    @Query("SELECT ja FROM JobApplication ja " +
+           "JOIN FETCH ja.candidate c " +
+           "JOIN FETCH ja.job j " +
+           "LEFT JOIN FETCH j.client cl " +
+           "WHERE ja.createdBy.id = :recruiterId AND ja.appliedAt BETWEEN :startDate AND :endDate " +
+           "ORDER BY ja.appliedAt DESC, ja.id DESC")
+    List<JobApplication> findDetailedByCreatedByAndAppliedAtBetween(@Param("recruiterId") Long recruiterId,
+                                                                    @Param("startDate") LocalDate startDate,
+                                                                    @Param("endDate") LocalDate endDate);
 }

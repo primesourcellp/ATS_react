@@ -1,8 +1,42 @@
 import { useState } from 'react';
 import { candidateAPI } from '../../api/api';
 
+const formatYearsValue = (value) => {
+  if (!value) return null;
+  const normalized = value.toString().trim();
+  if (!normalized) return null;
+  if (/\b(?:years?|yrs?)\b/i.test(normalized)) {
+    return normalized.replace(/\s+/g, ' ');
+  }
+  return `${normalized} years`;
+};
+
+const formatNoticeValue = (value) => {
+  if (!value) return null;
+  const normalized = value.toString().trim();
+  if (!normalized) return null;
+  if (/\b(?:day|days|month|months|week|weeks)\b/i.test(normalized)) {
+    return normalized.replace(/\s+/g, ' ');
+  }
+  return `${normalized} days`;
+};
+
+const formatCtcValue = (value) => {
+  if (!value) return null;
+  const normalized = value.toString().trim();
+  if (!normalized) return null;
+  if (/\b(?:lpa|lac|lakh|lakhs)\b/i.test(normalized)) {
+    return normalized.replace(/\s+/g, ' ');
+  }
+  return `${normalized} LPA`;
+};
+
 const CandidateDetails = ({ candidate, onClose, onEdit, onDelete }) => {
   const [resumeLoading, setResumeLoading] = useState(false);
+  const experienceLabel = formatYearsValue(candidate.experience) || 'N/A';
+  const noticeLabel = formatNoticeValue(candidate.noticePeriod) || 'N/A';
+  const currentCtcLabel = formatCtcValue(candidate.currentCtc) || 'N/A';
+  const expectedCtcLabel = formatCtcValue(candidate.expectedCtc) || 'N/A';
 
   const handleViewResume = async () => {
     try {
@@ -59,33 +93,55 @@ const CandidateDetails = ({ candidate, onClose, onEdit, onDelete }) => {
     }
   }
 
-  const getStatusClass = (status) => {
-    const statusClassMap = {
-      'NEW_CANDIDATE': 'bg-emerald-100 text-emerald-800',
-      'PENDING': 'bg-yellow-100 text-yellow-800',
-      'SCHEDULED': 'bg-blue-100 text-blue-800',
-      'INTERVIEWED': 'bg-purple-100 text-purple-800',
-      'PLACED': 'bg-green-100 text-green-800',
-      'REJECTED': 'bg-red-100 text-red-800',
-      'SUBMITTED_BY_CLIENT': 'bg-indigo-100 text-indigo-800',
-      'CLIENT_SHORTLIST': 'bg-teal-100 text-teal-800',
-      'FIRST_INTERVIEW_SCHEDULED': 'bg-blue-100 text-blue-800',
-      'FIRST_INTERVIEW_FEEDBACK_PENDING': 'bg-orange-100 text-orange-800',
-      'FIRST_INTERVIEW_REJECT': 'bg-red-100 text-red-800',
-      'SECOND_INTERVIEW_SCHEDULED': 'bg-blue-100 text-blue-800',
-      'SECOND_INTERVIEW_FEEDBACK_PENDING': 'bg-orange-100 text-orange-800',
-      'SECOND_INTERVIEW_REJECT': 'bg-red-100 text-red-800',
-      'THIRD_INTERVIEW_SCHEDULED': 'bg-blue-100 text-blue-800',
-      'THIRD_INTERVIEW_FEEDBACK_PENDING': 'bg-orange-100 text-orange-800',
-      'THIRD_INTERVIEW_REJECT': 'bg-red-100 text-red-800',
-      'INTERNEL_REJECT': 'bg-red-100 text-red-800',
-      'CLIENT_REJECT': 'bg-red-100 text-red-800',
-      'FINAL_SELECT': 'bg-green-100 text-green-800',
-      'JOINED': 'bg-green-100 text-green-800',
-      'BACKEDOUT': 'bg-gray-100 text-gray-800'
-    };
-    return statusClassMap[status] || 'bg-gray-100 text-gray-800';
+  const statusClassMap = {
+    NEW_CANDIDATE: 'bg-emerald-100 text-emerald-800',
+    PENDING: 'bg-yellow-100 text-yellow-800',
+    SCHEDULED: 'bg-blue-100 text-blue-800',
+    INTERVIEWED: 'bg-purple-100 text-purple-800',
+    PLACED: 'bg-green-100 text-green-800',
+    REJECTED: 'bg-red-100 text-red-800',
+    NOT_INTERESTED: 'bg-gray-100 text-gray-800',
+    HOLD: 'bg-amber-100 text-amber-800',
+    HIGH_CTC: 'bg-rose-100 text-rose-800',
+    DROPPED_BY_CLIENT: 'bg-red-100 text-red-800',
+    SUBMITTED_TO_CLIENT: 'bg-indigo-100 text-indigo-800',
+    NO_RESPONSE: 'bg-orange-100 text-orange-800',
+    IMMEDIATE: 'bg-emerald-100 text-emerald-800',
+    REJECTED_BY_CLIENT: 'bg-rose-100 text-rose-700',
+    CLIENT_SHORTLIST: 'bg-teal-100 text-teal-800',
+    FIRST_INTERVIEW_SCHEDULED: 'bg-blue-100 text-blue-800',
+    FIRST_INTERVIEW_FEEDBACK_PENDING: 'bg-orange-100 text-orange-800',
+    FIRST_INTERVIEW_REJECT: 'bg-red-100 text-red-800',
+    SECOND_INTERVIEW_SCHEDULED: 'bg-blue-100 text-blue-800',
+    SECOND_INTERVIEW_FEEDBACK_PENDING: 'bg-orange-100 text-orange-800',
+    SECOND_INTERVIEW_REJECT: 'bg-red-100 text-red-800',
+    THIRD_INTERVIEW_SCHEDULED: 'bg-blue-100 text-blue-800',
+    THIRD_INTERVIEW_FEEDBACK_PENDING: 'bg-orange-100 text-orange-800',
+    THIRD_INTERVIEW_REJECT: 'bg-red-100 text-red-800',
+    INTERNEL_REJECT: 'bg-red-100 text-red-800',
+    CLIENT_REJECT: 'bg-red-100 text-red-800',
+    FINAL_SELECT: 'bg-green-100 text-green-800',
+    JOINED: 'bg-green-100 text-green-800',
+    BACKEDOUT: 'bg-gray-100 text-gray-800',
+    NOT_RELEVANT: 'bg-gray-100 text-gray-800'
   };
+
+  const statusLabelMap = {
+    SUBMITTED_TO_CLIENT: 'Submitted to Client',
+    NO_RESPONSE: 'No Response',
+    IMMEDIATE: 'Immediate',
+    REJECTED_BY_CLIENT: 'Rejected by Client'
+  };
+
+  const getStatusClass = (status) => statusClassMap[status] || 'bg-gray-100 text-gray-800';
+
+  const getStatusLabel = (status) =>
+    statusLabelMap[status] ||
+    status
+      ?.toLowerCase()
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
 
   return (
     <div
@@ -120,20 +176,31 @@ const CandidateDetails = ({ candidate, onClose, onEdit, onDelete }) => {
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
               <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusClass(candidate.status)}`}>
-                {candidate.status || 'N/A'}
+                {candidate.status ? getStatusLabel(candidate.status) : 'N/A'}
               </span>
             </div>
             <div className="mb-4"><label className="block text-sm font-medium text-gray-700 mb-1">Job</label><p>{jobNames}</p></div>
             <div className="mb-4"><label className="block text-sm font-medium text-gray-700 mb-1">Skills</label><p>{candidate.skills || 'N/A'}</p></div>
-            <div className="mb-4"><label className="block text-sm font-medium text-gray-700 mb-1">Experience</label><p>{candidate.experience || 'N/A'} years</p></div>
-            <div className="mb-4"><label className="block text-sm font-medium text-gray-700 mb-1">Notice Period</label><p>{candidate.noticePeriod || 'N/A'} days</p></div>
+            <div className="mb-4"><label className="block text-sm font-medium text-gray-700 mb-1">Experience</label><p>{experienceLabel}</p></div>
+            <div className="mb-4"><label className="block text-sm font-medium text-gray-700 mb-1">Notice Period</label><p>{noticeLabel}</p></div>
           </div>
           <div>
-            <div className="mb-4"><label className="block text-sm font-medium text-gray-700 mb-1">Current CTC</label><p>{candidate.currentCtc || 'N/A'} LPA</p></div>
-            <div className="mb-4"><label className="block text-sm font-medium text-gray-700 mb-1">Expected CTC</label><p>{candidate.expectedCtc || 'N/A'} LPA</p></div>
+            <div className="mb-4"><label className="block text-sm font-medium text-gray-700 mb-1">Current CTC</label><p>{currentCtcLabel}</p></div>
+            <div className="mb-4"><label className="block text-sm font-medium text-gray-700 mb-1">Expected CTC</label><p>{expectedCtcLabel}</p></div>
             <div className="mb-4"><label className="block text-sm font-medium text-gray-700 mb-1">Location</label><p>{candidate.location || 'N/A'}</p></div>
             <div className="mb-4"><label className="block text-sm font-medium text-gray-700 mb-1">Updated At</label><p>{candidate.updatedAt ? new Date(candidate.updatedAt).toLocaleString() : 'N/A'}</p></div>
             <div className="mb-4"><label className="block text-sm font-medium text-gray-700 mb-1">Resume</label><p className={candidate.hasResume ? 'text-green-600' : 'text-red-600'}>{candidate.hasResume ? 'Available' : 'Not Uploaded'}</p></div>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Added By</label>
+              <p className="text-gray-900">{candidate.createdByUsername || 'N/A'}</p>
+              {candidate.createdByEmail && (
+                <p className="text-xs text-gray-500">{candidate.createdByEmail}</p>
+              )}
+            </div>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Added On</label>
+              <p>{candidate.createdAt ? new Date(candidate.createdAt).toLocaleDateString() : 'N/A'}</p>
+            </div>
           </div>
         </div>
 

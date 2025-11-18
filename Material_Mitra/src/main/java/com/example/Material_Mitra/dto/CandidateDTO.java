@@ -1,6 +1,6 @@
 package com.example.Material_Mitra.dto;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public class CandidateDTO {
@@ -9,7 +9,8 @@ public class CandidateDTO {
     private String email;
     private String phone;
     private String status;
-    private LocalDate updatedAt;  
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
     private String experience;
     private String noticePeriod;
     private String currentCtc;
@@ -28,6 +29,9 @@ public class CandidateDTO {
     private int jobCount;
     private List<String> appliedJobs;
     private List<AppliedJobInfo> appliedJobsWithClient;
+    private Long createdById;
+    private String createdByUsername;
+    private String createdByEmail;
 
     public boolean isHasResume() {
         return hasResume;
@@ -94,12 +98,18 @@ public class CandidateDTO {
 	public void setStatus(String status) {
 		this.status = status;
 	}
-	public LocalDate getUpdatedAt() {
-		return updatedAt;
-	}
-	public void setUpdatedAt(LocalDate updatedAt) {
-		this.updatedAt = updatedAt;
-	}
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+    public void setUpdatedAt(LocalDateTime updatedAt) {
+        this.updatedAt = updatedAt;
+    }
 	public String getExperience() {
 		return experience;
 	}
@@ -172,6 +182,24 @@ public class CandidateDTO {
 	public void setJobLocation(String jobLocation) {
 		this.jobLocation = jobLocation;
 	}
+    public Long getCreatedById() {
+        return createdById;
+    }
+    public void setCreatedById(Long createdById) {
+        this.createdById = createdById;
+    }
+    public String getCreatedByUsername() {
+        return createdByUsername;
+    }
+    public void setCreatedByUsername(String createdByUsername) {
+        this.createdByUsername = createdByUsername;
+    }
+    public String getCreatedByEmail() {
+        return createdByEmail;
+    }
+    public void setCreatedByEmail(String createdByEmail) {
+        this.createdByEmail = createdByEmail;
+    }
 
     // ✅ Getters
   

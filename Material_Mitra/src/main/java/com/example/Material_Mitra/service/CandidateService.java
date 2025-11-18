@@ -2,7 +2,7 @@ package com.example.Material_Mitra.service;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -17,6 +17,8 @@ import org.apache.tika.metadata.Metadata;
 import org.apache.tika.parser.AutoDetectParser;
 import org.apache.tika.sax.BodyContentHandler;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -24,14 +26,16 @@ import com.example.Material_Mitra.dto.CandidateDTO;
 import com.example.Material_Mitra.dto.CandidateDetailsDTO;
 import com.example.Material_Mitra.dto.DTOMapper;
 import com.example.Material_Mitra.dto.JobDTO;
+import com.example.Material_Mitra.entity.ApplicationStatusHistory;
 import com.example.Material_Mitra.entity.Candidate;
 import com.example.Material_Mitra.entity.Job;
 import com.example.Material_Mitra.entity.JobApplication;
 import com.example.Material_Mitra.enums.ResultStatus;
+import com.example.Material_Mitra.entity.User;
+import com.example.Material_Mitra.repository.ApplicationStatusHistoryRepository;
 import com.example.Material_Mitra.repository.CandidateRepository;
-import com.example.Material_Mitra.repository.InterviewRepository;
 import com.example.Material_Mitra.repository.JobApplicationRepository;
-import com.example.Material_Mitra.repository.JobRepository;
+import com.example.Material_Mitra.repository.UserRepository;
 
 import jakarta.transaction.Transactional;
 import opennlp.tools.namefind.NameFinderME;
@@ -48,15 +52,16 @@ public class CandidateService {
     private CandidateRepository candidateRepository;
 
     @Autowired
-    private JobRepository jobRepository;
-
-    @Autowired
     private JobApplicationRepository jobApplicationRepository;
+    
     @Autowired
-    private InterviewRepository interviewRepository;
+    private ApplicationStatusHistoryRepository statusHistoryRepository;
     
     @Autowired
     private S3FileStorageService fileStorageService;
+    
+    @Autowired
+    private UserRepository userRepository;
 
 
     private final NameFinderME nameFinder;
@@ -95,6 +100,35 @@ public class CandidateService {
             throw new RuntimeException("Failed to store resume file", e);
         }
 
+        if (candidate.getCreatedAt() == null) {
+            candidate.setCreatedAt(LocalDateTime.now());
+        }
+        // Set default status if null
+        if (candidate.getStatus() == null) {
+            candidate.setStatus(ResultStatus.NEW_CANDIDATE);
+        }
+        candidate.setUpdatedAt(LocalDateTime.now());
+        getAuthenticatedUser().ifPresent(user -> {
+            candidate.setCreatedBy(user);
+            candidate.setCreatedByUserId(user.getId());
+            if (candidate.getCreatedByName() == null || candidate.getCreatedByName().isBlank()) {
+                candidate.setCreatedByName(user.getUsername());
+            }
+            if (candidate.getCreatedByEmail() == null || candidate.getCreatedByEmail().isBlank()) {
+                candidate.setCreatedByEmail(user.getEmail());
+            }
+        });
+        if (candidate.getCreatedBy() != null) {
+            if (candidate.getCreatedByUserId() == null) {
+                candidate.setCreatedByUserId(candidate.getCreatedBy().getId());
+            }
+            if (candidate.getCreatedByName() == null || candidate.getCreatedByName().isBlank()) {
+                candidate.setCreatedByName(candidate.getCreatedBy().getUsername());
+            }
+            if (candidate.getCreatedByEmail() == null || candidate.getCreatedByEmail().isBlank()) {
+                candidate.setCreatedByEmail(candidate.getCreatedBy().getEmail());
+            }
+        }
         return candidateRepository.save(candidate);
     }
 
@@ -121,9 +155,40 @@ public class CandidateService {
                 .orElseThrow(() -> new RuntimeException("Document not found"));
     }
 
+    @Transactional
     public Candidate getCandidateById(Long id) {
-        return candidateRepository.findById(id)
+        Candidate candidate = candidateRepository.findByIdWithApplicationsAndJobAndClient(id)
                 .orElseThrow(() -> new RuntimeException("Candidate not found"));
+        
+        // Fetch status history separately for each application to avoid MultipleBagFetchException
+        if (candidate.getApplications() != null) {
+            candidate.getApplications().forEach(application -> {
+                // Fetch status history using repository to avoid MultipleBagFetchException
+                List<ApplicationStatusHistory> history = 
+                    statusHistoryRepository.findByApplicationIdOrderByChangedAtDesc(application.getId());
+                
+                // Ensure the application relationship is set on each history entry
+                if (history != null) {
+                    history.forEach(h -> h.setApplication(application));
+                }
+                
+                // Get existing status history list and update it
+                List<ApplicationStatusHistory> existing = application.getStatusHistory();
+                if (existing == null) {
+                    existing = new ArrayList<>();
+                    application.setStatusHistory(existing);
+                } else {
+                    existing.clear();
+                }
+                
+                // Add all fetched history entries
+                if (history != null) {
+                    existing.addAll(history);
+                }
+            });
+        }
+        
+        return candidate;
     }
 
     
@@ -210,6 +275,7 @@ public class CandidateService {
             }
         }
 
+        existing.setUpdatedAt(LocalDateTime.now());
         return candidateRepository.save(existing);
     }
 
@@ -248,7 +314,17 @@ public class CandidateService {
 //                return dto;
 //            }).collect(Collectors.toList());
 //    }
-    
+    private Optional<User> getAuthenticatedUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return Optional.empty();
+        }
+        String username = authentication.getName();
+        if (username == null || "anonymousUser".equalsIgnoreCase(username)) {
+            return Optional.empty();
+        }
+        return userRepository.findByUsername(username);
+    }
     
     public List<CandidateDTO> getAllCandidates() {
         return candidateRepository.findAll().stream()
@@ -354,43 +430,6 @@ public class CandidateService {
         return null;
     }
     
-    // Extract About/Summary section (usually Objective or Summary)
-    private String extractAboutSection(String text) {
-        // Look for common section headers
-        String[] sectionHeaders = {
-            "objective", "summary", "profile", "about", "career objective", "professional summary",
-            "executive summary", "professional profile"
-        };
-        
-        for (String header : sectionHeaders) {
-            Pattern pattern = Pattern.compile("(?i)" + Pattern.quote(header) + "[\\s:]*\\n?\\s*(.{50,500})", Pattern.DOTALL);
-            Matcher matcher = pattern.matcher(text);
-            if (matcher.find()) {
-                String about = matcher.group(1).trim();
-                // Clean up - remove extra whitespace, newlines
-                about = about.replaceAll("\\s+", " ").trim();
-                // Limit length to 2000 characters (TEXT column can hold up to 65KB, but we'll keep it reasonable)
-                if (about.length() > 2000) {
-                    about = about.substring(0, 2000) + "...";
-                }
-                return about;
-            }
-        }
-        
-        // Fallback: Extract first meaningful paragraph (100-300 chars)
-        String[] sentences = text.split("[\\.!?]");
-        for (String sentence : sentences) {
-            sentence = sentence.trim();
-            if (sentence.length() >= 50 && sentence.length() <= 300) {
-                // Check if it looks like an objective/summary (not a bullet point or too technical)
-                if (!sentence.matches("^[•\\-*]") && !sentence.toLowerCase().matches(".*(skill|technology|framework|tool).*")) {
-                    return sentence;
-                }
-            }
-        }
-        
-        return null;
-    }
 // ---------------------------------------------------------extract name 
     private String extractName(String text) {
         if (text == null || text.isBlank()) return null;
@@ -622,9 +661,6 @@ public class CandidateService {
             name = generateNameFromEmail(email);
         }
         
-        // Extract about/summary section (usually first paragraph or objective)
-        String about = extractAboutSection(content);
-
         Candidate candidate = new Candidate();
         candidate.setName(name);
         candidate.setEmail(email);
@@ -634,12 +670,11 @@ public class CandidateService {
         candidate.setExperience(experience);
         candidate.setCurrentCtc(currentCtc);
         candidate.setExpectedCtc(expectedCtc);
-        candidate.setAbout(about);
         
         // Store resume file
         String resumePath = fileStorageService.storeFile(file, "resumes/candidates");
         candidate.setResumePath(resumePath);
-        candidate.setUpdatedAt(LocalDate.now());
+        candidate.setUpdatedAt(LocalDateTime.now());
 
         return candidate;
     }
@@ -707,7 +742,13 @@ public class CandidateService {
         dto.setStatus(candidate.getStatus().name());
         dto.setResumePath(candidate.getResumePath());
         dto.setResumeUrl(candidate.getResumePath() != null ? "/api/files/" + candidate.getResumePath() : null);
-        dto.setUpdatedAt(candidate.getUpdatedAt().atStartOfDay());
+        dto.setUpdatedAt(candidate.getUpdatedAt());
+        dto.setCreatedAt(candidate.getCreatedAt());
+        if (candidate.getCreatedBy() != null) {
+            dto.setCreatedById(candidate.getCreatedBy().getId());
+            dto.setCreatedByUsername(candidate.getCreatedBy().getUsername());
+            dto.setCreatedByEmail(candidate.getCreatedBy().getEmail());
+        }
 
         System.out.println("Looking for job application with candidateId: " + candidateId + " and jobId: " + jobId);
         JobApplication application = jobApplicationRepository.findByCandidateIdAndJobId(candidateId, jobId);

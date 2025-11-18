@@ -1,6 +1,6 @@
 package com.example.Material_Mitra.controller;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -25,7 +25,6 @@ import com.example.Material_Mitra.dto.CandidateDetailsDTO;
 import com.example.Material_Mitra.dto.DTOMapper;
 import com.example.Material_Mitra.entity.Candidate;
 import com.example.Material_Mitra.enums.ResultStatus;
-import com.example.Material_Mitra.repository.CandidateRepository;
 import com.example.Material_Mitra.service.CandidateService;
 import com.example.Material_Mitra.service.S3FileStorageService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -35,9 +34,6 @@ public class CandidateController {
 
     @Autowired
     private CandidateService candidateService;
-
-    @Autowired
-    private CandidateRepository candidateRepository;
     
     @Autowired
     private S3FileStorageService fileStorageService;
@@ -57,7 +53,7 @@ public class CandidateController {
             
             // Set default status if null
             if (candidate.getStatus() == null) {
-                candidate.setStatus(ResultStatus.SCHEDULED); // Use an existing enum value
+                candidate.setStatus(ResultStatus.NEW_CANDIDATE);
             }
 
             // Set resume if provided
@@ -66,8 +62,10 @@ public class CandidateController {
                 candidate.setResumePath(resumePath);
             }
 
-            // ✅ Set updatedAt to today's date
-            candidate.setUpdatedAt(LocalDate.now());
+            // ✅ Ensure timestamps include time component
+            LocalDateTime now = LocalDateTime.now();
+            candidate.setCreatedAt(now);
+            candidate.setUpdatedAt(now);
 
             Candidate savedCandidate = candidateService.createCandidate(candidate, resumeFile);
             return ResponseEntity.ok(savedCandidate);
