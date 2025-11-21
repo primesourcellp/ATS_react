@@ -11,6 +11,9 @@ const UserForm = ({ user, onSave, onClose, currentUserRole = '' }) => {
   const [errors, setErrors] = useState({});
   const [validating, setValidating] = useState({ username: false, email: false });
   const [validationResults, setValidationResults] = useState({ username: null, email: null });
+  
+  // Check if editing an admin user
+  const isEditingAdmin = user && normalizeRole(user.role) === 'ADMIN';
 
   useEffect(() => {
     if (user) {
@@ -107,9 +110,9 @@ const UserForm = ({ user, onSave, onClose, currentUserRole = '' }) => {
       newErrors.email = 'Email already exists';
     }
     
-    // Additional validation for admin users
-    if (role === 'ADMIN' && user && normalizeRole(user.role) !== 'ADMIN') {
-      newErrors.role = 'Only one admin user is allowed. Cannot change existing user to admin.';
+    // Prevent selecting ADMIN role
+    if (role === 'ADMIN') {
+      newErrors.role = 'Admin users cannot be created or changed through this interface.';
     }
 
     setErrors(newErrors);
@@ -120,12 +123,37 @@ const UserForm = ({ user, onSave, onClose, currentUserRole = '' }) => {
     e.preventDefault();
     const actingRole = normalizeRole(currentUserRole);
     const isEditingSameRestrictedRole = user && normalizeRole(user.role) === role;
+    
+    // If editing an admin, prevent role changes
+    if (isEditingAdmin) {
+      // Don't include role in the update data for admin users
+      setErrors(prev => {
+        const { role: _omit, ...rest } = prev;
+        return rest;
+      });
+      if (!validateForm()) return;
+      
+      // Only send username, email, and password (if provided) for admin users
+      const userData = { username, email };
+      if (password && password.trim() !== '') {
+        userData.password = password;
+      }
+      onSave(userData);
+      return;
+    }
+    
+    // Prevent creating or changing to ADMIN role
+    if (role === 'ADMIN') {
+      setErrors(prev => ({ ...prev, role: 'Admin users cannot be created or changed through this interface.' }));
+      return;
+    }
+    
     if (
       actingRole !== 'ADMIN' &&
-      (role === 'ADMIN' || role === 'SECONDARY_ADMIN') &&
+      role === 'SECONDARY_ADMIN' &&
       !isEditingSameRestrictedRole
     ) {
-      setErrors(prev => ({ ...prev, role: 'Only the primary admin can assign admin roles.' }));
+      setErrors(prev => ({ ...prev, role: 'Only the primary admin can assign secondary admin roles.' }));
       return;
     }
     setErrors(prev => {
@@ -274,13 +302,12 @@ const UserForm = ({ user, onSave, onClose, currentUserRole = '' }) => {
             <select
               value={role}
               onChange={(e) => setRole(e.target.value)}
+              disabled={isEditingAdmin}
               className={`w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                errors.role ? 'border-red-500' : 'border-gray-300'
+                errors.role ? 'border-red-500' : 
+                isEditingAdmin ? 'border-gray-300 bg-gray-100 cursor-not-allowed' : 'border-gray-300'
               }`}
             >
-            <option value="ADMIN" disabled={normalizeRole(currentUserRole) !== 'ADMIN'}>
-              ADMIN
-            </option>
             <option value="SECONDARY_ADMIN" disabled={normalizeRole(currentUserRole) !== 'ADMIN'}>
               SECONDARY_ADMIN
             </option>
@@ -290,7 +317,12 @@ const UserForm = ({ user, onSave, onClose, currentUserRole = '' }) => {
             {errors.role && (
               <p className="text-red-500 text-xs mt-1">{errors.role}</p>
             )}
-          {normalizeRole(currentUserRole) === 'SECONDARY_ADMIN' && (
+            {isEditingAdmin && (
+              <p className="text-xs text-gray-500 mt-1">
+                Admin role cannot be changed. Only username, email, and password can be updated.
+              </p>
+            )}
+          {normalizeRole(currentUserRole) === 'SECONDARY_ADMIN' && !isEditingAdmin && (
             <p className="text-xs text-gray-500 mt-1">
               Secondary admins can create recruiters and users. Contact the primary admin for admin role changes.
             </p>

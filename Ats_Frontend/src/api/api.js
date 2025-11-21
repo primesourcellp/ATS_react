@@ -17,7 +17,7 @@ const getAuthHeaders = (contentType = "application/json") => {
   return headers;
 };
 
-const handleResponse = async (response) => {
+const handleResponse = async (response, skipLogoutOn403 = false) => {
   // Handle empty success (e.g. DELETE 204)
   if (response.status === 204) {
     return { success: true };
@@ -43,19 +43,27 @@ const handleResponse = async (response) => {
       throw new Error("Unauthorized");
     }
     if (response.status === 403) {
-      const existingToken = localStorage.getItem("jwtToken");
-      if (existingToken) {
-        localStorage.removeItem("jwtToken");
-        if (
-          window.location.pathname !== "/" &&
-          window.location.pathname !== "/login" &&
-          window.location.pathname !== "/forgot-password"
-        ) {
-          window.location.href = "/login";
+      // Don't logout on 403 if skipLogoutOn403 is true (for user creation endpoints)
+      if (!skipLogoutOn403) {
+        const existingToken = localStorage.getItem("jwtToken");
+        if (existingToken) {
+          localStorage.removeItem("jwtToken");
+          if (
+            window.location.pathname !== "/" &&
+            window.location.pathname !== "/login" &&
+            window.location.pathname !== "/forgot-password"
+          ) {
+            window.location.href = "/login";
+          }
+          throw new Error("Session expired. Please log in again.");
         }
-        throw new Error("Session expired. Please log in again.");
       }
-      throw new Error("Forbidden");
+      const errorData = isJson 
+        ? await response.json().catch(() => ({}))
+        : await response.text().catch(() => "");
+      throw new Error(
+        errorData.message || errorData.error || errorData || "Forbidden: You don't have permission to perform this action."
+      );
     }
     const errorData = isJson 
       ? await response.json().catch(() => ({}))
@@ -154,12 +162,32 @@ export const userAPI = {
   },
 
   createAdmin: async (userData) => {
+    // This endpoint is for initial admin registration (first time setup)
+    // It's allowed from the login/register page but blocked from user management UI
     const response = await fetch(`${BASE_URL}/api/users/create-admin`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json" }, // No auth required for first admin
       body: JSON.stringify(userData),
     });
-    return handleResponse(response);
+    // Use custom error handling to prevent logout on 403
+    if (!response.ok) {
+      const errorData = await response.text().catch(() => response.statusText);
+      throw new Error(errorData || `HTTP error! status: ${response.status}`);
+    }
+    // Backend returns plain text "Admin registered successfully"
+    // Read response as text first (can only read response body once)
+    const responseText = await response.text();
+    if (!responseText || responseText.trim() === '') {
+      return "Admin registered successfully";
+    }
+    // Try to parse as JSON if it looks like JSON, otherwise return as text
+    try {
+      const jsonData = JSON.parse(responseText);
+      return jsonData.message || jsonData || "Admin registered successfully";
+    } catch {
+      // Not JSON, return as plain text
+      return responseText;
+    }
   },
 
   createSecondaryAdmin: async (userData) => {
@@ -168,7 +196,7 @@ export const userAPI = {
       headers: getAuthHeaders(),
       body: JSON.stringify(userData),
     });
-    return handleResponse(response);
+    return handleResponse(response, true); // Skip logout on 403 for user creation
   },
 
   createRecruiter: async (userData) => {
@@ -177,7 +205,7 @@ export const userAPI = {
       headers: getAuthHeaders(),
       body: JSON.stringify(userData),
     });
-    return handleResponse(response);
+    return handleResponse(response, true); // Skip logout on 403 for user creation
   },
 
   createUser: async (userData) => {
@@ -186,7 +214,7 @@ export const userAPI = {
       headers: getAuthHeaders(),
       body: JSON.stringify(userData),
     });
-    return handleResponse(response);
+    return handleResponse(response, true); // Skip logout on 403 for user creation
   },
 
   update: async (id, userData) => {

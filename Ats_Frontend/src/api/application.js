@@ -119,6 +119,7 @@ export const applicationAPI = {
       // For status-only updates, send as form data to match backend expectations
       const fd = new FormData();
       if (formData.status) fd.append("status", formData.status);
+      if (formData.statusDescription) fd.append("statusDescription", formData.statusDescription);
       
       const response = await fetch(`${BASE_URL}/api/applications/${id}`, {
         method: "PUT",

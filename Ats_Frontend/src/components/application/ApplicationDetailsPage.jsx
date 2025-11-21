@@ -96,6 +96,13 @@ const ApplicationDetailsPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [resumeLoading, setResumeLoading] = useState(false);
+  const [newStatus, setNewStatus] = useState("");
+  const [statusDescription, setStatusDescription] = useState("");
+  const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [showStatusChange, setShowStatusChange] = useState(false);
+
+  // Get current user from localStorage
+  const currentUserName = localStorage.getItem("username") || "";
 
   useEffect(() => {
     // Scroll to top when component mounts or ID changes
@@ -147,6 +154,42 @@ const ApplicationDetailsPage = () => {
     if (application?.candidate?.id) {
       navigate(`/candidates/${application.candidate.id}`);
     }
+  };
+
+  const handleStatusChange = async () => {
+    if (!newStatus || newStatus === application?.status) {
+      return;
+    }
+
+    if (!statusDescription || statusDescription.trim() === "") {
+      return;
+    }
+
+    try {
+      setUpdatingStatus(true);
+      await applicationAPI.update(application.id, {
+        status: newStatus,
+        statusDescription: statusDescription.trim(),
+      });
+      
+      // Refresh application data
+      const updatedData = await applicationAPI.getById(id);
+      setApplication(updatedData);
+      
+      // Reset form
+      setNewStatus("");
+      setStatusDescription("");
+      setShowStatusChange(false);
+    } catch (err) {
+      alert(err.message || "Failed to update status");
+      console.error("Error updating status:", err);
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
+  const getStatusClass = (status) => {
+    return statusClassMap[status] || "bg-gray-100 text-gray-800";
   };
 
   if (loading) {
@@ -230,20 +273,142 @@ const ApplicationDetailsPage = () => {
                 </span>
               </div>
             </div>
-            <div className="flex gap-3">
-              {(application.resumeAvailable || application.candidate?.hasResume) && (
-                <button
-                  onClick={handleViewResume}
-                  disabled={resumeLoading}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium ${
-                    resumeLoading
-                      ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                      : "bg-blue-600 text-white hover:bg-blue-700"
-                  }`}
-                >
-                  <i className={`fas ${resumeLoading ? "fa-spinner fa-spin" : "fa-file-pdf"}`}></i>
-                  {resumeLoading ? "Opening..." : "View Resume"}
-                </button>
+            <div className="flex flex-col gap-3">
+              <div className="flex gap-3">
+                {(application.resumeAvailable || application.candidate?.hasResume) && (
+                  <button
+                    onClick={handleViewResume}
+                    disabled={resumeLoading}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium ${
+                      resumeLoading
+                        ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                        : "bg-blue-600 text-white hover:bg-blue-700"
+                    }`}
+                  >
+                    <i className={`fas ${resumeLoading ? "fa-spinner fa-spin" : "fa-file-pdf"}`}></i>
+                    {resumeLoading ? "Opening..." : "View Resume"}
+                  </button>
+                )}
+                {/* Check if current user is the assigner */}
+                {(() => {
+                  const isAssignedByCurrentUser = application.createdByUsername && 
+                    currentUserName && 
+                    application.createdByUsername.trim().toLowerCase() === currentUserName.trim().toLowerCase();
+                  
+                  if (!isAssignedByCurrentUser) {
+                    // User is not the assigner - show read-only status badge
+                    return (
+                      <div className="flex items-center gap-2">
+                        <span className={`inline-flex items-center px-3 py-2 rounded-full text-xs font-semibold ${getStatusClass(application.status)}`}>
+                          {getStatusLabel(application.status)}
+                        </span>
+                        <span className="text-xs text-gray-500" title="Only the user who assigned this job can change the status">
+                          <i className="fas fa-lock"></i>
+                        </span>
+                      </div>
+                    );
+                  }
+                  
+                  // User is the assigner - allow status change
+                  return (
+                    <>
+                      <div className="relative inline-flex items-center">
+                        <select
+                          value={showStatusChange ? newStatus : application.status}
+                          onChange={(e) => {
+                            const selectedStatus = e.target.value;
+                            if (!selectedStatus || selectedStatus === application.status) {
+                              setNewStatus("");
+                              setStatusDescription("");
+                              setShowStatusChange(false);
+                              return;
+                            }
+                            setNewStatus(selectedStatus);
+                            setShowStatusChange(true);
+                            if (!statusDescription) {
+                              setStatusDescription("");
+                            }
+                          }}
+                          className={`inline-flex items-center px-3 py-2 rounded-full text-xs font-medium cursor-pointer appearance-none pr-6 focus:outline-none focus:ring-2 focus:ring-offset-1 ${getStatusClass(showStatusChange ? newStatus : application.status)}`}
+                          style={{ 
+                            backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='currentColor'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E")`,
+                            backgroundRepeat: 'no-repeat',
+                            backgroundPosition: 'right 0.25rem center',
+                            backgroundSize: '1em 1em',
+                            paddingRight: '1.75rem'
+                          }}
+                        >
+                          <option value="NEW_CANDIDATE">New Candidate</option>
+                          <option value="PENDING">Pending</option>
+                          <option value="SCHEDULED">Scheduled</option>
+                          <option value="INTERVIEWED">Interviewed</option>
+                          <option value="PLACED">Placed</option>
+                          <option value="REJECTED">Rejected</option>
+                          <option value="NOT_INTERESTED">Not Interested</option>
+                          <option value="HOLD">Hold</option>
+                          <option value="HIGH_CTC">High CTC</option>
+                          <option value="DROPPED_BY_CLIENT">Dropped by Client</option>
+                          <option value="SUBMITTED_TO_CLIENT">Submitted to Client</option>
+                          <option value="NO_RESPONSE">No Response</option>
+                          <option value="IMMEDIATE">Immediate</option>
+                          <option value="REJECTED_BY_CLIENT">Rejected by Client</option>
+                          <option value="CLIENT_SHORTLIST">Client Shortlist</option>
+                          <option value="FIRST_INTERVIEW_SCHEDULED">1st Interview Scheduled</option>
+                          <option value="FIRST_INTERVIEW_FEEDBACK_PENDING">1st Interview Feedback Pending</option>
+                          <option value="FIRST_INTERVIEW_REJECT">1st Interview Reject</option>
+                          <option value="SECOND_INTERVIEW_SCHEDULED">2nd Interview Scheduled</option>
+                          <option value="SECOND_INTERVIEW_FEEDBACK_PENDING">2nd Interview Feedback Pending</option>
+                          <option value="SECOND_INTERVIEW_REJECT">2nd Interview Reject</option>
+                          <option value="THIRD_INTERVIEW_SCHEDULED">3rd Interview Scheduled</option>
+                          <option value="THIRD_INTERVIEW_FEEDBACK_PENDING">3rd Interview Feedback Pending</option>
+                          <option value="THIRD_INTERVIEW_REJECT">3rd Interview Reject</option>
+                          <option value="INTERNEL_REJECT">Internel Reject</option>
+                          <option value="CLIENT_REJECT">Client Reject</option>
+                          <option value="FINAL_SELECT">Final Select</option>
+                          <option value="JOINED">Joined</option>
+                          <option value="BACKEDOUT">Backed Out</option>
+                          <option value="NOT_RELEVANT">Not Relevant</option>
+                        </select>
+                        {updatingStatus && (
+                          <i className="fas fa-spinner fa-spin text-blue-500 text-xs ml-2"></i>
+                        )}
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+              {/* Small description box that appears when status is changed */}
+              {showStatusChange && newStatus && newStatus !== application.status && (
+                <div className="mt-2 space-y-2 max-w-md">
+                  <textarea
+                    value={statusDescription}
+                    onChange={(e) => setStatusDescription(e.target.value)}
+                    placeholder="Add a description for this status change... (required)"
+                    rows="2"
+                    className="w-full p-2 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+                    autoFocus
+                  />
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleStatusChange}
+                      disabled={updatingStatus || !statusDescription.trim()}
+                      className="px-3 py-1 text-xs font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {updatingStatus ? 'Saving...' : 'Confirm'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setNewStatus("");
+                        setStatusDescription("");
+                        setShowStatusChange(false);
+                      }}
+                      disabled={updatingStatus}
+                      className="px-3 py-1 text-xs font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
           </div>

@@ -30,8 +30,8 @@ import com.example.Material_Mitra.entity.ApplicationStatusHistory;
 import com.example.Material_Mitra.entity.Candidate;
 import com.example.Material_Mitra.entity.Job;
 import com.example.Material_Mitra.entity.JobApplication;
-import com.example.Material_Mitra.enums.ResultStatus;
 import com.example.Material_Mitra.entity.User;
+import com.example.Material_Mitra.enums.ResultStatus;
 import com.example.Material_Mitra.repository.ApplicationStatusHistoryRepository;
 import com.example.Material_Mitra.repository.CandidateRepository;
 import com.example.Material_Mitra.repository.JobApplicationRepository;
@@ -430,19 +430,37 @@ public class CandidateService {
         return null;
     }
     
-// ---------------------------------------------------------extract name 
+// ---------------------------------------------------------extract name using OpenNLP
     private String extractName(String text) {
         if (text == null || text.isBlank()) return null;
 
         // First, try to find name in the very top lines (usually first 3-5 lines)
         String[] lines = text.split("\\r?\\n");
+        String firstLine = lines.length > 0 ? lines[0].trim() : "";
         String topLines = String.join("\n", Arrays.copyOf(lines, Math.min(5, lines.length)));
         
-        // Prioritize top lines for name extraction
-        String[] sentences = sentenceDetector.sentDetect(topLines);
-        SimpleTokenizer tokenizer = SimpleTokenizer.INSTANCE;
-
         Map<String, Integer> nameCandidates = new LinkedHashMap<>();
+
+        // Strategy 1: Check if first line is ALL CAPS name (OpenNLP struggles with ALL CAPS)
+        // Pattern for ALL CAPS names like "SELVA RAGAVAN R"
+        if (!firstLine.isEmpty()) {
+            Matcher allCapsMatcher = Pattern.compile("^([A-Z]{2,}(?:[-\\s][A-Z]{2,})*(?:\\s+[A-Z])?\\s+[A-Z]{2,}(?:[-\\s][A-Z]{2,})*(?:\\s+[A-Z])?)").matcher(firstLine);
+            if (allCapsMatcher.find()) {
+                String candidate = allCapsMatcher.group(1).trim();
+                // Remove job titles
+                candidate = removeJobTitles(candidate);
+                if (isLikelyValidName(candidate, true)) { // true = allow ALL CAPS
+                    String cleanName = normalizeName(candidate);
+                    nameCandidates.put(cleanName, 100); // Highest score for first line ALL CAPS
+                }
+            }
+        }
+
+        // Strategy 2: Preprocess text for OpenNLP (convert ALL CAPS to Title Case)
+        // OpenNLP works better with normal case text
+        String processedTopLines = preprocessForOpenNLP(topLines);
+        String[] sentences = sentenceDetector.sentDetect(processedTopLines);
+        SimpleTokenizer tokenizer = SimpleTokenizer.INSTANCE;
 
         // Focus on first 5 sentences (top of resume where name usually appears)
         for (int i = 0; i < Math.min(sentences.length, 5); i++) {
@@ -458,7 +476,7 @@ public class CandidateService {
 
                 String rawName = nameBuilder.toString().trim();
 
-                if (isLikelyValidName(rawName)) {
+                if (isLikelyValidName(rawName, false)) { // false = normal case validation
                     String cleanName = normalizeName(rawName);
                     int score = nameCandidates.getOrDefault(cleanName, 0);
 
@@ -470,9 +488,10 @@ public class CandidateService {
             nameFinder.clearAdaptiveData(); // reset adaptive learning for next sentence
         }
         
-        // If no name found in top lines, try first 10 sentences of full text
+        // Strategy 3: If no name found in top lines, try first 10 sentences of full text
         if (nameCandidates.isEmpty()) {
-            String[] allSentences = sentenceDetector.sentDetect(text);
+            String processedText = preprocessForOpenNLP(text);
+            String[] allSentences = sentenceDetector.sentDetect(processedText);
             for (int i = 0; i < Math.min(allSentences.length, 10); i++) {
                 String sentence = allSentences[i];
                 String[] tokens = tokenizer.tokenize(sentence);
@@ -486,7 +505,7 @@ public class CandidateService {
 
                     String rawName = nameBuilder.toString().trim();
 
-                    if (isLikelyValidName(rawName)) {
+                    if (isLikelyValidName(rawName, false)) {
                         String cleanName = normalizeName(rawName);
                         int score = nameCandidates.getOrDefault(cleanName, 0);
                         score += (10 - i); // Higher weight for top lines
@@ -503,22 +522,167 @@ public class CandidateService {
                 .findFirst()
                 .orElse(null);
     }
-
-    private boolean isLikelyValidName(String name) {
-        if (name == null || name.isBlank()) return false;
-
-        // Must be two or more words, starting with uppercase letters, no numbers or special chars
-        if (!name.matches("^[A-Z][a-z]+(\\s[A-Z][a-z]+)+$")) return false;
-
-        String[] invalidTerms = { "Resume", "Curriculum", "Vitae", "CV", "Email", "Contact", "Mobile", "Objective" };
-        for (String word : invalidTerms) {
-            if (name.toLowerCase().contains(word.toLowerCase())) return false;
+    
+    /**
+     * Preprocess text for better OpenNLP name recognition
+     * Converts ALL CAPS words to Title Case if they look like names
+     */
+    private String preprocessForOpenNLP(String text) {
+        if (text == null || text.isBlank()) return text;
+        
+        String[] lines = text.split("\\r?\\n");
+        if (lines.length > 0) {
+            String firstLine = lines[0].trim();
+            // Check if first line matches ALL CAPS name pattern (2-5 words, all uppercase)
+            if (firstLine.matches("^[A-Z]{2,}(?:[-\\s][A-Z]{2,})*(?:\\s+[A-Z])?\\s+[A-Z]{2,}(?:[-\\s][A-Z]{2,})*(?:\\s+[A-Z])?.*")) {
+                // Convert ALL CAPS to Title Case for better OpenNLP recognition
+                String[] words = firstLine.split("\\s+");
+                StringBuilder converted = new StringBuilder();
+                for (int i = 0; i < words.length; i++) {
+                    String word = words[i];
+                    // Skip if it's a single letter (likely an initial like "R")
+                    if (word.length() == 1 && Character.isUpperCase(word.charAt(0))) {
+                        converted.append(word);
+                    } else if (word.matches("[A-Z]{2,}")) {
+                        // Convert ALL CAPS to Title Case: "SELVA" -> "Selva"
+                        converted.append(Character.toUpperCase(word.charAt(0)));
+                        if (word.length() > 1) {
+                            converted.append(word.substring(1).toLowerCase());
+                        }
+                    } else {
+                        converted.append(word);
+                    }
+                    if (i < words.length - 1) {
+                        converted.append(" ");
+                    }
+                }
+                // Replace first line with converted version
+                lines[0] = converted.toString();
+                return String.join("\n", lines);
+            }
         }
+        return text;
+    }
+    
+    /**
+     * Remove common job titles from extracted text
+     */
+    private String removeJobTitles(String text) {
+        if (text == null || text.isBlank()) return text;
+        
+        String[] jobTitles = {
+            "developer", "engineer", "manager", "analyst", "specialist", "consultant",
+            "architect", "designer", "administrator", "coordinator", "director", "lead",
+            "senior", "junior", "associate", "assistant", "executive", "officer",
+            "programmer", "coder", "tester", "qa", "devops", "sre", "sdet"
+        };
+        
+        String[] words = text.split("\\s+");
+        
+        // Remove job titles from the start
+        while (words.length > 1) {
+            String firstWord = words[0].toLowerCase().replaceAll("[^a-z]", "");
+            boolean isJobTitle = false;
+            for (String title : jobTitles) {
+                if (firstWord.contains(title) || title.contains(firstWord)) {
+                    isJobTitle = true;
+                    break;
+                }
+            }
+            if (isJobTitle) {
+                words = Arrays.copyOfRange(words, 1, words.length);
+            } else {
+                break;
+            }
+        }
+        
+        // Remove job titles from the end
+        while (words.length > 1) {
+            String lastWord = words[words.length - 1].toLowerCase().replaceAll("[^a-z]", "");
+            boolean isJobTitle = false;
+            for (String title : jobTitles) {
+                if (lastWord.contains(title) || title.contains(lastWord)) {
+                    isJobTitle = true;
+                    break;
+                }
+            }
+            if (isJobTitle) {
+                words = Arrays.copyOfRange(words, 0, words.length - 1);
+            } else {
+                break;
+            }
+        }
+        
+        return String.join(" ", words).trim();
+    }
+
+    private boolean isLikelyValidName(String name, boolean allowAllCaps) {
+        if (name == null || name.isBlank()) return false;
+        
+        String normalized = normalizeName(name);
+        if (normalized.isBlank()) return false;
+        
+        String[] words = normalized.split("\\s+");
+        
+        // Must have at least 2 words, max 5 words
+        if (words.length < 2 || words.length > 5) return false;
+        
+        // Check if it's ALL CAPS
+        boolean isAllCaps = normalized.equals(normalized.toUpperCase()) && 
+                            normalized.matches("[A-Z\\s'-]+");
+        
+        // If ALL CAPS is not allowed, reject it
+        if (isAllCaps && !allowAllCaps) return false;
+        
+        // Validate each word
+        for (String word : words) {
+            if (word.length() < 1) return false;
+            
+            // Allow single letter (for initials like "R" in "SELVA RAGAVAN R")
+            if (word.length() == 1) {
+                if (!Character.isUpperCase(word.charAt(0))) return false;
+                continue;
+            }
+            
+            // Word should start with uppercase
+            if (!Character.isUpperCase(word.charAt(0))) return false;
+            
+            if (isAllCaps) {
+                // For ALL CAPS names, all letters should be uppercase
+                if (!word.matches("[A-Z]+([-'][A-Z]+)*")) return false;
+            } else {
+                // For normal case, rest should be lowercase (allow hyphenated names)
+                String rest = word.substring(1);
+                if (!rest.matches("[a-z]+([-'][a-z]+)*")) return false;
+            }
+        }
+        
+        // Exclude common invalid terms and job titles
+        String nameLower = normalized.toLowerCase();
+        String[] invalidTerms = { 
+            "Resume", "Curriculum", "Vitae", "CV", "Email", "Contact", "Mobile", "Phone",
+            "Objective", "Summary", "Profile", "Address", "LinkedIn", "GitHub", "Portfolio",
+            "Experience", "Education", "Skills", "Projects", "Certifications", "References",
+            "Developer", "Engineer", "Manager", "Analyst", "Specialist", "Consultant"
+        };
+        for (String term : invalidTerms) {
+            if (nameLower.contains(term.toLowerCase())) return false;
+        }
+        
+        // Exclude if it contains numbers
+        if (normalized.matches(".*\\d+.*")) return false;
 
         return true;
     }
+    
+    // Overloaded method for backward compatibility (defaults to normal case)
+    private boolean isLikelyValidName(String name) {
+        return isLikelyValidName(name, false);
+    }
     private String normalizeName(String name) {
-        return name.replaceAll("[^A-Za-z\\s]", "")  // Remove symbols
+        if (name == null) return null;
+        // Preserve letters, spaces, hyphens, and apostrophes (for names like "Mary-Jane" or "O'Brien")
+        return name.replaceAll("[^A-Za-z\\s'-]", "")  // Remove symbols except hyphens and apostrophes
                    .replaceAll("\\s{2,}", " ")      // Remove extra spaces
                    .trim();
     }
@@ -777,3 +941,4 @@ public class CandidateService {
 
     
 }
+

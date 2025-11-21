@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-const UserTable = ({ users, loading, onEditUser, onDeleteUser, searchTerm }) => {
+const UserTable = ({ users, loading, onEditUser, onDeleteUser, searchTerm, allUsers = [] }) => {
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'ascending' });
   const [expandedUser, setExpandedUser] = useState(null);
 
@@ -89,6 +89,11 @@ const UserTable = ({ users, loading, onEditUser, onDeleteUser, searchTerm }) => 
   // Separate admin users from others
   const adminUsers = sortedUsers.filter(user => user.role.includes('ADMIN'));
   const nonAdminUsers = sortedUsers.filter(user => !user.role.includes('ADMIN'));
+  
+  // Check if there's only one admin user
+  const normalizeRole = (role) => (role || '').replace('ROLE_', '');
+  const adminCount = allUsers.filter(user => normalizeRole(user.role) === 'ADMIN').length;
+  const isOnlyAdmin = adminCount === 1;
 
   if (loading) {
     return (
@@ -180,20 +185,25 @@ const UserTable = ({ users, loading, onEditUser, onDeleteUser, searchTerm }) => 
                     </div>
                   </td>
                 </tr>
-                {adminUsers.map((user) => (
-                  <UserRow 
-                    key={user.id} 
-                    user={user} 
-                    expandedUser={expandedUser}
-                    toggleExpand={toggleExpand}
-                    onEditUser={onEditUser}
-                    onDeleteUser={onDeleteUser}
-                    searchTerm={searchTerm}
-                    highlightSearchTerm={highlightSearchTerm}
-                    getRoleBadge={getRoleBadge}
-                    isAdmin={true}
-                  />
-                ))}
+                {adminUsers.map((user) => {
+                  const userRole = normalizeRole(user.role);
+                  const canDelete = !(userRole === 'ADMIN' && isOnlyAdmin);
+                  return (
+                    <UserRow 
+                      key={user.id} 
+                      user={user} 
+                      expandedUser={expandedUser}
+                      toggleExpand={toggleExpand}
+                      onEditUser={onEditUser}
+                      onDeleteUser={onDeleteUser}
+                      searchTerm={searchTerm}
+                      highlightSearchTerm={highlightSearchTerm}
+                      getRoleBadge={getRoleBadge}
+                      isAdmin={true}
+                      canDelete={canDelete}
+                    />
+                  );
+                })}
               </>
             )}
             
@@ -234,8 +244,9 @@ const UserTable = ({ users, loading, onEditUser, onDeleteUser, searchTerm }) => 
 };
 
 // Separate component for user row to reduce duplication
-const UserRow = ({ user, expandedUser, toggleExpand, onEditUser, onDeleteUser, searchTerm, highlightSearchTerm, getRoleBadge, isAdmin }) => (
-  <>
+const UserRow = ({ user, expandedUser, toggleExpand, onEditUser, onDeleteUser, searchTerm, highlightSearchTerm, getRoleBadge, isAdmin, canDelete = true }) => {
+  return (
+    <>
     <tr 
       key={user.id} 
       className={`hover:bg-gray-50 transition-colors duration-150 cursor-pointer ${isAdmin ? 'bg-blue-25' : ''}`}
@@ -289,10 +300,17 @@ const UserRow = ({ user, expandedUser, toggleExpand, onEditUser, onDeleteUser, s
           <button
             onClick={(e) => {
               e.stopPropagation();
-              onDeleteUser(user);
+              if (canDelete) {
+                onDeleteUser(user);
+              }
             }}
-            className="text-red-600 hover:text-red-900 p-2 rounded-full hover:bg-red-50 transition-colors"
-            title="Delete User"
+            disabled={!canDelete}
+            className={`p-2 rounded-full transition-colors ${
+              canDelete 
+                ? 'text-red-600 hover:text-red-900 hover:bg-red-50 cursor-pointer' 
+                : 'text-gray-300 cursor-not-allowed opacity-50'
+            }`}
+            title={canDelete ? "Delete User" : "Cannot delete the only admin user"}
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -327,18 +345,32 @@ const UserRow = ({ user, expandedUser, toggleExpand, onEditUser, onDeleteUser, s
                   Edit User
                 </button>
                 <button
-                  onClick={() => onDeleteUser(user)}
-                  className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-full shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                  onClick={() => {
+                    if (canDelete) {
+                      onDeleteUser(user);
+                    }
+                  }}
+                  disabled={!canDelete}
+                  className={`inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-full shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                    canDelete
+                      ? 'text-white bg-red-600 hover:bg-red-700 focus:ring-red-500 cursor-pointer'
+                      : 'text-gray-400 bg-gray-200 cursor-not-allowed opacity-50'
+                  }`}
+                  title={canDelete ? "Delete User" : "Cannot delete the only admin user"}
                 >
                   Delete User
                 </button>
+                {!canDelete && (
+                  <p className="text-xs text-red-600 mt-1">Cannot delete the only admin user</p>
+                )}
               </div>
             </div>
           </div>
         </td>
       </tr>
     )}
-  </>
-);
+    </>
+  );
+};
 
 export default UserTable;

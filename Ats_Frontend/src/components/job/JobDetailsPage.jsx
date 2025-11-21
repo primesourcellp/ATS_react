@@ -62,6 +62,8 @@ const JobDetailsPage = () => {
   const [applicationIdSearch, setApplicationIdSearch] = useState("");
   const [expandedApplicationId, setExpandedApplicationId] = useState(null);
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [showMyCandidates, setShowMyCandidates] = useState(false);
+  const currentUserName = (typeof window !== "undefined" && localStorage.getItem("username")) || "";
 
   useEffect(() => {
     // Scroll to top when component mounts or ID changes
@@ -109,11 +111,20 @@ const JobDetailsPage = () => {
         !applicationIdSearch ||
         appId.toLowerCase().includes(applicationIdSearch.trim().toLowerCase());
 
-      return matchesCandidate && matchesApplicationId;
+      // "My Candidates" filter: show only applications created by current recruiter
+      let matchesMyCandidates = true;
+      if (showMyCandidates && currentUserName) {
+        const createdBy = (application.createdByUsername || "").toLowerCase();
+        const createdByEmail = (application.createdByEmail || "").toLowerCase();
+        const me = currentUserName.trim().toLowerCase();
+        matchesMyCandidates = createdBy === me || createdByEmail === me;
+      }
+
+      return matchesCandidate && matchesApplicationId && matchesMyCandidates;
     });
     console.log("Filtered applications count:", filtered.length);
     return filtered;
-  }, [job?.applications, applicationCandidateSearch, applicationIdSearch]);
+  }, [job?.applications, applicationCandidateSearch, applicationIdSearch, showMyCandidates, currentUserName]);
 
   const handleBack = () => {
     if (window.history.length > 2) {
@@ -316,6 +327,19 @@ const JobDetailsPage = () => {
                 className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
               />
             </div>
+            <button
+              type="button"
+              onClick={() => setShowMyCandidates((prev) => !prev)}
+              className={`px-3 py-2 rounded-lg text-xs font-medium border ${
+                showMyCandidates
+                  ? "bg-blue-600 text-white border-blue-600"
+                  : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+              }`}
+              title="Show only applications created by you"
+            >
+              <i className="fas fa-user-check mr-1"></i>
+              My Candidates
+            </button>
           </div>
         </div>
       </div>
@@ -344,7 +368,17 @@ const JobDetailsPage = () => {
                     className="hover:bg-gray-50 cursor-pointer"
                     onClick={() => setExpandedApplicationId(expandedApplicationId === application.id ? null : application.id)}
                   >
-                    <Td>{application.id}</Td>
+                    <Td>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleViewApplication(application.id);
+                        }}
+                        className="text-blue-600 hover:text-blue-700 underline font-medium"
+                      >
+                        {application.id}
+                      </button>
+                    </Td>
                     <Td>
                       <button
                         onClick={(e) => {

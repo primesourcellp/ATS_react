@@ -121,6 +121,18 @@ const UserManagement = () => {
     if (!userPendingDeletion || deleting) {
       return;
     }
+    
+    // Check if trying to delete the only admin user
+    const userRole = normalizeRole(userPendingDeletion.role);
+    if (userRole === 'ADMIN') {
+      const adminCount = users.filter(user => normalizeRole(user.role) === 'ADMIN').length;
+      if (adminCount === 1) {
+        showToast('Error', 'Cannot delete the only admin user. Please create another admin user first, or promote a secondary admin to admin before deleting this user.', 'error');
+        setUserPendingDeletion(null);
+        return;
+      }
+    }
+    
     try {
       setDeleting(true);
       await userAPI.delete(userPendingDeletion.id);
@@ -128,7 +140,13 @@ const UserManagement = () => {
       setUserPendingDeletion(null);
       loadUsers();
     } catch (error) {
-      showToast('Error', error.message || 'Failed to delete user', 'error');
+      const errorMessage = error.message || 'Failed to delete user';
+      // Check if error is about deleting the only admin
+      if (errorMessage.toLowerCase().includes('admin') || errorMessage.toLowerCase().includes('last admin')) {
+        showToast('Error', 'Cannot delete the only admin user. Please create another admin user first.', 'error');
+      } else {
+        showToast('Error', errorMessage, 'error');
+      }
     } finally {
       setDeleting(false);
     }
@@ -145,11 +163,13 @@ const UserManagement = () => {
         await userAPI.update(selectedUser.id, userData);
         showToast('Success', 'User updated successfully', 'success');
       } else {
+        // Prevent creating ADMIN users through UI
+        if (userData.role === 'ADMIN') {
+          throw new Error('Admin users cannot be created through the user management interface. Please contact the system administrator.');
+        }
+        
         // Determine which endpoint to use based on role
         switch (userData.role) {
-          case 'ADMIN':
-            await userAPI.createAdmin(userData);
-            break;
           case 'SECONDARY_ADMIN':
             await userAPI.createSecondaryAdmin(userData);
             break;
@@ -394,6 +414,7 @@ const UserManagement = () => {
             onEditUser={handleEditUser}
             onDeleteUser={requestDeleteUser}
             searchTerm={searchTerm}
+            allUsers={users}
           />
         </div>
 

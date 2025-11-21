@@ -341,7 +341,17 @@ const CandidateDetailsPage = () => {
                     className="hover:bg-gray-50 cursor-pointer"
                     onClick={() => setExpandedApplicationId(expandedApplicationId === application.id ? null : application.id)}
                   >
-                    <Td>{application.id}</Td>
+                    <Td>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/applications/${application.id}`);
+                        }}
+                        className="text-blue-600 hover:text-blue-700 underline font-medium"
+                      >
+                        {application.id}
+                      </button>
+                    </Td>
                     <Td>
                       <div className="text-sm font-semibold text-gray-900">{application.job?.jobName || "N/A"}</div>
                       <div className="text-xs text-gray-500">

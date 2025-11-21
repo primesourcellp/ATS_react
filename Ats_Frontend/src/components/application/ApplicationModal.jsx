@@ -44,7 +44,11 @@ const ApplicationModal = ({ application, candidates, jobs, onSave, onClose, show
       }
       if (application.job?.jobName || application.job?.title) {
         const jobName = application.job.jobName || application.job.title;
-        setJobSearch(`${application.job.id} - ${jobName}`);
+        const clientName = application.job.client?.clientName || application.job.client?.client_name || '';
+        const displayText = clientName 
+          ? `${jobName} - ${clientName} (ID: ${application.job.id})`
+          : `${application.job.id} - ${jobName}`;
+        setJobSearch(displayText);
       }
     } else {
       // Ensure formData is properly initialized for new applications
@@ -84,10 +88,13 @@ const ApplicationModal = ({ application, candidates, jobs, onSave, onClose, show
     return jobs.filter(job => {
       const jobId = String(job.id).toLowerCase();
       const jobName = (job.jobName || job.title || '').toLowerCase();
+      const clientName = (job.client?.clientName || job.client?.client_name || '').toLowerCase();
       return (
         jobId.includes(searchTerm) ||
         jobName.includes(searchTerm) ||
-        `${jobId} - ${jobName}`.includes(searchTerm)
+        clientName.includes(searchTerm) ||
+        `${jobId} - ${jobName}`.includes(searchTerm) ||
+        `${jobName} - ${clientName}`.includes(searchTerm)
       );
     });
   }, [jobs, jobSearch]);
@@ -104,9 +111,12 @@ const ApplicationModal = ({ application, candidates, jobs, onSave, onClose, show
     setCandidateDropdownIndex(-1);
   };
 
-  const handleJobSelect = (jobId, jobName) => {
+  const handleJobSelect = (jobId, jobName, clientName) => {
     setFormData(prev => ({ ...prev, jobId }));
-    setJobSearch(`${jobId} - ${jobName}`);
+    const displayText = clientName 
+      ? `${jobName} - ${clientName} (ID: ${jobId})`
+      : `${jobId} - ${jobName}`;
+    setJobSearch(displayText);
     setShowJobDropdown(false);
     setJobDropdownIndex(-1);
   };
@@ -198,7 +208,8 @@ const ApplicationModal = ({ application, candidates, jobs, onSave, onClose, show
       e.preventDefault();
       const job = filteredJobs[jobDropdownIndex];
       const jobName = job.jobName || job.title;
-      handleJobSelect(job.id, jobName);
+      const clientName = job.client?.clientName || job.client?.client_name || '';
+      handleJobSelect(job.id, jobName, clientName);
     } else if (e.key === 'Escape' || e.key === 'Tab') {
       setShowJobDropdown(false);
       setJobDropdownIndex(-1);
@@ -307,15 +318,17 @@ const ApplicationModal = ({ application, candidates, jobs, onSave, onClose, show
                 {filteredJobs.length > 0 ? (
                   filteredJobs.map((job, index) => {
                     const jobName = job.jobName || job.title;
+                    const clientName = job.client?.clientName || job.client?.client_name || 'No Client';
                     return (
                       <div
                         key={job.id}
                         role="option"
                         aria-selected={index === jobDropdownIndex}
                         className={`p-2 cursor-pointer ${index === jobDropdownIndex ? 'bg-blue-100' : 'hover:bg-gray-100'}`}
-                        onClick={() => handleJobSelect(job.id, jobName)}
+                        onClick={() => handleJobSelect(job.id, jobName, clientName)}
                       >
                         <div className="font-semibold">{jobName}</div>
+                        <div className="text-sm text-gray-600">{clientName}</div>
                         <div className="text-xs text-gray-500">ID: {job.id}</div>
                       </div>
                     );

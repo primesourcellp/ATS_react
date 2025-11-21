@@ -131,6 +131,24 @@ public class UserService {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("User not found with ID: " + id));
 
+        // If editing an admin user, prevent role changes
+        boolean isAdmin = user.getRole().equals(RoleStatus.ADMIN);
+        
+        if (isAdmin) {
+            // For admin users, only allow username, email, and password updates
+            // Role cannot be changed
+            user.setUsername(updatedUser.getUsername());
+            user.setEmail(updatedUser.getEmail());
+            
+            // ✅ Encode only if password is provided
+            if (updatedUser.getPassword() != null && !updatedUser.getPassword().isBlank()) {
+                user.setPassword(passwordEncoder.encode(updatedUser.getPassword()));
+            }
+            // Role remains unchanged for admin users
+            return userRepository.save(user);
+        }
+
+        // For non-admin users, allow role changes with restrictions
         // Prevent multiple admins (only if changing TO admin role)
         if (updatedUser.getRole() == RoleStatus.ADMIN && !user.getRole().equals(RoleStatus.ADMIN)) {
             boolean adminExists = userRepository.existsByRole(RoleStatus.ADMIN);
@@ -147,7 +165,11 @@ public class UserService {
             user.setPassword(passwordEncoder.encode(updatedUser.getPassword()));
         }
 
-        user.setRole(updatedUser.getRole());
+        // Only update role if provided (for non-admin users)
+        if (updatedUser.getRole() != null) {
+            user.setRole(updatedUser.getRole());
+        }
+        
         return userRepository.save(user);
     }
   
