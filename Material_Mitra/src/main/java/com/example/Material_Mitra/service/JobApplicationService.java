@@ -114,10 +114,27 @@ public class JobApplicationService {
         return savedApp;
     }
 
-    // ✅ Get all
+    // ✅ Get all (with recruiter restriction based on assigned clients)
     public List<JobApplicationDTO> getAllApplications() {
-        return jobApplicationRepository.findAll()
-                .stream().map(DTOMapper::toJobApplicationDTO)
+        User current = resolveCurrentUser().orElse(null);
+
+        // Admin / Secondary admin or unrestricted -> see all applications
+        if (current == null ||
+            current.getRole() == null ||
+            current.getRole() == com.example.Material_Mitra.enums.RoleStatus.ADMIN ||
+            current.getRole() == com.example.Material_Mitra.enums.RoleStatus.SECONDARY_ADMIN ||
+            !current.isRestrictCandidates()) {
+
+            return jobApplicationRepository.findAll()
+                    .stream()
+                    .map(DTOMapper::toJobApplicationDTO)
+                    .collect(Collectors.toList());
+        }
+
+        // Restricted recruiter: only applications for jobs whose client is assigned to them
+        return jobApplicationRepository.findApplicationsByAssignedRecruiter(current.getId())
+                .stream()
+                .map(DTOMapper::toJobApplicationDTO)
                 .collect(Collectors.toList());
     }
 

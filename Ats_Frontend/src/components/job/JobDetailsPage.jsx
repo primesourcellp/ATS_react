@@ -63,7 +63,13 @@ const JobDetailsPage = () => {
   const [expandedApplicationId, setExpandedApplicationId] = useState(null);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [showMyCandidates, setShowMyCandidates] = useState(false);
-  const currentUserName = (typeof window !== "undefined" && localStorage.getItem("username")) || "";
+  const [recruiterFilter, setRecruiterFilter] = useState("");
+  const currentUserName =
+    (typeof window !== "undefined" && localStorage.getItem("username")) || "";
+  const currentUserRole =
+    (typeof window !== "undefined" &&
+      (localStorage.getItem("role") || "").replace("ROLE_", "").toUpperCase()) ||
+    "";
 
   useEffect(() => {
     // Scroll to top when component mounts or ID changes
@@ -92,6 +98,18 @@ const JobDetailsPage = () => {
     }
   }, [id]);
 
+  const recruiterOptions = useMemo(() => {
+    if (!job?.applications) return [];
+    const names = new Set();
+    job.applications.forEach((a) => {
+      const name = (a.createdByUsername || "").trim();
+      if (name) {
+        names.add(name);
+      }
+    });
+    return Array.from(names).sort((a, b) => a.localeCompare(b));
+  }, [job?.applications]);
+
   const filteredApplications = useMemo(() => {
     if (!job?.applications) {
       console.log("No applications found in job data");
@@ -111,20 +129,45 @@ const JobDetailsPage = () => {
         !applicationIdSearch ||
         appId.toLowerCase().includes(applicationIdSearch.trim().toLowerCase());
 
-      // "My Candidates" filter: show only applications created by current recruiter
+      // "My Candidates" filter: for recruiters/sub-users
       let matchesMyCandidates = true;
-      if (showMyCandidates && currentUserName) {
+      const isRecruiterRole =
+        currentUserRole === "RECRUITER" || currentUserRole === "SUB_USER";
+      if (isRecruiterRole && showMyCandidates && currentUserName) {
         const createdBy = (application.createdByUsername || "").toLowerCase();
         const createdByEmail = (application.createdByEmail || "").toLowerCase();
         const me = currentUserName.trim().toLowerCase();
         matchesMyCandidates = createdBy === me || createdByEmail === me;
       }
 
-      return matchesCandidate && matchesApplicationId && matchesMyCandidates;
+      // Admin / secondary admin recruiter filter dropdown
+      let matchesRecruiter = true;
+      const isAdminRole =
+        currentUserRole === "ADMIN" || currentUserRole === "SECONDARY_ADMIN";
+      if (isAdminRole && recruiterFilter) {
+        const createdBy = (application.createdByUsername || "").toLowerCase();
+        matchesRecruiter =
+          createdBy === recruiterFilter.trim().toLowerCase();
+      }
+
+      return (
+        matchesCandidate &&
+        matchesApplicationId &&
+        matchesMyCandidates &&
+        matchesRecruiter
+      );
     });
     console.log("Filtered applications count:", filtered.length);
     return filtered;
-  }, [job?.applications, applicationCandidateSearch, applicationIdSearch, showMyCandidates, currentUserName]);
+  }, [
+    job?.applications,
+    applicationCandidateSearch,
+    applicationIdSearch,
+    showMyCandidates,
+    currentUserName,
+    currentUserRole,
+    recruiterFilter,
+  ]);
 
   const handleBack = () => {
     if (window.history.length > 2) {
@@ -327,19 +370,37 @@ const JobDetailsPage = () => {
                 className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
               />
             </div>
-            <button
-              type="button"
-              onClick={() => setShowMyCandidates((prev) => !prev)}
-              className={`px-3 py-2 rounded-lg text-xs font-medium border ${
-                showMyCandidates
-                  ? "bg-blue-600 text-white border-blue-600"
-                  : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-              }`}
-              title="Show only applications created by you"
-            >
-              <i className="fas fa-user-check mr-1"></i>
-              My Candidates
-            </button>
+            {["ADMIN", "SECONDARY_ADMIN"].includes(currentUserRole) ? (
+              <div className="relative">
+                <i className="fas fa-user-tie absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                <select
+                  value={recruiterFilter}
+                  onChange={(e) => setRecruiterFilter(e.target.value)}
+                  className="pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
+                >
+                  <option value="">All recruiters</option>
+                  {recruiterOptions.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowMyCandidates((prev) => !prev)}
+                className={`px-3 py-2 rounded-lg text-xs font-medium border ${
+                  showMyCandidates
+                    ? "bg-blue-600 text-white border-blue-600"
+                    : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                }`}
+                title="Show only applications created by you"
+              >
+                <i className="fas fa-user-check mr-1"></i>
+                My Candidates
+              </button>
+            )}
           </div>
         </div>
       </div>

@@ -1,6 +1,10 @@
 package com.example.Material_Mitra.entity;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Entity;
@@ -22,6 +26,13 @@ public class Client {
 	
 	@OneToMany(mappedBy = "client", cascade = {CascadeType.PERSIST, CascadeType.MERGE}, fetch = FetchType.LAZY)
 	private List<Job> jobs;
+
+	/**
+	 * Per-client, per-recruiter permissions used for Account Manager.
+	 */
+	@OneToMany(mappedBy = "client", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+	@JsonIgnoreProperties({"client"})
+	private Set<ClientRecruiterPermission> permissions = new HashSet<>();
 	 
 	public void addJob(Job job) {
 	    jobs.add(job);
@@ -67,7 +78,12 @@ public class Client {
 	public void setJobs(List<Job> jobs) {
 		this.jobs = jobs;
 	}
-	
-	
 
+	public Set<ClientRecruiterPermission> getPermissions() {
+		return permissions;
+	}
+
+	public void setPermissions(Set<ClientRecruiterPermission> permissions) {
+		this.permissions = permissions;
+	}
 }

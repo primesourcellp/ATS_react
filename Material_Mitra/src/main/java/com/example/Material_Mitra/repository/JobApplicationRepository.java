@@ -73,4 +73,19 @@ public interface JobApplicationRepository extends JpaRepository<JobApplication, 
     List<JobApplication> findDetailedByCreatedByAndAppliedAtBetween(@Param("recruiterId") Long recruiterId,
                                                                     @Param("startDate") LocalDate startDate,
                                                                     @Param("endDate") LocalDate endDate);
+
+    @Query("SELECT DISTINCT c FROM JobApplication ja " +
+           "JOIN ja.candidate c " +
+           "JOIN ja.job j " +
+           "JOIN j.client cl " +
+           "JOIN cl.permissions p " +
+           "WHERE p.recruiter.id = :recruiterId AND p.canViewCandidates = true")
+    List<Candidate> findCandidatesByAssignedRecruiter(@Param("recruiterId") Long recruiterId);
+
+    @Query("SELECT ja FROM JobApplication ja " +
+           "JOIN ja.job j " +
+           "JOIN j.client cl " +
+           "JOIN cl.permissions p " +
+           "WHERE p.recruiter.id = :recruiterId AND p.canViewCandidates = true")
+    List<JobApplication> findApplicationsByAssignedRecruiter(@Param("recruiterId") Long recruiterId);
 }

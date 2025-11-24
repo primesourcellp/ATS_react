@@ -20,6 +20,7 @@ import com.example.Material_Mitra.dto.InterviewUpdateDTO;
 import com.example.Material_Mitra.entity.Interview;
 import com.example.Material_Mitra.entity.JobApplication;
 import com.example.Material_Mitra.entity.User;
+import com.example.Material_Mitra.enums.RoleStatus;
 import com.example.Material_Mitra.repository.InterviewRepository;
 import com.example.Material_Mitra.repository.JobApplicationRepository;
 import com.example.Material_Mitra.repository.UserRepository;
@@ -151,7 +152,16 @@ public class InterviewService {
     }
 
     public List<InterviewDTO> getAllInterviewsWithClient() {
-        return interviewRepository.findAllInterviewsWithClient();
+        Optional<User> currentOpt = resolveCurrentUser();
+        User current = currentOpt.orElse(null);
+        if (current == null ||
+            current.getRole() == null ||
+            current.getRole() == RoleStatus.ADMIN ||
+            current.getRole() == RoleStatus.SECONDARY_ADMIN ||
+            !current.isRestrictInterviews()) {
+            return interviewRepository.findAllInterviewsWithClient();
+        }
+        return interviewRepository.findAllInterviewsWithClientForRecruiter(current.getId());
     }
 
     private Optional<User> resolveCurrentUser() {

@@ -18,9 +18,15 @@ public interface ClientRepository extends JpaRepository<Client, Long> {
 		       "   OR LOWER(c.address) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
 		       "   OR LOWER(c.client_number) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
 		       "   OR LOWER(j.jobName) LIKE LOWER(CONCAT('%', :keyword, '%'))")
-		List<Client> searchClientsByKeyword(@Param("keyword") String keyword);
+	List<Client> searchClientsByKeyword(@Param("keyword") String keyword);
 
+	@Query("SELECT DISTINCT c FROM Client c JOIN c.permissions p " +
+	       "WHERE p.recruiter.id = :recruiterId AND p.canViewClient = true")
+	List<Client> findByAssignedRecruiterId(@Param("recruiterId") Long recruiterId);
 
+	@Query("SELECT c FROM Client c LEFT JOIN c.permissions p " +
+	       "WITH p.canViewClient = true WHERE p IS NULL")
+	List<Client> findUnassignedClients();
 }
 
 

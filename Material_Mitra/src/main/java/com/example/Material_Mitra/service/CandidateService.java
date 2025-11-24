@@ -327,9 +327,25 @@ public class CandidateService {
     }
     
     public List<CandidateDTO> getAllCandidates() {
-        return candidateRepository.findAll().stream()
-            .map(DTOMapper::toCandidateDTO)
-            .collect(Collectors.toList());
+        User currentUser = getAuthenticatedUser().orElse(null);
+
+        // Admin / Secondary admin or unauthenticated: see all candidates
+        if (currentUser == null ||
+            currentUser.getRole() == null ||
+            currentUser.getRole() == com.example.Material_Mitra.enums.RoleStatus.ADMIN ||
+            currentUser.getRole() == com.example.Material_Mitra.enums.RoleStatus.SECONDARY_ADMIN ||
+            !currentUser.isRestrictCandidates()) {
+
+            return candidateRepository.findAll().stream()
+                .map(DTOMapper::toCandidateDTO)
+                .collect(Collectors.toList());
+        }
+
+        // Recruiter with restriction: only candidates whose job's client is assigned to them
+        List<Candidate> restricted = jobApplicationRepository.findCandidatesByAssignedRecruiter(currentUser.getId());
+        return restricted.stream()
+                .map(DTOMapper::toCandidateDTO)
+                .collect(Collectors.toList());
     }
 
 

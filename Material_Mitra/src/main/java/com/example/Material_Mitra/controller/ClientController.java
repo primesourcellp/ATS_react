@@ -1,6 +1,7 @@
 package com.example.Material_Mitra.controller;
 
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.example.Material_Mitra.entity.Client;
 import com.example.Material_Mitra.entity.Job;
 import com.example.Material_Mitra.service.ClientService;
+import com.example.Material_Mitra.service.ClientService.ClientPermissionRequest;
 
 @RestController
 @RequestMapping("/api/clients")
@@ -34,9 +36,16 @@ public class ClientController {
         return ResponseEntity.ok(savedClient);
     }
 
-    // Get all Clients
+    // Get clients for current user (applies restriction flags)
     @GetMapping
     public ResponseEntity<List<Client>> getAllClients() {
+        List<Client> clients = clientService.getClientsForCurrentUser();
+        return ResponseEntity.ok(clients);
+    }
+
+    // Get all clients without restriction (for Account Manager)
+    @GetMapping("/all")
+    public ResponseEntity<List<Client>> getAllClientsForAdmin() {
         List<Client> clients = clientService.getAllClients();
         return ResponseEntity.ok(clients);
     }
@@ -58,29 +67,18 @@ public class ClientController {
 
     // Update Client
     @PutMapping("/{id}")
-    public ResponseEntity<Client> updateClient(@PathVariable Long id, @RequestBody Client client) {
+    public ResponseEntity<?> updateClient(@PathVariable Long id, @RequestBody Client client) {
         if (!id.equals(client.getId())) {
             return ResponseEntity.badRequest().build();
         }
-        Client updatedClient = clientService.updateClient(client);
-        return ResponseEntity.ok(updatedClient);
+        try {
+            Client updatedClient = clientService.updateClient(client);
+            return ResponseEntity.ok(updatedClient);
+        } catch (IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
     }
 
-    // Delete Client without deleting jobs (disassociate jobs first)
-//    @DeleteMapping("/{id}")
-//    public ResponseEntity<Void> deleteClient(@PathVariable("id") Long id) {
-//        clientService.deleteClient(id);
-//        return ResponseEntity.noContent().build();
-//    }
-//    @DeleteMapping("/{id}")
-//    public ResponseEntity<?> deleteClient(@PathVariable("id") Long id) {
-//        try {
-//            clientService.deleteClient(id);
-//            return ResponseEntity.noContent().build(); // 204 No Content
-//        } catch (IllegalStateException e) {
-//            return ResponseEntity.badRequest().body(e.getMessage()); // 400 Bad Request
-//        }
-//    }
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteClient(@PathVariable("id") Long id) {
         try {
@@ -91,12 +89,30 @@ public class ClientController {
         }
     }
 
-
     // New endpoint: Add a job to an existing client
     @PostMapping("/{id}/jobs")
     public ResponseEntity<Client> addJobToClient(@PathVariable("id") Long clientId, @RequestBody Job job) {
         return clientService.addJobToClient(clientId, job)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
+    }
+
+    @PutMapping("/{id}/recruiters")
+    public ResponseEntity<Client> updateClientRecruiters(
+            @PathVariable("id") Long clientId,
+            @RequestBody List<ClientPermissionRequest> permissions) {
+        Client updated = clientService.updateClientPermissions(clientId, permissions);
+        return ResponseEntity.ok(updated);
+    }
+
+    @GetMapping("/unassigned")
+    public ResponseEntity<List<Client>> getUnassignedClients() {
+        return ResponseEntity.ok(clientService.getUnassignedClients());
+    }
+
+    @GetMapping("/{id}/can-edit")
+    public ResponseEntity<Map<String, Boolean>> canEdit(@PathVariable("id") Long clientId) {
+        boolean canEdit = clientService.canCurrentUserEdit(clientId);
+        return ResponseEntity.ok(Map.of("canEdit", canEdit));
     }
 }

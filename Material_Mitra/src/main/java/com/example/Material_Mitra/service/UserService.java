@@ -135,7 +135,7 @@ public class UserService {
         boolean isAdmin = user.getRole().equals(RoleStatus.ADMIN);
         
         if (isAdmin) {
-            // For admin users, only allow username, email, and password updates
+            // For admin users, only allow username, email, password and restriction flags updates
             // Role cannot be changed
             user.setUsername(updatedUser.getUsername());
             user.setEmail(updatedUser.getEmail());
@@ -144,6 +144,11 @@ public class UserService {
             if (updatedUser.getPassword() != null && !updatedUser.getPassword().isBlank()) {
                 user.setPassword(passwordEncoder.encode(updatedUser.getPassword()));
             }
+            // Update restriction flags if provided (for admin self-updates via UI)
+            user.setRestrictClients(updatedUser.isRestrictClients());
+            user.setRestrictJobs(updatedUser.isRestrictJobs());
+            user.setRestrictCandidates(updatedUser.isRestrictCandidates());
+
             // Role remains unchanged for admin users
             return userRepository.save(user);
         }
@@ -169,6 +174,11 @@ public class UserService {
         if (updatedUser.getRole() != null) {
             user.setRole(updatedUser.getRole());
         }
+
+        // Update restriction flags if provided
+        user.setRestrictClients(updatedUser.isRestrictClients());
+        user.setRestrictJobs(updatedUser.isRestrictJobs());
+        user.setRestrictCandidates(updatedUser.isRestrictCandidates());
         
         return userRepository.save(user);
     }
@@ -239,6 +249,20 @@ public class UserService {
     
     public boolean isAdminPresent() {
         return userRepository.existsByRole(RoleStatus.ADMIN);
+    }
+
+    /**
+     * Update only restriction flags for a user (Account Manager).
+     */
+    public User updateUserRestrictions(Long id, boolean restrictClients, boolean restrictJobs, boolean restrictCandidates) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("User not found with ID: " + id));
+
+        user.setRestrictClients(restrictClients);
+        user.setRestrictJobs(restrictJobs);
+        user.setRestrictCandidates(restrictCandidates);
+
+        return userRepository.save(user);
     }
 
 

@@ -5,6 +5,8 @@ import ApplicationDetailsPage from "./components/application/ApplicationDetailsP
 import Candidates from "./components/candidate/Candidates";
 import CandidateDetailsPage from "./components/candidate/CandidateDetailsPage";
 import Clients from "./components/client/Clients";
+import AccountManager from "./components/client/AccountManager";
+import AccountManagerClientDetail from "./components/client/AccountManagerClientDetail";
 import ClientDetailsPage from "./components/client/ClientDetailsPage";
 import Dashboard from "./components/Dashboard";
 import InterviewManagement from "./components/interview/Interviews";
@@ -114,6 +116,22 @@ function App() {
           element={
             <RequireAuth>
               <Clients />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/account-manager"
+          element={
+            <RequireAuth>
+              <AccountManager />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/account-manager/clients/:id"
+          element={
+            <RequireAuth>
+              <AccountManagerClientDetail />
             </RequireAuth>
           }
         />

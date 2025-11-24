@@ -127,11 +127,18 @@ public class UserController {
     	
 //        return ResponseEntity.ok(userService.createUser(user));
     }
-    // 4. Get all users
+    // 4. Get all users (optionally filter by role)
 //    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping
     public ResponseEntity<List<User>> getAllUsers() {
         return ResponseEntity.ok(userService.getAllUsers());
+    }
+
+    @GetMapping("/recruiters")
+    public ResponseEntity<List<User>> getRecruiters() {
+        return ResponseEntity.ok(userService.getAllUsers().stream()
+                .filter(u -> u.getRole() == RoleStatus.RECRUITER)
+                .toList());
     }
 
     // 5. Get user by ID
@@ -203,6 +210,18 @@ public class UserController {
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
+    }
+
+    @PutMapping("/{id}/restrictions")
+    public ResponseEntity<?> updateRestrictions(
+            @PathVariable Long id,
+            @RequestBody Map<String, Boolean> restrictions) {
+        boolean restrictClients = restrictions.getOrDefault("restrictClients", false);
+        boolean restrictJobs = restrictions.getOrDefault("restrictJobs", false);
+        boolean restrictCandidates = restrictions.getOrDefault("restrictCandidates", false);
+
+        User updated = userService.updateUserRestrictions(id, restrictClients, restrictJobs, restrictCandidates);
+        return ResponseEntity.ok(updated);
     }
 
 

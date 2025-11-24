@@ -69,6 +69,7 @@ const Navbar = () => {
 
   if (normalizedRole.includes("ADMIN")) {
     navItems.push({ name: "Users", path: "/users", icon: <FaUserCog className="text-sm" /> });
+    navItems.push({ name: "Account Manager", path: "/account-manager", icon: <FaUserCog className="text-sm" /> });
   }
 
   return (

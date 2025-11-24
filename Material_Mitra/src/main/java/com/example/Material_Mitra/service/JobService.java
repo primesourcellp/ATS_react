@@ -6,6 +6,8 @@ import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -15,11 +17,14 @@ import com.example.Material_Mitra.entity.Client;
 import com.example.Material_Mitra.entity.Interview;
 import com.example.Material_Mitra.entity.Job;
 import com.example.Material_Mitra.entity.JobApplication;
+import com.example.Material_Mitra.entity.User;
 import com.example.Material_Mitra.enums.JobStatus;
+import com.example.Material_Mitra.enums.RoleStatus;
 import com.example.Material_Mitra.repository.ClientRepository;
 import com.example.Material_Mitra.repository.InterviewRepository;
 import com.example.Material_Mitra.repository.JobApplicationRepository;
 import com.example.Material_Mitra.repository.JobRepository;
+import com.example.Material_Mitra.repository.UserRepository;
 
 import jakarta.transaction.Transactional;
 
@@ -36,6 +41,9 @@ public class JobService {
     
     @Autowired
     private ClientRepository clientRepository;
+
+    @Autowired
+    private UserRepository userRepository;
 
 
 //    public Job addJob(Job job, Long clientId) {
@@ -131,7 +139,22 @@ public class JobService {
     }
 
     public List<Job> getAllJobs() {
-        return jobRepository.findAll();
+        User currentUser = getCurrentUser();
+        if (currentUser == null) {
+            return jobRepository.findAll();
+        }
+
+        RoleStatus role = currentUser.getRole();
+        if (role == RoleStatus.ADMIN || role == RoleStatus.SECONDARY_ADMIN) {
+            return jobRepository.findAll();
+        }
+
+        if (!currentUser.isRestrictJobs()) {
+            return jobRepository.findAll();
+        }
+
+        // Restricted recruiters: only jobs whose client is assigned to them
+        return jobRepository.findByAssignedRecruiter(currentUser.getId());
     }
  // JobService.java
     public List<Job> searchJobsBySkill(String skillKeyword) {
@@ -233,5 +256,15 @@ public class JobService {
                             .collect(Collectors.toList());
     }
 
-   
+    private User getCurrentUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return null;
+        }
+        String username = authentication.getName();
+        if (username == null || "anonymousUser".equalsIgnoreCase(username)) {
+            return null;
+        }
+        return userRepository.findByUsername(username).orElse(null);
     }
+}

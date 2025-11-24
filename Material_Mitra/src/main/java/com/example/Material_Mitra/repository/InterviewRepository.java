@@ -58,6 +58,29 @@ public interface InterviewRepository extends JpaRepository<Interview, Long> {
         ORDER BY i.interviewDate DESC, i.interviewTime ASC
     """)
     List<InterviewDTO> findAllInterviewsWithClient();
+    
+    @Query("""
+        SELECT new com.example.Material_Mitra.dto.InterviewDTO(
+            i.id,
+            c.id,
+            c.name,
+            j.jobName,
+            COALESCE(cl.clientName, ''),
+            i.interviewDate,
+            i.interviewTime,
+            i.endTime
+        )
+        FROM Interview i
+        JOIN i.application a
+        JOIN a.candidate c
+        JOIN a.job j
+        JOIN j.client cl
+        JOIN cl.permissions p
+        WHERE p.recruiter.id = :recruiterId
+          AND p.canViewInterviews = true
+        ORDER BY i.interviewDate DESC, i.interviewTime ASC
+    """)
+    List<InterviewDTO> findAllInterviewsWithClientForRecruiter(@Param("recruiterId") Long recruiterId);
 
     List<Interview> findByScheduledBy_IdAndScheduledOnBetween(Long recruiterId, LocalDate startDate, LocalDate endDate);
 

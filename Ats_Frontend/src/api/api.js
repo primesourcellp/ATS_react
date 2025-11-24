@@ -153,6 +153,14 @@ export const userAPI = {
     return handleResponse(response);
   },
 
+  getRecruiters: async () => {
+    const response = await fetch(`${BASE_URL}/api/users/recruiters`, {
+      method: "GET",
+      headers: getAuthHeaders(),
+    });
+    return handleResponse(response);
+  },
+
   getById: async (id) => {
     const response = await fetch(`${BASE_URL}/api/users/${id}`, {
       method: "GET",
@@ -222,6 +230,15 @@ export const userAPI = {
       method: "PUT",
       headers: getAuthHeaders(),
       body: JSON.stringify(userData),
+    });
+    return handleResponse(response);
+  },
+
+  updateRestrictions: async (id, restrictions) => {
+    const response = await fetch(`${BASE_URL}/api/users/${id}/restrictions`, {
+      method: "PUT",
+      headers: getAuthHeaders(),
+      body: JSON.stringify(restrictions),
     });
     return handleResponse(response);
   },
@@ -733,6 +750,14 @@ export const clientAPI = {
     return handleResponse(response);
   },
 
+  getAllForAdmin: async () => {
+    const response = await fetch(`${BASE_URL}/api/clients/all`, {
+      method: "GET",
+      headers: getAuthHeaders(),
+    });
+    return handleResponse(response);
+  },
+
   getById: async (id) => {
     const response = await fetch(`${BASE_URL}/api/clients/${id}`, {
       method: "GET",
@@ -763,6 +788,15 @@ export const clientAPI = {
       method: "PUT",
       headers: getAuthHeaders(),
       body: JSON.stringify(clientData),
+    });
+    return handleResponse(response);
+  },
+
+  updateRecruiters: async (id, permissions) => {
+    const response = await fetch(`${BASE_URL}/api/clients/${id}/recruiters`, {
+      method: "PUT",
+      headers: getAuthHeaders(),
+      body: JSON.stringify(permissions || []),
     });
     return handleResponse(response);
   },
