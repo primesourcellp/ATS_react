@@ -1,5 +1,6 @@
 import '@fortawesome/fontawesome-free/css/all.min.css';
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { useState, useEffect } from "react";
 import Applications from "./components/application/Applications";
 import ApplicationDetailsPage from "./components/application/ApplicationDetailsPage";
 import Candidates from "./components/candidate/Candidates";
@@ -20,6 +21,7 @@ import Wesiteapplication from "./components/websiteapplication/wesiteapplication
 import NotificationCenter from "./components/notifications/NotificationCenter";
 import Reports from "./components/reports/Reports";
 import CandidateEmailManagement from "./components/admin/CandidateEmailManagement";
+import Chatbot from "./components/chatbot/Chatbot";
 
 const RequireAuth = ({ children }) => {
   const token = localStorage.getItem("jwtToken");
@@ -30,6 +32,36 @@ const RequireAuth = ({ children }) => {
 };
 
 function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  useEffect(() => {
+    // Check authentication status
+    const token = localStorage.getItem("jwtToken");
+    setIsAuthenticated(!!token);
+
+    // Listen for storage changes (e.g., login/logout)
+    const handleStorageChange = () => {
+      const newToken = localStorage.getItem("jwtToken");
+      setIsAuthenticated(!!newToken);
+    };
+
+    // Listen for custom storage events
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Also check periodically (for same-tab changes)
+    const interval = setInterval(() => {
+      const currentToken = localStorage.getItem("jwtToken");
+      if (!!currentToken !== isAuthenticated) {
+        setIsAuthenticated(!!currentToken);
+      }
+    }, 1000);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(interval);
+    };
+  }, [isAuthenticated]);
+
   return (
      <ToastProvider>
     <BrowserRouter>
@@ -177,6 +209,8 @@ function App() {
           }
         />
       </Routes>
+      {/* Chatbot - Show on all authenticated pages */}
+      {isAuthenticated && <Chatbot />}
     </BrowserRouter>
     </ToastProvider>
   );
