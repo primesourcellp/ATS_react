@@ -13,8 +13,10 @@ import {
   FaGlobe,
   FaUserCog,
   FaChevronDown,
+  FaChevronRight,
   FaSignOutAlt,
-  FaChartBar
+  FaChartBar,
+  FaEnvelope
 } from "react-icons/fa";
 import { authAPI } from "../api/api";
 import logo from "../assets/logo.png";
@@ -54,13 +56,11 @@ const Navbar = () => {
   const normalizedRole = (role || "").toUpperCase();
 
   const navItems = [
-    { name: "Dashboard", path: "/dashboard", icon: <FaChartLine className="text-sm" /> },
     { name: "Jobs", path: "/jobs", icon: <FaBriefcase className="text-sm" /> },
-    { name: "Candidates", path: "/candidates", icon: <FaUsers className="text-sm" /> },
-    { name: "Applications", path: "/applications", icon: <FaFileAlt className="text-sm" /> },
-    { name: "Interviews", path: "/interviews", icon: <FaCalendarCheck className="text-sm" /> },
     { name: "Clients", path: "/clients", icon: <FaUser className="text-sm" /> },
-    { name: "Website Apps", path: "/wesiteapplication", icon: <FaGlobe className="text-sm" /> },
+    { name: "Candidates", path: "/candidates", icon: <FaUsers className="text-sm" /> },
+    { name: "Interviews", path: "/interviews", icon: <FaCalendarCheck className="text-sm" /> },
+    { name: "Applications", path: "/applications", icon: <FaFileAlt className="text-sm" /> },
   ];
 
   if (["ADMIN", "SECONDARY_ADMIN", "RECRUITER"].includes(normalizedRole)) {
@@ -68,9 +68,23 @@ const Navbar = () => {
   }
 
   if (normalizedRole.includes("ADMIN")) {
-    navItems.push({ name: "Users", path: "/users", icon: <FaUserCog className="text-sm" /> });
+    navItems.push({ name: "User Management", path: "/Users", icon: <FaUserCog className="text-sm" /> });
     navItems.push({ name: "Account Manager", path: "/account-manager", icon: <FaUserCog className="text-sm" /> });
+    navItems.push({ name: "Candidate Email", path: "/candidate-emails", icon: <FaEnvelope className="text-sm" />, hasDropdown: true });
+    navItems.push({ name: "Website Applications", path: "/wesiteapplication", icon: <FaGlobe className="text-sm" /> });
+  } else if (normalizedRole === "RECRUITER") {
+    navItems.push({ name: "Website Applications", path: "/wesiteapplication", icon: <FaGlobe className="text-sm" /> });
   }
+
+  // Sort by text length, but keep Dashboard first
+  navItems.sort((a, b) => {
+    if (a.name === "Dashboard") return -1;
+    if (b.name === "Dashboard") return 1;
+    return a.name.length - b.name.length;
+  });
+
+  // Add Dashboard at the beginning
+  navItems.unshift({ name: "Dashboard", path: "/dashboard", icon: <FaChartLine className="text-sm" /> });
 
   return (
     <>
@@ -125,7 +139,7 @@ const Navbar = () => {
       </header>
 
       {/* Sidebar */}
-      <aside className="hidden lg:flex flex-col w-20 hover:w-64 bg-white shadow-xl rounded-r-2xl h-screen fixed top-0 left-0 z-20 transition-all duration-300 group">
+      <aside className="hidden lg:flex flex-col w-20 hover:w-60 bg-white shadow-xl rounded-r-2xl h-screen fixed top-0 left-0 z-20 transition-all duration-300 group">
         <div className="flex items-center justify-center h-16 border-b border-gray-200 relative">
           <img 
             src={logo} 
@@ -133,12 +147,12 @@ const Navbar = () => {
             className="h-10 w-auto object-contain opacity-100 group-hover:opacity-100 transition-opacity duration-300"
           />
         </div>
-        <nav className="flex-1 px-2 py-6 space-y-2 overflow-hidden">
+        <nav className="flex-1 px-2 py-6 space-y-2 overflow-y-auto overflow-x-hidden">
           {navItems.map((item, idx) => (
             <button
               key={idx}
               type="button"
-              className={`flex items-center px-3 py-3 rounded-xl transition-all duration-200 ${
+              className={`flex items-center justify-between px-3 py-3 rounded-xl transition-all duration-200 ${
                 currentPath === item.path
                   ? "text-white bg-gradient-to-r from-green-600 to-teal-500 shadow-md"
                   : "text-gray-600 hover:bg-green-50 hover:text-green-600"
@@ -146,12 +160,17 @@ const Navbar = () => {
               title={item.name}
               onClick={() => navigate(item.path)}
             >
-              <span className="min-w-[24px] flex justify-center">
-                {item.icon}
-              </span>
-              <span className="ml-3 text-sm font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                {item.name}
-              </span>
+              <div className="flex items-center">
+                <span className="min-w-[24px] flex justify-center">
+                  {item.icon}
+                </span>
+                <span className="ml-3 text-sm font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                  {item.name}
+                </span>
+              </div>
+              {item.hasDropdown && (
+                <FaChevronRight className="text-xs ml-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              )}
             </button>
           ))}
         </nav>
@@ -164,10 +183,10 @@ const Navbar = () => {
           onClick={() => setMobileNavOpen(false)}
         >
           <div
-            className="fixed top-0 left-0 h-full w-64 bg-white shadow-xl z-50 p-4 rounded-r-2xl transform transition-transform duration-300"
+            className="fixed top-0 left-0 h-full w-60 bg-white shadow-xl z-50 flex flex-col rounded-r-2xl transform transition-transform duration-300"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between border-b pb-4 mb-4">
+            <div className="flex items-center justify-between border-b pb-4 mb-4 p-4 flex-shrink-0">
               <img 
                 src={logo} 
                 alt="ATS Logo" 
@@ -177,12 +196,12 @@ const Navbar = () => {
                 <FaTimes className="text-xl text-gray-600 hover:text-green-600" />
               </button>
             </div>
-            <nav className="space-y-2">
+            <nav className="flex-1 overflow-y-auto overflow-x-hidden px-4 space-y-2">
               {navItems.map((item, idx) => (
                 <button
                   key={idx}
                   type="button"
-                  className={`flex items-center px-4 py-3 rounded-xl transition-all ${
+                  className={`flex items-center justify-between px-4 py-3 rounded-xl transition-all ${
                     currentPath === item.path
                       ? "text-white bg-gradient-to-r from-green-600 to-teal-500 shadow-md"
                       : "text-gray-600 hover:bg-green-50 hover:text-green-600"
@@ -192,13 +211,18 @@ const Navbar = () => {
                     setMobileNavOpen(false);
                   }}
                 >
-                  {item.icon}
-                  <span className="ml-3 text-sm font-medium">{item.name}</span>
+                  <div className="flex items-center">
+                    {item.icon}
+                    <span className="ml-3 text-sm font-medium">{item.name}</span>
+                  </div>
+                  {item.hasDropdown && (
+                    <FaChevronRight className="text-xs ml-2" />
+                  )}
                 </button>
               ))}
             </nav>
 
-            <div className="absolute bottom-4 left-4 right-4 p-3 border-t border-gray-200">
+            <div className="flex-shrink-0 p-4 border-t border-gray-200">
               <div className="flex items-center mt-3">
                 <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center mr-2">
                   <FaUser className="text-green-600 text-xs" />

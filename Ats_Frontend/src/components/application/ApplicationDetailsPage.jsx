@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Navbar from "../../layout/navbar";
-import { applicationAPI, candidateAPI } from "../../api/api";
+import { applicationAPI, candidateAPI, interviewAPI, jobAPI } from "../../api/api";
+import InterviewModal from "./InterviewModal";
+import ApplicationModal from "./ApplicationModal";
 
 const statusClassMap = {
   NEW_CANDIDATE: "bg-emerald-100 text-emerald-800",
@@ -100,9 +102,16 @@ const ApplicationDetailsPage = () => {
   const [statusDescription, setStatusDescription] = useState("");
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [showStatusChange, setShowStatusChange] = useState(false);
+  const [showInterviewModal, setShowInterviewModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [candidates, setCandidates] = useState([]);
+  const [jobs, setJobs] = useState([]);
 
   // Get current user from localStorage
   const currentUserName = localStorage.getItem("username") || "";
+  const currentUserRole = (localStorage.getItem("role") || "").replace("ROLE_", "").toUpperCase();
+  const isAdmin = currentUserRole === "ADMIN" || currentUserRole === "SECONDARY_ADMIN";
 
   useEffect(() => {
     // Scroll to top when component mounts or ID changes
@@ -124,10 +133,26 @@ const ApplicationDetailsPage = () => {
       }
     };
 
+    const fetchCandidatesAndJobs = async () => {
+      try {
+        const [candidatesData, jobsData] = await Promise.all([
+          candidateAPI.getAll(),
+          jobAPI.getAll()
+        ]);
+        setCandidates(candidatesData || []);
+        setJobs(jobsData || []);
+      } catch (err) {
+        console.error("Error fetching candidates/jobs:", err);
+      }
+    };
+
     if (id) {
       fetchApplication();
+      if (isAdmin) {
+        fetchCandidatesAndJobs();
+      }
     }
-  }, [id]);
+  }, [id, isAdmin]);
 
   const handleBack = () => {
     if (window.history.length > 2) {
@@ -153,6 +178,12 @@ const ApplicationDetailsPage = () => {
   const handleViewCandidate = () => {
     if (application?.candidate?.id) {
       navigate(`/candidates/${application.candidate.id}`);
+    }
+  };
+
+  const handleViewJob = () => {
+    if (application?.job?.id) {
+      navigate(`/jobs/${application.job.id}`);
     }
   };
 
@@ -190,6 +221,58 @@ const ApplicationDetailsPage = () => {
 
   const getStatusClass = (status) => {
     return statusClassMap[status] || "bg-gray-100 text-gray-800";
+  };
+
+  const handleScheduleInterview = async (interviewData) => {
+    try {
+      await interviewAPI.schedule(application.id, interviewData);
+      alert("Interview scheduled successfully");
+      setShowInterviewModal(false);
+      // Refresh application data
+      const updatedData = await applicationAPI.getById(id);
+      setApplication(updatedData);
+    } catch (err) {
+      alert(err.message || "Failed to schedule interview");
+      console.error("Error scheduling interview:", err);
+    }
+  };
+
+  const handleEditApplication = async (formData) => {
+    try {
+      const updateData = {
+        status: formData.status,
+        statusDescription: formData.statusDescription,
+        resumeFile: formData.resumeFile,
+        useMasterResume: formData.useMasterResume
+      };
+      await applicationAPI.update(application.id, updateData);
+      alert("Application updated successfully");
+      setShowEditModal(false);
+      // Refresh application data
+      const updatedData = await applicationAPI.getById(id);
+      setApplication(updatedData);
+    } catch (err) {
+      alert(err.message || "Failed to update application");
+      console.error("Error updating application:", err);
+    }
+  };
+
+  const handleDeleteApplication = async () => {
+    if (!window.confirm("Are you sure you want to delete this application? This action cannot be undone.")) {
+      return;
+    }
+
+    try {
+      setDeleting(true);
+      await applicationAPI.delete(application.id);
+      alert("Application deleted successfully");
+      navigate("/applications");
+    } catch (err) {
+      alert(err.message || "Failed to delete application");
+      console.error("Error deleting application:", err);
+    } finally {
+      setDeleting(false);
+    }
   };
 
   if (loading) {
@@ -274,7 +357,7 @@ const ApplicationDetailsPage = () => {
               </div>
             </div>
             <div className="flex flex-col gap-3">
-              <div className="flex gap-3">
+              <div className="flex gap-3 flex-wrap">
                 {(application.resumeAvailable || application.candidate?.hasResume) && (
                   <button
                     onClick={handleViewResume}
@@ -289,14 +372,45 @@ const ApplicationDetailsPage = () => {
                     {resumeLoading ? "Opening..." : "View Resume"}
                   </button>
                 )}
-                {/* Check if current user is the assigner */}
+                {isAdmin && (
+                  <>
+                    <button
+                      onClick={() => setShowInterviewModal(true)}
+                      className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-green-600 text-white hover:bg-green-700"
+                    >
+                      <i className="fas fa-calendar-plus"></i>
+                      Schedule Interview
+                    </button>
+                    <button
+                      onClick={() => setShowEditModal(true)}
+                      className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-yellow-600 text-white hover:bg-yellow-700"
+                    >
+                      <i className="fas fa-edit"></i>
+                      Edit Application
+                    </button>
+                    <button
+                      onClick={handleDeleteApplication}
+                      disabled={deleting}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium ${
+                        deleting
+                          ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                          : "bg-red-600 text-white hover:bg-red-700"
+                      }`}
+                    >
+                      <i className={`fas ${deleting ? "fa-spinner fa-spin" : "fa-trash"}`}></i>
+                      {deleting ? "Deleting..." : "Delete"}
+                    </button>
+                  </>
+                )}
+                {/* Check if current user is the assigner or admin */}
                 {(() => {
                   const isAssignedByCurrentUser = application.createdByUsername && 
                     currentUserName && 
                     application.createdByUsername.trim().toLowerCase() === currentUserName.trim().toLowerCase();
+                  const canModify = isAssignedByCurrentUser || isAdmin;
                   
-                  if (!isAssignedByCurrentUser) {
-                    // User is not the assigner - show read-only status badge
+                  if (!canModify) {
+                    // User is not the assigner and not admin - show read-only status badge
                     return (
                       <div className="flex items-center gap-2">
                         <span className={`inline-flex items-center px-3 py-2 rounded-full text-xs font-semibold ${getStatusClass(application.status)}`}>
@@ -498,7 +612,12 @@ const ApplicationDetailsPage = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <h3 className="text-sm font-semibold text-gray-600 uppercase mb-2">Job Details</h3>
-                <p className="text-lg font-semibold text-gray-900 mb-1">{application.job.jobName || "N/A"}</p>
+                <button
+                  onClick={handleViewJob}
+                  className="text-lg font-semibold text-blue-600 hover:text-blue-700 underline mb-1 text-left"
+                >
+                  {application.job.jobName || "N/A"}
+                </button>
                 <p className="text-sm text-gray-600 mb-4">Job ID: {application.job.id}</p>
                 {application.job.jobLocation && (
                   <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">
@@ -630,6 +749,32 @@ const ApplicationDetailsPage = () => {
           )}
         </div>
       </div>
+
+      {/* Modals */}
+      {showInterviewModal && application && (
+        <InterviewModal
+          application={application}
+          onSubmit={handleScheduleInterview}
+          onClose={() => setShowInterviewModal(false)}
+        />
+      )}
+
+      {showEditModal && application && (
+        <ApplicationModal
+          application={application}
+          candidates={candidates}
+          jobs={jobs}
+          onSave={handleEditApplication}
+          onClose={() => setShowEditModal(false)}
+          showToast={(title, message, type) => {
+            if (type === "success") {
+              alert(message);
+            } else {
+              alert(message);
+            }
+          }}
+        />
+      )}
     </div>
   );
 };

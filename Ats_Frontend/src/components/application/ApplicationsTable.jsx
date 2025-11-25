@@ -304,8 +304,11 @@ const ApplicationsTable = ({
                           const isAssignedByCurrentUser = app.createdByUsername && 
                             currentUserName && 
                             app.createdByUsername.trim().toLowerCase() === currentUserName.trim().toLowerCase();
+                          const currentUserRole = (localStorage.getItem("role") || "").replace("ROLE_", "").toUpperCase();
+                          const isAdmin = currentUserRole === "ADMIN" || currentUserRole === "SECONDARY_ADMIN";
+                          const canModify = isAssignedByCurrentUser || isAdmin;
                           
-                          if (!isAssignedByCurrentUser) {
+                          if (!canModify) {
                             // User is not the assigner - show read-only status badge
                             return (
                               <div className="flex items-center gap-2">
@@ -498,8 +501,11 @@ const ApplicationsTable = ({
                                 const isAssignedByCurrentUser = app.createdByUsername && 
                                   currentUserName && 
                                   app.createdByUsername.trim().toLowerCase() === currentUserName.trim().toLowerCase();
+                                const currentUserRole = (localStorage.getItem("role") || "").replace("ROLE_", "").toUpperCase();
+                                const isAdmin = currentUserRole === "ADMIN" || currentUserRole === "SECONDARY_ADMIN";
+                                const canModify = isAssignedByCurrentUser || isAdmin;
                                 
-                                if (!isAssignedByCurrentUser) {
+                                if (!canModify) {
                                   return (
                                     <>
                                       <span 

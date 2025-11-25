@@ -152,7 +152,8 @@ public class ClientService {
 
                 // Skip rows where all flags are false (no access at all)
                 if (!req.isCanViewClient() && !req.isCanViewJobs()
-                        && !req.isCanViewCandidates() && !req.isCanViewInterviews()) {
+                        && !req.isCanViewCandidates() && !req.isCanViewInterviews()
+                        && !req.isCanSeeInClientList()) {
                     continue;
                 }
 
@@ -163,6 +164,7 @@ public class ClientService {
                 perm.setCanViewJobs(req.isCanViewJobs());
                 perm.setCanViewCandidates(req.isCanViewCandidates());
                 perm.setCanViewInterviews(req.isCanViewInterviews());
+                perm.setCanSeeInClientList(req.isCanSeeInClientList());
                 newPermissions.add(perm);
                 touchedRecruiterIds.add(recruiter.getId());
             }
@@ -194,7 +196,7 @@ public class ClientService {
     private void recomputeUserRestrictions(Long recruiterId) {
         userRepository.findById(recruiterId).ifPresent(user -> {
             var perms = permissionRepository.findByRecruiter_Id(recruiterId);
-            boolean hasClient = perms.stream().anyMatch(ClientRecruiterPermission::isCanViewClient);
+            boolean hasClient = perms.stream().anyMatch(ClientRecruiterPermission::isCanSeeInClientList);
             boolean hasJobs = perms.stream().anyMatch(ClientRecruiterPermission::isCanViewJobs);
             boolean hasCandidates = perms.stream().anyMatch(ClientRecruiterPermission::isCanViewCandidates);
             boolean hasInterviews = perms.stream().anyMatch(ClientRecruiterPermission::isCanViewInterviews);
@@ -266,6 +268,7 @@ public class ClientService {
         private boolean canViewJobs;
         private boolean canViewCandidates;
         private boolean canViewInterviews;
+        private boolean canSeeInClientList = true;
 
         public Long getRecruiterId() {
             return recruiterId;
@@ -281,6 +284,14 @@ public class ClientService {
 
         public void setCanViewClient(boolean canViewClient) {
             this.canViewClient = canViewClient;
+        }
+
+        public boolean isCanSeeInClientList() {
+            return canSeeInClientList;
+        }
+
+        public void setCanSeeInClientList(boolean canSeeInClientList) {
+            this.canSeeInClientList = canSeeInClientList;
         }
 
         public boolean isCanViewJobs() {

@@ -14,10 +14,12 @@ const AccountManagerClientDetail = () => {
   const [saving, setSaving] = useState(false);
   const [toasts, setToasts] = useState([]);
   const [recruiterSearch, setRecruiterSearch] = useState("");
+  const [showOnlyAssigned, setShowOnlyAssigned] = useState(true);
   const [assignModalOpen, setAssignModalOpen] = useState(false);
   const [formRecruiterId, setFormRecruiterId] = useState("");
   const [formPerm, setFormPerm] = useState({
     canViewClient: true,
+    canSeeInClientList: true,
     canViewJobs: true,
     canViewCandidates: true,
     canViewInterviews: true,
@@ -67,14 +69,16 @@ const AccountManagerClientDetail = () => {
     const perm = getPermissionFor(recruiterId);
     return (
       !!perm &&
-      (perm.canViewClient || perm.canViewJobs || perm.canViewCandidates)
+      (perm.canViewClient || perm.canViewJobs || perm.canViewCandidates || perm.canViewInterviews)
     );
   };
 
   const filterRecruiters = () => {
     const term = recruiterSearch.trim().toLowerCase();
     return recruiters.filter((r) => {
-      if (!isRecruiterAssigned(r.id)) return false;
+      // Filter by assigned status if checkbox is checked
+      if (showOnlyAssigned && !isRecruiterAssigned(r.id)) return false;
+      // Filter by search term
       if (!term) return true;
       return r.username && r.username.toLowerCase().includes(term);
     });
@@ -91,6 +95,7 @@ const AccountManagerClientDetail = () => {
     setFormRecruiterId(recruiterId);
     setFormPerm({
       canViewClient: !!perm?.canViewClient,
+      canSeeInClientList: perm?.canSeeInClientList !== undefined ? !!perm?.canSeeInClientList : true,
       canViewJobs: !!perm?.canViewJobs,
       canViewCandidates: !!perm?.canViewCandidates,
       canViewInterviews: !!perm?.canViewInterviews,
@@ -116,6 +121,7 @@ const AccountManagerClientDetail = () => {
           permMap.set(p.recruiter.id, {
             recruiterId: p.recruiter.id,
             canViewClient: !!p.canViewClient,
+            canSeeInClientList: p.canSeeInClientList !== undefined ? !!p.canSeeInClientList : true,
             canViewJobs: !!p.canViewJobs,
             canViewCandidates: !!p.canViewCandidates,
             canViewInterviews: !!p.canViewInterviews,
@@ -153,6 +159,7 @@ const AccountManagerClientDetail = () => {
     // Just uncheck all boxes; user must click Save to persist
     setFormPerm({
       canViewClient: false,
+      canSeeInClientList: false,
       canViewJobs: false,
       canViewCandidates: false,
       canViewInterviews: false,
@@ -209,6 +216,15 @@ const AccountManagerClientDetail = () => {
                     Recruiter permissions for this client:
                   </p>
                   <div className="flex items-center gap-2">
+                    <label className="flex items-center gap-1.5 text-xs text-gray-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={showOnlyAssigned}
+                        onChange={(e) => setShowOnlyAssigned(e.target.checked)}
+                        className="w-3.5 h-3.5 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                      />
+                      <span>Show only assigned</span>
+                    </label>
                     <input
                       type="text"
                       value={recruiterSearch}
@@ -222,6 +238,7 @@ const AccountManagerClientDetail = () => {
                         setFormRecruiterId("");
                         setFormPerm({
                           canViewClient: false,
+                          canSeeInClientList: true,
                           canViewJobs: false,
                           canViewCandidates: false,
                           canViewInterviews: false,
@@ -238,7 +255,9 @@ const AccountManagerClientDetail = () => {
                 <div className="border border-gray-200 rounded-lg bg-white px-3 py-3">
                   {filterRecruiters().length === 0 ? (
                     <p className="text-sm text-gray-400 py-1">
-                      No recruiters assigned match this search for this client.
+                      {showOnlyAssigned
+                        ? "No recruiters assigned match this search for this client."
+                        : "No recruiters match this search."}
                     </p>
                   ) : (
                     <div className="space-y-1">
@@ -357,6 +376,7 @@ const AccountManagerClientDetail = () => {
                       if (!val || !client) {
                         setFormPerm({
                           canViewClient: false,
+                          canSeeInClientList: true,
                           canViewJobs: false,
                           canViewCandidates: false,
                           canViewInterviews: false,
@@ -370,7 +390,8 @@ const AccountManagerClientDetail = () => {
                         (existing.canViewClient ||
                           existing.canViewJobs ||
                           existing.canViewCandidates ||
-                          existing.canViewInterviews)
+                          existing.canViewInterviews ||
+                          existing.canSeeInClientList)
                       ) {
                         showToast(
                           "Already assigned",
@@ -379,6 +400,7 @@ const AccountManagerClientDetail = () => {
                         );
                         setFormPerm({
                           canViewClient: !!existing.canViewClient,
+                          canSeeInClientList: existing.canSeeInClientList !== undefined ? !!existing.canSeeInClientList : true,
                           canViewJobs: !!existing.canViewJobs,
                           canViewCandidates: !!existing.canViewCandidates,
                           canViewInterviews: !!existing.canViewInterviews,
@@ -386,6 +408,7 @@ const AccountManagerClientDetail = () => {
                       } else {
                         setFormPerm({
                           canViewClient: false,
+                          canSeeInClientList: true,
                           canViewJobs: false,
                           canViewCandidates: false,
                           canViewInterviews: false,
@@ -403,8 +426,8 @@ const AccountManagerClientDetail = () => {
                   </select>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-4 text-xs text-gray-700">
-                  <label className="flex items-center gap-1">
+                <div className="flex flex-col gap-3 text-xs text-gray-700">
+                  <label className="flex items-center gap-2">
                     <input
                       type="checkbox"
                       checked={formPerm.canViewClient}
@@ -414,8 +437,23 @@ const AccountManagerClientDetail = () => {
                           canViewClient: e.target.checked,
                         }))
                       }
+                      className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
                     />
-                    Allow this recruiter to edit/delete this client
+                    <span>Allow this recruiter to edit/delete this client</span>
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={formPerm.canSeeInClientList}
+                      onChange={(e) =>
+                        setFormPerm((p) => ({
+                          ...p,
+                          canSeeInClientList: e.target.checked,
+                        }))
+                      }
+                      className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                    />
+                    <span>Show only this assigned client in the client list</span>
                   </label>
                   <label className="flex items-center gap-1">
                     <input
@@ -480,9 +518,12 @@ const AccountManagerClientDetail = () => {
                 <button
                   type="button"
                   onClick={handleSaveFromModal}
-                  className="px-4 py-2 text-sm font-semibold rounded-lg bg-green-600 text-white hover:bg-green-700"
+                  disabled={saving}
+                  className={`px-4 py-2 text-sm font-semibold rounded-lg bg-green-600 text-white hover:bg-green-700 ${
+                    saving ? "opacity-50 cursor-not-allowed" : ""
+                  }`}
                 >
-                  Save
+                  {saving ? "Saving..." : "Save"}
                 </button>
               </div>
             </div>
@@ -494,5 +535,4 @@ const AccountManagerClientDetail = () => {
 };
 
 export default AccountManagerClientDetail;
-
 

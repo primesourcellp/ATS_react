@@ -59,6 +59,15 @@ public class ClientRecruiterPermission {
     @Column(nullable = false)
     private boolean canViewInterviews = true;
 
+    /**
+     * Controls whether this client appears in the recruiter's client list.
+     * When true and restrictClients is enabled, this client will be visible
+     * in the client list. This is separate from canViewClient which controls
+     * edit/delete permissions.
+     */
+    @Column(nullable = false)
+    private boolean canSeeInClientList = true;
+
     public Long getId() {
         return id;
     }
@@ -113,6 +122,14 @@ public class ClientRecruiterPermission {
 
     public void setCanViewInterviews(boolean canViewInterviews) {
         this.canViewInterviews = canViewInterviews;
+    }
+
+    public boolean isCanSeeInClientList() {
+        return canSeeInClientList;
+    }
+
+    public void setCanSeeInClientList(boolean canSeeInClientList) {
+        this.canSeeInClientList = canSeeInClientList;
     }
 }
 

@@ -9,6 +9,7 @@ const AccountManager = () => {
   const [loading, setLoading] = useState(true);
   const [toasts, setToasts] = useState([]);
   const [clientSearch, setClientSearch] = useState("");
+  const [showOnlyAssigned, setShowOnlyAssigned] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -39,6 +40,17 @@ const AccountManager = () => {
   };
 
   const filteredClients = clients.filter((c) => {
+    // Filter by assigned recruiters first
+    if (showOnlyAssigned) {
+      // Check if client has permissions (assigned recruiters)
+      // Handle both array and Set formats, and check if it has any items
+      const hasAssignedRecruiters = c.permissions && 
+        (Array.isArray(c.permissions) ? c.permissions.length > 0 : 
+         (typeof c.permissions === 'object' && Object.keys(c.permissions).length > 0));
+      if (!hasAssignedRecruiters) return false;
+    }
+    
+    // Then filter by search term
     if (!clientSearch.trim()) return true;
     const term = clientSearch.toLowerCase();
     const idStr = String(c.id || "").toLowerCase();
@@ -87,14 +99,25 @@ const AccountManager = () => {
                   Click a client name to open the detailed permissions view.
                 </span>
               </div>
-              <div className="w-full md:w-72">
-                <input
-                  type="text"
-                  value={clientSearch}
-                  onChange={(e) => setClientSearch(e.target.value)}
-                  placeholder="Search by client name or ID"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs md:text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white"
-                />
+              <div className="flex items-center gap-3">
+                <label className="flex items-center gap-2 text-xs md:text-sm text-gray-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={showOnlyAssigned}
+                    onChange={(e) => setShowOnlyAssigned(e.target.checked)}
+                    className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                  />
+                  <span>Show only assigned clients</span>
+                </label>
+                <div className="w-full md:w-72">
+                  <input
+                    type="text"
+                    value={clientSearch}
+                    onChange={(e) => setClientSearch(e.target.value)}
+                    placeholder="Search by client name or ID"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs md:text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white"
+                  />
+                </div>
               </div>
             </div>
 
@@ -156,4 +179,5 @@ const AccountManager = () => {
 };
 
 export default AccountManager;
+
 

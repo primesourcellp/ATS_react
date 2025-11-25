@@ -19,6 +19,7 @@ import UserManagement from "./components/user/Users";
 import Wesiteapplication from "./components/websiteapplication/wesiteapplication";
 import NotificationCenter from "./components/notifications/NotificationCenter";
 import Reports from "./components/reports/Reports";
+import CandidateEmailManagement from "./components/admin/CandidateEmailManagement";
 
 const RequireAuth = ({ children }) => {
   const token = localStorage.getItem("jwtToken");
@@ -164,6 +165,14 @@ function App() {
           element={
             <RequireAuth>
               <Reports />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/candidate-emails"
+          element={
+            <RequireAuth>
+              <CandidateEmailManagement />
             </RequireAuth>
           }
         />

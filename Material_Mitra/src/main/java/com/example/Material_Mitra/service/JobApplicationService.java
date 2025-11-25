@@ -173,7 +173,7 @@ public class JobApplicationService {
         JobApplication app = jobApplicationRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Application not found"));
 
-        // Check if current user is the one who assigned the job
+        // Check if current user is the one who assigned the job or is an admin
         if (status != null) {
             Optional<User> currentUserOpt = resolveCurrentUser();
             if (currentUserOpt.isPresent()) {
@@ -182,7 +182,13 @@ public class JobApplicationService {
                 String assignedByUsername = app.getCreatedByName() != null ? app.getCreatedByName() : 
                     (app.getCreatedBy() != null ? app.getCreatedBy().getUsername() : null);
                 
-                if (assignedByUsername == null || !assignedByUsername.trim().equalsIgnoreCase(currentUsername.trim())) {
+                // Allow if user is admin or secondary admin, or if they assigned the job
+                boolean isAdmin = currentUser.getRole() == com.example.Material_Mitra.enums.RoleStatus.ADMIN ||
+                                  currentUser.getRole() == com.example.Material_Mitra.enums.RoleStatus.SECONDARY_ADMIN;
+                boolean isAssignedByUser = assignedByUsername != null && 
+                                          assignedByUsername.trim().equalsIgnoreCase(currentUsername.trim());
+                
+                if (!isAdmin && !isAssignedByUser) {
                     throw new RuntimeException("Only the user who assigned this job to the candidate can change the application status.");
                 }
             }
@@ -221,9 +227,15 @@ public class JobApplicationService {
             String assignedByUsername = app.getCreatedByName() != null ? app.getCreatedByName() : 
                 (app.getCreatedBy() != null ? app.getCreatedBy().getUsername() : null);
             
-            if (assignedByUsername == null || !assignedByUsername.trim().equalsIgnoreCase(currentUsername.trim())) {
-                throw new RuntimeException("Only the user who assigned this job to the candidate can delete the application.");
-            }
+                // Allow if user is admin or secondary admin, or if they assigned the job
+                boolean isAdmin = currentUser.getRole() == com.example.Material_Mitra.enums.RoleStatus.ADMIN ||
+                                  currentUser.getRole() == com.example.Material_Mitra.enums.RoleStatus.SECONDARY_ADMIN;
+                boolean isAssignedByUser = assignedByUsername != null && 
+                                          assignedByUsername.trim().equalsIgnoreCase(currentUsername.trim());
+                
+                if (!isAdmin && !isAssignedByUser) {
+                    throw new RuntimeException("Only the user who assigned this job to the candidate can delete the application.");
+                }
         }
         
         // Check if application has interviews

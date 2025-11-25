@@ -952,6 +952,43 @@ export const notificationAPI = {
   },
 };
 
+// Candidate Email API
+export const candidateEmailAPI = {
+  getPreview: async () => {
+    const response = await fetch(`${BASE_URL}/api/candidate-emails/preview`, {
+      method: "GET",
+      headers: getAuthHeaders(),
+    });
+    return handleResponse(response);
+  },
+
+  getAllCandidates: async () => {
+    const response = await fetch(`${BASE_URL}/api/candidate-emails/candidates`, {
+      method: "GET",
+      headers: getAuthHeaders(),
+    });
+    return handleResponse(response);
+  },
+
+  sendBulkEmails: async (candidateIds, companyUrl, customMessage) => {
+    const response = await fetch(`${BASE_URL}/api/candidate-emails/send`, {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ candidateIds, companyUrl, customMessage }),
+    });
+    return handleResponse(response);
+  },
+
+  sendToAll: async (companyUrl, customMessage) => {
+    const response = await fetch(`${BASE_URL}/api/candidate-emails/send-all`, {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ companyUrl, customMessage }),
+    });
+    return handleResponse(response);
+  },
+};
+
 // Export BASE_URL for use in other files if needed
 export { BASE_URL };
 

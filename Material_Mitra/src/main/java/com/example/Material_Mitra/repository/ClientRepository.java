@@ -21,7 +21,7 @@ public interface ClientRepository extends JpaRepository<Client, Long> {
 	List<Client> searchClientsByKeyword(@Param("keyword") String keyword);
 
 	@Query("SELECT DISTINCT c FROM Client c JOIN c.permissions p " +
-	       "WHERE p.recruiter.id = :recruiterId AND p.canViewClient = true")
+	       "WHERE p.recruiter.id = :recruiterId AND p.canSeeInClientList = true")
 	List<Client> findByAssignedRecruiterId(@Param("recruiterId") Long recruiterId);
 
 	@Query("SELECT c FROM Client c LEFT JOIN c.permissions p " +

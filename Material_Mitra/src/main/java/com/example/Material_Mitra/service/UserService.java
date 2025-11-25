@@ -36,6 +36,9 @@ public class UserService {
     @Autowired
     private InterviewRepository interviewRepository;
 
+    @Autowired
+    private EmailService emailService;
+
 
 
     public User createAdmin(User user) {
@@ -72,9 +75,29 @@ public class UserService {
         if (userRepository.findByUsername(user.getUsername()).isPresent()) {
             throw new RuntimeException("Username '" + user.getUsername() + "' already exists.");
         }
+        // Store plain password before encoding
+        String plainPassword = user.getPassword();
         user.setRole(RoleStatus.RECRUITER);
-        user.setPassword(passwordEncoder.encode(user.getPassword())); 
-        return userRepository.save(user);
+        user.setPassword(passwordEncoder.encode(plainPassword)); 
+        User savedUser = userRepository.save(user);
+        
+        // Send credentials email
+        if (user.getEmail() != null && !user.getEmail().trim().isEmpty()) {
+            try {
+                emailService.sendUserCredentialsEmail(
+                    user.getEmail(), 
+                    user.getUsername(), 
+                    plainPassword, 
+                    user.getRole().toString(), 
+                    savedUser.getId()
+                );
+            } catch (Exception e) {
+                System.err.println("Failed to send email for recruiter: " + e.getMessage());
+                // Continue even if email fails
+            }
+        }
+        
+        return savedUser;
     }
 
     
@@ -83,18 +106,58 @@ public class UserService {
         if (userRepository.findByUsername(user.getUsername()).isPresent()) {
             throw new RuntimeException("Username already exists.");
         }
+        // Store plain password before encoding
+        String plainPassword = user.getPassword();
         user.setRole(RoleStatus.SUB_USER);
-        user.setPassword(passwordEncoder.encode(user.getPassword()));
-        return userRepository.save(user);
+        user.setPassword(passwordEncoder.encode(plainPassword));
+        User savedUser = userRepository.save(user);
+        
+        // Send credentials email
+        if (user.getEmail() != null && !user.getEmail().trim().isEmpty()) {
+            try {
+                emailService.sendUserCredentialsEmail(
+                    user.getEmail(), 
+                    user.getUsername(), 
+                    plainPassword, 
+                    user.getRole().toString(), 
+                    savedUser.getId()
+                );
+            } catch (Exception e) {
+                System.err.println("Failed to send email for user: " + e.getMessage());
+                // Continue even if email fails
+            }
+        }
+        
+        return savedUser;
     }
 
     public User createSecondaryAdmin(User user) {
         if (userRepository.findByUsername(user.getUsername()).isPresent()) {
             throw new RuntimeException("Username '" + user.getUsername() + "' already exists.");
         }
+        // Store plain password before encoding
+        String plainPassword = user.getPassword();
         user.setRole(RoleStatus.SECONDARY_ADMIN);
-        user.setPassword(passwordEncoder.encode(user.getPassword()));
-        return userRepository.save(user);
+        user.setPassword(passwordEncoder.encode(plainPassword));
+        User savedUser = userRepository.save(user);
+        
+        // Send credentials email
+        if (user.getEmail() != null && !user.getEmail().trim().isEmpty()) {
+            try {
+                emailService.sendUserCredentialsEmail(
+                    user.getEmail(), 
+                    user.getUsername(), 
+                    plainPassword, 
+                    user.getRole().toString(), 
+                    savedUser.getId()
+                );
+            } catch (Exception e) {
+                System.err.println("Failed to send email for secondary admin: " + e.getMessage());
+                // Continue even if email fails
+            }
+        }
+        
+        return savedUser;
     }
 
    
