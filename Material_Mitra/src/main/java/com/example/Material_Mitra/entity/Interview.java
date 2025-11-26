@@ -1,14 +1,18 @@
 package com.example.Material_Mitra.entity;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 
+import com.example.Material_Mitra.enums.InterviewStatus;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -53,6 +57,17 @@ public class Interview {
 
     @Column(name = "scheduled_by_email", length = 200)
     private String scheduledByEmail;
+
+    @Column(name = "description", length = 1000)
+    private String description;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", length = 50)
+    private InterviewStatus status = InterviewStatus.SCHEDULED;
+
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
+    @Column(name = "completed_at")
+    private LocalDateTime completedAt;
 
     // ===== Getters & Setters =====
 
@@ -134,5 +149,29 @@ public class Interview {
 
     public void setScheduledByEmail(String scheduledByEmail) {
         this.scheduledByEmail = scheduledByEmail;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public InterviewStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(InterviewStatus status) {
+        this.status = status;
+    }
+
+    public LocalDateTime getCompletedAt() {
+        return completedAt;
+    }
+
+    public void setCompletedAt(LocalDateTime completedAt) {
+        this.completedAt = completedAt;
     }
 }

@@ -186,11 +186,12 @@ export const applicationAPI = {
 
 // ===================== Interview API =====================
 export const interviewAPI = {
-  schedule: async (applicationId, { interviewDate, interviewTime, endTime }) => {
-    const response = await fetch(
-      `${BASE_URL}/api/interviews/schedule/${applicationId}?interviewDate=${interviewDate}&interviewTime=${interviewTime}&endTime=${endTime}`,
-      { method: "POST", headers: getAuthHeaders() }
-    );
+  schedule: async (applicationId, { interviewDate, interviewTime, endTime, description }) => {
+    let url = `${BASE_URL}/api/interviews/schedule/${applicationId}?interviewDate=${interviewDate}&interviewTime=${interviewTime}&endTime=${endTime}`;
+    if (description) {
+      url += `&description=${encodeURIComponent(description)}`;
+    }
+    const response = await fetch(url, { method: "POST", headers: getAuthHeaders() });
     return handleResponse(response);
   },
 };

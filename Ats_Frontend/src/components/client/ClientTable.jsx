@@ -77,6 +77,9 @@ const ClientTable = ({ clients, loading, onEditClient, onViewJobDetails, onDelet
           <thead className="bg-gray-50">
             <tr>
               <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                ID
+              </th>
+              <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Client
               </th>
               <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">
@@ -99,6 +102,18 @@ const ClientTable = ({ clients, loading, onEditClient, onViewJobDetails, onDelet
                   onClick={() => toggleExpand(client.id)}
                 >
                   <td className="px-6 py-4">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/clients/${client.id}`);
+                      }}
+                      className="text-blue-600 hover:text-blue-800 font-semibold hover:underline transition-colors"
+                    >
+                      {client.id}
+                    </button>
+                  </td>
+                  <td className="px-6 py-4">
                     <div className="flex items-center">
                       <div className="flex-shrink-0 h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
                         <span className="font-medium text-blue-700">
@@ -117,9 +132,6 @@ const ClientTable = ({ clients, loading, onEditClient, onViewJobDetails, onDelet
                             __html: highlightSearchTerm(client.clientName, searchTerm) 
                           }} />
                         </button>
-                        <div className="text-sm text-gray-500">
-                          ID: {client.id}
-                        </div>
                       </div>
                     </div>
                   </td>
@@ -167,7 +179,7 @@ const ClientTable = ({ clients, loading, onEditClient, onViewJobDetails, onDelet
                 </tr>
                 {expandedClient === client.id && (
                   <tr className="bg-blue-50">
-                    <td colSpan="4" className="px-6 py-4">
+                    <td colSpan="5" className="px-6 py-4">
                       <div className="space-y-6">
                         {/* Action Buttons Section */}
                         <div className="bg-white rounded-lg p-4 border border-gray-200">

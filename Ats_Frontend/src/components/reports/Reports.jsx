@@ -245,24 +245,20 @@ const Reports = () => {
   }, [activeMetric]);
 
   return (
-    <div className="flex min-h-screen bg-gray-50 mt-16">
+    <div className="flex min-h-screen bg-gray-50">
       <Navbar />
       <main className="flex-1 p-6 space-y-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Recruitment Reports</h1>
-            <p className="text-sm text-gray-600">
-              {isAdmin
-                ? 'Review recruiter performance across candidates, applications, and interviews.'
-                : 'Track your candidate submissions, applications, and interviews.'}
-            </p>
-          </div>
-          <div className="flex items-center space-x-3 bg-white border border-gray-200 rounded-lg px-4 py-2 shadow-sm">
-            <span className="text-sm font-medium text-gray-600">Signed in as</span>
-            <span className="text-sm font-semibold text-indigo-600">{username || 'User'}</span>
-            <span className="px-2 py-1 text-xs font-semibold rounded-full bg-indigo-100 text-indigo-700">
-              {role || 'N/A'}
-            </span>
+        {/* Header */}
+        <div className="py-10">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Recruitment Reports</h1>
+              <p className="text-gray-600 mt-1">
+                {isAdmin
+                  ? 'Review recruiter performance across candidates, applications, and interviews.'
+                  : 'Track your candidate submissions, applications, and interviews.'}
+              </p>
+            </div>
           </div>
         </div>
 

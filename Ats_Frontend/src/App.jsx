@@ -11,6 +11,7 @@ import AccountManagerClientDetail from "./components/client/AccountManagerClient
 import ClientDetailsPage from "./components/client/ClientDetailsPage";
 import Dashboard from "./components/Dashboard";
 import InterviewManagement from "./components/interview/Interviews";
+import InterviewDetailsPage from "./components/interview/InterviewDetailsPage";
 import Jobs from "./components/job/Jobs";
 import JobDetailsPage from "./components/job/JobDetailsPage";
 import LoginRegister from "./components/LoginRegister";
@@ -133,6 +134,14 @@ function App() {
           element={
             <RequireAuth>
               <InterviewManagement />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/interviews/:id"
+          element={
+            <RequireAuth>
+              <InterviewDetailsPage />
             </RequireAuth>
           }
         />

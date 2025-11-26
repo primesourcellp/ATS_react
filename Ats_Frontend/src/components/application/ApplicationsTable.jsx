@@ -198,6 +198,9 @@ const ApplicationsTable = ({
           <thead className="bg-gray-50">
             <tr>
               <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                ID
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                 Application
               </th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
@@ -247,6 +250,20 @@ const ApplicationsTable = ({
                     onClick={() => toggleExpand(app.id)}
                   >
                     <td className="px-6 py-4">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onViewApplication) {
+                            onViewApplication(app.id);
+                          }
+                        }}
+                        className="text-blue-600 hover:text-blue-800 font-semibold hover:underline transition-colors"
+                      >
+                        {app.id}
+                      </button>
+                    </td>
+                    <td className="px-6 py-4">
                       <div className="flex items-center">
                         <div className="flex-shrink-0 h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center mr-3">
                           <span className="text-blue-800 font-medium text-sm">
@@ -264,9 +281,7 @@ const ApplicationsTable = ({
                                   if (onClearHighlight) {
                                     onClearHighlight();
                                   }
-                                  if (onViewApplication) {
-                                    onViewApplication(app.id);
-                                  } else if (onViewCandidate) {
+                                  if (onViewCandidate) {
                                     onViewCandidate(candidateId);
                                   }
                                 }}
@@ -277,7 +292,6 @@ const ApplicationsTable = ({
                               candidateName
                             )}
                           </div>
-                          <p className="text-sm text-gray-500 mt-1">ID: {app.id}</p>
                         </div>
                       </div>
                     </td>

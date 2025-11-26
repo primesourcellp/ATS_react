@@ -30,6 +30,15 @@ public interface InterviewRepository extends JpaRepository<Interview, Long> {
            "WHERE LOWER(c.name) LIKE LOWER(CONCAT('%', :search, '%')) " +
            "OR LOWER(j.jobName) LIKE LOWER(CONCAT('%', :search, '%'))")
     Page<InterviewListDTO> searchInterviews(@Param("search") String search, Pageable pageable);
+    
+    @Query("SELECT new com.example.Material_Mitra.dto.InterviewListDTO(" +
+           "i.id, c.name, j.jobName, i.interviewDate, i.interviewTime, i.endTime) " +
+           "FROM Interview i " +
+           "JOIN i.application a " +
+           "JOIN a.candidate c " +
+           "JOIN a.job j " +
+           "WHERE i.id = :id")
+    Page<InterviewListDTO> searchInterviewsById(@Param("id") Long id, Pageable pageable);
 
     @Modifying
     @Transactional
@@ -48,7 +57,8 @@ public interface InterviewRepository extends JpaRepository<Interview, Long> {
             COALESCE(cl.clientName, ''),
             i.interviewDate,
             i.interviewTime,
-            i.endTime
+            i.endTime,
+            STR(i.status)
         )
         FROM Interview i
         JOIN i.application a
@@ -68,7 +78,8 @@ public interface InterviewRepository extends JpaRepository<Interview, Long> {
             COALESCE(cl.clientName, ''),
             i.interviewDate,
             i.interviewTime,
-            i.endTime
+            i.endTime,
+            STR(i.status)
         )
         FROM Interview i
         JOIN i.application a

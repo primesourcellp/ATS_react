@@ -4,7 +4,8 @@ const InterviewModal = ({ interview, onSave, onClose, showToast }) => {
   const [formData, setFormData] = useState({
     interviewDate: '',
     interviewTime: '',
-    endTime: ''
+    endTime: '',
+    description: ''
   });
   const [errors, setErrors] = useState({});
 
@@ -13,7 +14,8 @@ const InterviewModal = ({ interview, onSave, onClose, showToast }) => {
       setFormData({
         interviewDate: interview.interviewDate || '',
         interviewTime: interview.interviewTime || '',
-        endTime: interview.endTime || ''
+        endTime: interview.endTime || '',
+        description: interview.description || ''
       });
     }
   }, [interview]);
@@ -110,6 +112,22 @@ const InterviewModal = ({ interview, onSave, onClose, showToast }) => {
               className={`p-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:outline-none ${errors.endTime ? 'border-red-500' : 'border-gray-300'}`}
             />
             {errors.endTime && <span className="text-red-500 text-sm mt-1">{errors.endTime}</span>}
+          </div>
+
+          <div className="flex flex-col">
+            <label htmlFor="description" className="text-gray-700 font-medium mb-1">
+              Description <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              id="description"
+              name="description"
+              value={formData.description}
+              onChange={handleChange}
+              rows={4}
+              placeholder="Enter interview description, notes, or agenda..."
+              className={`p-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:outline-none ${errors.description ? 'border-red-500' : 'border-gray-300'}`}
+            />
+            {errors.description && <span className="text-red-500 text-sm mt-1">{errors.description}</span>}
           </div>
 
           {/* Buttons */}

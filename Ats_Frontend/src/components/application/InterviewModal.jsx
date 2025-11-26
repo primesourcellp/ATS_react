@@ -4,7 +4,8 @@ const InterviewModal = ({ application, onSubmit, onClose }) => {
   const [formData, setFormData] = useState({
     interviewDate: '',
     interviewTime: '',
-    endTime: ''
+    endTime: '',
+    description: ''
   });
   const [errors, setErrors] = useState({});
 
@@ -31,6 +32,9 @@ const InterviewModal = ({ application, onSubmit, onClose }) => {
     if (!formData.interviewDate) newErrors.interviewDate = 'Interview date is required';
     if (!formData.interviewTime) newErrors.interviewTime = 'Start time is required';
     if (!formData.endTime) newErrors.endTime = 'End time is required';
+    if (!formData.description || formData.description.trim() === '') {
+      newErrors.description = 'Description is required';
+    }
 
     if (formData.interviewTime && formData.endTime) {
       const start = new Date(`2000-01-01T${formData.interviewTime}`);
@@ -121,6 +125,25 @@ const InterviewModal = ({ application, onSubmit, onClose }) => {
               required
             />
             {errors.endTime && <p className="text-red-500 text-sm mt-1">{errors.endTime}</p>}
+          </div>
+
+          <div>
+            <label className="block font-medium text-gray-700 mb-1" htmlFor="description">
+              Description <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              id="description"
+              name="description"
+              value={formData.description}
+              onChange={handleChange}
+              rows={4}
+              placeholder="Enter interview description, notes, or agenda..."
+              className={`w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                errors.description ? 'border-red-500' : 'border-gray-300'
+              }`}
+              required
+            />
+            {errors.description && <p className="text-red-500 text-sm mt-1">{errors.description}</p>}
           </div>
 
           {/* Footer Buttons */}

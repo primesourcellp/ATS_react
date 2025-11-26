@@ -176,12 +176,15 @@ const CandidateEmailManagement = () => {
   return (
     <div className="flex">
       <Navbar />
-      <main className="flex-1 p-12">
-        <div className="bg-white rounded-lg shadow-md p-6 mb-4">
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">Candidate Email Management</h2>
-          <p className="text-sm text-gray-600">
-            Send invitation emails to candidates to visit your company website and explore job opportunities.
-          </p>
+      <main className="flex-1 p-6">
+        {/* Header */}
+        <div className="py-10">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Candidate Email Management</h1>
+              <p className="text-gray-600 mt-1">Send invitation emails to candidates to visit your company website and explore job opportunities.</p>
+            </div>
+          </div>
         </div>
 
         {loading ? (
