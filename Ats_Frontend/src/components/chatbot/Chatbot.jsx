@@ -288,10 +288,19 @@ const Chatbot = () => {
     if (isRecruiterQuery) {
       try {
         let recruiterName = '';
-        let checkToday = lowerMessage.includes('today');
+        
+        // Detect time filters
+        const timeFilters = {
+          today: lowerMessage.includes('today'),
+          yesterday: lowerMessage.includes('yesterday'),
+          lastWeek: lowerMessage.includes('last week') || lowerMessage.includes('past week'),
+          lastMonth: lowerMessage.includes('last month') || lowerMessage.includes('past month'),
+          thisWeek: lowerMessage.includes('this week'),
+          thisMonth: lowerMessage.includes('this month')
+        };
         
         // Pattern 1: "by recruiter [name]" - most specific and common
-        const recruiterPattern1 = /by\s+recruiter\s+([a-zA-Z\s]+?)(?:\s+today|$)/i;
+        const recruiterPattern1 = /by\s+recruiter\s+([a-zA-Z\s]+?)(?:\s+(?:today|yesterday|last\s+week|last\s+month|this\s+week|this\s+month)|$)/i;
         const match1 = trimmedMessage.match(recruiterPattern1);
         if (match1 && match1[1]) {
           recruiterName = match1[1].trim();
@@ -299,7 +308,7 @@ const Chatbot = () => {
         
         // Pattern 2: "recruiter [name]" (without "by")
         if (!recruiterName) {
-          const recruiterPattern2 = /recruiter\s+([a-zA-Z\s]+?)(?:\s+today|$)/i;
+          const recruiterPattern2 = /recruiter\s+([a-zA-Z\s]+?)(?:\s+(?:today|yesterday|last\s+week|last\s+month|this\s+week|this\s+month)|$)/i;
           const match2 = trimmedMessage.match(recruiterPattern2);
           if (match2 && match2[1]) {
             recruiterName = match2[1].trim();
@@ -308,7 +317,7 @@ const Chatbot = () => {
         
         // Pattern 3: "by [name]" after "added" or "created"
         if (!recruiterName) {
-          const recruiterPattern3 = /(?:added|created).*by\s+([a-zA-Z\s]+?)(?:\s+today|$)/i;
+          const recruiterPattern3 = /(?:added|created).*by\s+([a-zA-Z\s]+?)(?:\s+(?:today|yesterday|last\s+week|last\s+month|this\s+week|this\s+month)|$)/i;
           const match3 = trimmedMessage.match(recruiterPattern3);
           if (match3 && match3[1]) {
             recruiterName = match3[1].trim();
@@ -324,8 +333,8 @@ const Chatbot = () => {
           
           if (targetIndex !== -1 && targetIndex < words.length) {
             const nextWord = words[targetIndex];
-            // Check if it's a capitalized word (likely a name)
-            if (/^[A-Z][a-z]*$/.test(nextWord)) {
+            // Check if it's a capitalized word (likely a name) and not a time filter
+            if (/^[A-Z][a-z]*$/.test(nextWord) && !['Today', 'Yesterday', 'Last', 'This', 'Week', 'Month'].includes(nextWord)) {
               recruiterName = nextWord;
             }
           }
@@ -333,18 +342,62 @@ const Chatbot = () => {
         
         // Clean up recruiter name (remove common words that might be captured)
         if (recruiterName) {
-          recruiterName = recruiterName.replace(/\b(recruiter|user|by|today|added|created|candidate|how|many|count|number|of|total|were)\b/gi, '').trim();
+          recruiterName = recruiterName.replace(/\b(recruiter|user|by|today|yesterday|last|week|month|this|added|created|candidate|how|many|count|number|of|total|were|past)\b/gi, '').trim();
         }
         
         if (!recruiterName || recruiterName.length < 2) {
-          return `Please specify the recruiter name. Example: "How many candidates were added by Admin?" or "Candidates added by recruiter Admin"`;
+          return `Please specify the recruiter name. Example: "How many candidates were added by Admin today?" or "Candidates added by recruiter Admin"`;
         }
         
         // Fetch all candidates
         const candidates = await candidateAPI.getAll();
         const candidatesArray = Array.isArray(candidates) ? candidates : [];
         
-        // Filter candidates by recruiter
+        // Helper function to check if date is within time range
+        const isDateInRange = (date, filterType) => {
+          if (!date) return false;
+          const candidateDate = new Date(date);
+          candidateDate.setHours(0, 0, 0, 0);
+          const now = new Date();
+          now.setHours(0, 0, 0, 0);
+          
+          if (filterType === 'today') {
+            return candidateDate.getTime() === now.getTime();
+          } else if (filterType === 'yesterday') {
+            const yesterday = new Date(now);
+            yesterday.setDate(yesterday.getDate() - 1);
+            return candidateDate.getTime() === yesterday.getTime();
+          } else if (filterType === 'thisWeek') {
+            const weekStart = new Date(now);
+            weekStart.setDate(now.getDate() - now.getDay()); // Start of week (Sunday)
+            return candidateDate >= weekStart && candidateDate <= now;
+          } else if (filterType === 'lastWeek') {
+            const weekStart = new Date(now);
+            weekStart.setDate(now.getDate() - now.getDay() - 7); // Start of last week
+            const weekEnd = new Date(now);
+            weekEnd.setDate(now.getDate() - now.getDay() - 1); // End of last week
+            return candidateDate >= weekStart && candidateDate <= weekEnd;
+          } else if (filterType === 'thisMonth') {
+            const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+            return candidateDate >= monthStart && candidateDate <= now;
+          } else if (filterType === 'lastMonth') {
+            const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+            return candidateDate >= lastMonthStart && candidateDate <= lastMonthEnd;
+          }
+          return true; // No filter
+        };
+        
+        // Determine which time filter to use
+        let activeTimeFilter = null;
+        if (timeFilters.today) activeTimeFilter = 'today';
+        else if (timeFilters.yesterday) activeTimeFilter = 'yesterday';
+        else if (timeFilters.thisWeek) activeTimeFilter = 'thisWeek';
+        else if (timeFilters.lastWeek) activeTimeFilter = 'lastWeek';
+        else if (timeFilters.thisMonth) activeTimeFilter = 'thisMonth';
+        else if (timeFilters.lastMonth) activeTimeFilter = 'lastMonth';
+        
+        // Filter candidates by recruiter and time
         let recruiterCandidates = candidatesArray.filter(candidate => {
           // Check if created by the specified recruiter (case-insensitive, exact match preferred)
           const recruiterLower = recruiterName.toLowerCase().trim();
@@ -361,28 +414,38 @@ const Chatbot = () => {
           
           if (!matchesRecruiter) return false;
           
-          // If "today" is mentioned, filter by date
-          if (checkToday) {
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            const createdAt = candidate.createdAt ? new Date(candidate.createdAt) : null;
-            if (!createdAt) return false;
-            createdAt.setHours(0, 0, 0, 0);
-            return createdAt.getTime() === today.getTime();
+          // Apply time filter if specified
+          if (activeTimeFilter) {
+            return isDateInRange(candidate.createdAt, activeTimeFilter);
           }
           
           return true;
         });
         
         const count = recruiterCandidates.length;
+        const timeFilterText = activeTimeFilter ? 
+          (activeTimeFilter === 'today' ? ' today' : 
+           activeTimeFilter === 'yesterday' ? ' yesterday' :
+           activeTimeFilter === 'thisWeek' ? ' this week' :
+           activeTimeFilter === 'lastWeek' ? ' last week' :
+           activeTimeFilter === 'thisMonth' ? ' this month' :
+           activeTimeFilter === 'lastMonth' ? ' last month' : '') : '';
         
         if (count === 0) {
-          const timeFilter = checkToday ? ' today' : '';
-          return `No candidates were added by "${recruiterName}"${timeFilter}.`;
+          return `No candidates were added by "${recruiterName}"${timeFilterText}.`;
         }
         
-        const timeFilter = checkToday ? ' today' : '';
-        return `${count} candidate${count !== 1 ? 's were' : ' was'} added by "${recruiterName}"${timeFilter}.`;
+        // Return object with candidates list for navigation
+        return {
+          message: `${count} candidate${count !== 1 ? 's were' : ' was'} added by "${recruiterName}"${timeFilterText}.\n\nClick on any candidate below to view details:`,
+          applications: recruiterCandidates.slice(0, 20).map(candidate => ({
+            id: candidate.id,
+            name: candidate.name || 'Unknown',
+            type: 'candidate',
+            navigate: `/candidates/${candidate.id}`,
+            displayText: `${candidate.name || 'Unknown'}`
+          }))
+        };
       } catch (error) {
         console.error('Error fetching recruiter candidates:', error);
         return `Unable to fetch candidate count. Please try again.`;
@@ -571,13 +634,13 @@ const Chatbot = () => {
         
         // Build response with candidate list
         let response = `📋 CANDIDATES WITH STATUS: ${statusDisplayName || formatStatus(detectedStatus)}\n\n`;
-        response += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+        response += `\n`;
         response += `Total Found: ${candidatesArray.length} candidate${candidatesArray.length !== 1 ? 's' : ''}\n\n`;
         
         // Show detailed information for each candidate
         candidatesArray.slice(0, 20).forEach((candidate, index) => {
           response += `${index + 1}. ${candidate.name || 'Unknown'}\n`;
-          response += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+          response += `\n`;
           response += `📧 Email: ${candidate.email || 'N/A'}\n`;
           response += `📞 Phone: ${candidate.phone || 'N/A'}\n`;
           response += `📋 Status: ${formatStatus(candidate.status)}\n`;
@@ -934,13 +997,13 @@ const Chatbot = () => {
             
             // Build response with candidate list
             let response = `📋 CANDIDATES WITH STATUS: ${statusDisplayName || formatStatus(detectedStatus)}\n\n`;
-            response += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+            response += `\n`;
             response += `Total Found: ${candidatesArray.length} candidate${candidatesArray.length !== 1 ? 's' : ''}\n\n`;
             
             // Show detailed information for each candidate
             candidatesArray.slice(0, 20).forEach((candidate, index) => {
               response += `${index + 1}. ${candidate.name || 'Unknown'}\n`;
-              response += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+              response += `\n`;
               response += `📧 Email: ${candidate.email || 'N/A'}\n`;
               response += `📞 Phone: ${candidate.phone || 'N/A'}\n`;
               response += `📋 Status: ${formatStatus(candidate.status)}\n`;
@@ -1354,11 +1417,11 @@ Type any menu item name (jobs, candidates, applications, interviews) to navigate
       if (action === 'candidates') {
         try {
           const count = await candidateAPI.getCount();
-          response = `📊 CANDIDATES OVERVIEW\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nTotal Candidates: ${count}\n🔗 Would you like to see the full list? Type "list candidates" or I can navigate you to the Candidates page.`;
+          response = `📊 CANDIDATES OVERVIEW\n\nTotal Candidates: ${count}\n🔗 Would you like to see the full list? Type "list candidates" or I can navigate you to the Candidates page.`;
         } catch {
           const candidates = await candidateAPI.getAll();
           const count = Array.isArray(candidates) ? candidates.length : 0;
-          response = `📊CANDIDATES OVERVIEW\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nTotal Candidates: ${count}\n🔗 Would you like to see the full list? Type "list candidates" or I can navigate you to the Candidates page.`;
+          response = `📊CANDIDATES OVERVIEW\n\nTotal Candidates: ${count}\n🔗 Would you like to see the full list? Type "list candidates" or I can navigate you to the Candidates page.`;
         }
       } else if (action === 'jobs') {
         const jobs = await jobAPI.getAll();
@@ -1367,20 +1430,20 @@ Type any menu item name (jobs, candidates, applications, interviews) to navigate
           const status = job?.status?.toUpperCase();
           return status === 'ACTIVE' || status === 'OPEN';
         });
-      response = `📊JOBS OVERVIEW\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nTotal Jobs: ${jobsArray.length}\nActive Jobs: ${activeJobs.length}\n🔗 Would you like to see the full list? Type "list jobs" or I can navigate you to the Jobs page.`;
+      response = `📊JOBS OVERVIEW\n\nTotal Jobs: ${jobsArray.length}\nActive Jobs: ${activeJobs.length}\n🔗 Would you like to see the full list? Type "list jobs" or I can navigate you to the Jobs page.`;
       } else if (action === 'applications') {
         try {
           const count = await applicationAPI.getCount();
-          response = `📊APPLICATIONS OVERVIEW\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nTotal Applications: ${count}\n🔗 Would you like to see the full list? Type "list applications" or I can navigate you to the Applications page.`;
+          response = `📊APPLICATIONS OVERVIEW\n\nTotal Applications: ${count}\n🔗 Would you like to see the full list? Type "list applications" or I can navigate you to the Applications page.`;
         } catch {
           const applications = await applicationAPI.getAll();
           const count = Array.isArray(applications) ? applications.length : 0;
-          response = `📊APPLICATIONS OVERVIEW\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nTotal Applications: ${count}\n🔗 Would you like to see the full list? Type "list applications" or I can navigate you to the Applications page.`;
+          response = `📊APPLICATIONS OVERVIEW\n\nTotal Applications: ${count}\n🔗 Would you like to see the full list? Type "list applications" or I can navigate you to the Applications page.`;
         }
       } else if (action === 'interviews') {
         try {
           const count = await interviewAPI.getCount();
-          response = `📊INTERVIEWS OVERVIEW\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nTotal Interviews: ${count}\n🔗 Would you like to see today's interviews? Type "show interviews today" or I can navigate you to the Interviews page.`;
+          response = `📊INTERVIEWS OVERVIEW\n\nTotal Interviews: ${count}\n🔗 Would you like to see today's interviews? Type "show interviews today" or I can navigate you to the Interviews page.`;
         } catch {
           const interviews = await interviewAPI.getAll();
           const interviewsArray = Array.isArray(interviews) ? interviews : [];
@@ -1391,7 +1454,7 @@ Type any menu item name (jobs, candidates, applications, interviews) to navigate
             interviewDate.setHours(0, 0, 0, 0);
             return interviewDate.getTime() === today.getTime();
           });
-          response = `📊INTERVIEWS OVERVIEW\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nTotal Interviews: ${interviewsArray.length}\nToday's Interviews: ${todayInterviews.length}\n🔗 Would you like to see today's interviews? Type "show interviews today" or I can navigate you to the Interviews page.`;
+          response = `📊INTERVIEWS OVERVIEW\n\nTotal Interviews: ${interviewsArray.length}\nToday's Interviews: ${todayInterviews.length}\n🔗 Would you like to see today's interviews? Type "show interviews today" or I can navigate you to the Interviews page.`;
         }
       }
       
