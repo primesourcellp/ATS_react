@@ -1,9 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { FaRobot, FaTimes, FaPaperPlane, FaUser, FaBriefcase, FaUserTie, FaFileAlt, FaCalendarAlt } from 'react-icons/fa';
 import { chatbotAPI } from '../../api/chatbotApi';
-import { jobAPI, candidateAPI, applicationAPI, interviewAPI } from '../../api/api';
+import { jobAPI, candidateAPI, applicationAPI, interviewAPI, clientAPI } from '../../api/api';
 
 const Chatbot = () => {
+  const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([
     {
@@ -84,9 +86,28 @@ const Chatbot = () => {
       // Process the message and get response
       const response = await processMessage(messageText);
       
+      // Check if response contains navigation instruction
+      if (response && typeof response === 'object' && response.navigate) {
+        // Show brief message before navigating
+        const botMessage = {
+          id: Date.now() + 1,
+          text: response.message || `🔗 Navigating to ${response.candidateName || 'candidate'} details page...`,
+          sender: 'bot',
+          timestamp: new Date()
+        };
+        setMessages(prev => [...prev, botMessage]);
+        
+        // Navigate after a short delay
+        setTimeout(() => {
+          navigate(response.navigate);
+          setIsOpen(false); // Close chatbot after navigation
+        }, 800);
+        return;
+      }
+      
       const botMessage = {
         id: Date.now() + 1,
-        text: response,
+        text: typeof response === 'string' ? response : response.message || 'Response received',
         sender: 'bot',
         timestamp: new Date()
       };
@@ -114,7 +135,54 @@ const Chatbot = () => {
     const lowerMessage = message.toLowerCase();
     const trimmedMessage = lowerMessage.trim();
 
-    // Check for feature-related queries first
+    // Menu navigation detection - check for sidebar menu items first
+    const menuRoutes = {
+      'dashboard': '/dashboard',
+      'jobs': '/jobs',
+      'job': '/jobs',
+      'clients': '/clients',
+      'client': '/clients',
+      'candidates': '/candidates',
+      'candidate': '/candidates',
+      'interviews': '/interviews',
+      'interview': '/interviews',
+      'applications': '/applications',
+      'application': '/applications',
+      'reports': '/reports',
+      'report': '/reports',
+      'user management': '/Users',
+      'users': '/Users',
+      'user': '/Users',
+      'account manager': '/account-manager',
+      'account': '/account-manager',
+      'candidate email': '/candidate-emails',
+      'candidate emails': '/candidate-emails',
+      'website applications': '/wesiteapplication',
+      'website application': '/wesiteapplication',
+      'website': '/wesiteapplication'
+    };
+
+    // Check if message is a direct menu navigation request
+    for (const [keyword, path] of Object.entries(menuRoutes)) {
+      // Check for exact match or with "go to", "open", "show", "navigate to", etc.
+      const navigationPatterns = [
+        new RegExp(`^${keyword}$`, 'i'),
+        new RegExp(`^(go to|open|show|navigate to|take me to|visit|view)\\s+${keyword}`, 'i'),
+        new RegExp(`^${keyword}\\s+(page|section|menu|list)`, 'i')
+      ];
+
+      const matches = navigationPatterns.some(pattern => pattern.test(trimmedMessage));
+      
+      if (matches) {
+        return {
+          navigate: path,
+          message: `🔗 Navigating to ${keyword}...`,
+          menuItem: keyword
+        };
+      }
+    }
+
+    // Check for feature-related queries
     if (lowerMessage.includes('features') || lowerMessage.includes('ats features') || 
         lowerMessage.includes('what features') || lowerMessage.includes('show features') ||
         lowerMessage.includes('list features') || lowerMessage.includes('all features')) {
@@ -134,14 +202,298 @@ const Chatbot = () => {
                        trimmedMessage.startsWith('could you') ||
                        trimmedMessage.startsWith('tell me');
 
+    // Check for candidate status queries first (before name detection)
+    const statusMap = {
+      'pending': 'PENDING',
+      'scheduled': 'SCHEDULED',
+      'interviewed': 'INTERVIEWED',
+      'placed': 'PLACED',
+      'rejected': 'REJECTED',
+      'not interested': 'NOT_INTERESTED',
+      'hold': 'HOLD',
+      'high ctc': 'HIGH_CTC',
+      'dropped by client': 'DROPPED_BY_CLIENT',
+      'submitted to client': 'SUBMITTED_TO_CLIENT',
+      'no response': 'NO_RESPONSE',
+      'immediate': 'IMMEDIATE',
+      'rejected by client': 'REJECTED_BY_CLIENT',
+      'client shortlist': 'CLIENT_SHORTLIST',
+      'first interview scheduled': 'FIRST_INTERVIEW_SCHEDULED',
+      'first interview feedback pending': 'FIRST_INTERVIEW_FEEDBACK_PENDING',
+      'first interview reject': 'FIRST_INTERVIEW_REJECT',
+      'second interview scheduled': 'SECOND_INTERVIEW_SCHEDULED',
+      'second interview feedback pending': 'SECOND_INTERVIEW_FEEDBACK_PENDING',
+      'second interview reject': 'SECOND_INTERVIEW_REJECT',
+      'third interview scheduled': 'THIRD_INTERVIEW_SCHEDULED',
+      'third interview feedback pending': 'THIRD_INTERVIEW_FEEDBACK_PENDING',
+      'third interview reject': 'THIRD_INTERVIEW_REJECT',
+      'internal reject': 'INTERNEL_REJECT',
+      'client reject': 'CLIENT_REJECT',
+      'final select': 'FINAL_SELECT',
+      'joined': 'JOINED',
+      'backedout': 'BACKEDOUT',
+      'not relevant': 'NOT_RELEVANT',
+      'new candidate': 'NEW_CANDIDATE',
+      'new': 'NEW_CANDIDATE'
+    };
+
+    // Check if message is just a status (without "candidate" keyword)
+    let detectedStatus = null;
+    let statusDisplayName = null;
+    
+    // Check for status in various formats
+    for (const [key, value] of Object.entries(statusMap)) {
+      if (lowerMessage === key || lowerMessage === value.toLowerCase() || 
+          lowerMessage === `candidates ${key}` || lowerMessage === `${key} candidates` ||
+          lowerMessage === `show ${key}` || lowerMessage === `list ${key}` ||
+          lowerMessage === `${key} status` || lowerMessage === `status ${key}`) {
+        detectedStatus = value;
+        statusDisplayName = key.charAt(0).toUpperCase() + key.slice(1);
+        break;
+      }
+    }
+    
+    // Also check for direct status mentions (uppercase with underscores)
+    if (!detectedStatus) {
+      const statusPattern = /^(PENDING|SCHEDULED|REJECTED|PLACED|HOLD|NEW_CANDIDATE|INTERVIEWED|NOT_INTERESTED|HIGH_CTC|DROPPED_BY_CLIENT|SUBMITTED_TO_CLIENT|NO_RESPONSE|IMMEDIATE|REJECTED_BY_CLIENT|CLIENT_SHORTLIST|FIRST_INTERVIEW_SCHEDULED|FIRST_INTERVIEW_FEEDBACK_PENDING|FIRST_INTERVIEW_REJECT|SECOND_INTERVIEW_SCHEDULED|SECOND_INTERVIEW_FEEDBACK_PENDING|SECOND_INTERVIEW_REJECT|THIRD_INTERVIEW_SCHEDULED|THIRD_INTERVIEW_FEEDBACK_PENDING|THIRD_INTERVIEW_REJECT|INTERNEL_REJECT|CLIENT_REJECT|FINAL_SELECT|JOINED|BACKEDOUT|NOT_RELEVANT)$/i;
+      const statusMatch = trimmedMessage.match(statusPattern);
+      if (statusMatch) {
+        detectedStatus = statusMatch[1].toUpperCase();
+        statusDisplayName = detectedStatus.replace(/_/g, ' ').toLowerCase()
+          .split(' ')
+          .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+          .join(' ');
+      }
+    }
+
+    // If status detected, fetch and display candidates
+    if (detectedStatus) {
+      try {
+        const candidatesByStatus = await candidateAPI.getByStatus(detectedStatus);
+        const candidatesArray = Array.isArray(candidatesByStatus) ? candidatesByStatus : [];
+        
+        if (candidatesArray.length === 0) {
+          return `❌ No candidates found with status "${statusDisplayName || detectedStatus}".\n\nYou can try:\n• Type "list candidates" to see all candidates\n• Type "help" to see available statuses`;
+        }
+        
+        // Format status for display
+        const formatStatus = (status) => {
+          if (!status) return 'N/A';
+          return status.toLowerCase()
+            .split('_')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
+        };
+        
+        // Format experience
+        const formatExperience = (exp) => {
+          if (!exp) return 'Not specified';
+          if (typeof exp === 'string' && exp.toLowerCase().includes('year')) return exp;
+          return `${exp} years`;
+        };
+        
+        // Build response with candidate list
+        let response = `📋 **CANDIDATES WITH STATUS: ${statusDisplayName || formatStatus(detectedStatus)}**\n\n`;
+        response += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+        response += `Total Found: ${candidatesArray.length} candidate${candidatesArray.length !== 1 ? 's' : ''}\n\n`;
+        
+        // Show detailed information for each candidate
+        candidatesArray.slice(0, 20).forEach((candidate, index) => {
+          response += `**${index + 1}. ${candidate.name || 'Unknown'}**\n`;
+          response += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+          response += `📧 Email: ${candidate.email || 'N/A'}\n`;
+          response += `📞 Phone: ${candidate.phone || 'N/A'}\n`;
+          response += `📋 Status: ${formatStatus(candidate.status)}\n`;
+          
+          if (candidate.experience) {
+            response += `💼 Experience: ${formatExperience(candidate.experience)}\n`;
+          }
+          if (candidate.skills) {
+            response += `🛠️ Skills: ${candidate.skills}\n`;
+          }
+          if (candidate.currentCtc) {
+            response += `💰 Current CTC: ${candidate.currentCtc} LPA\n`;
+          }
+          if (candidate.expectedCtc) {
+            response += `💰 Expected CTC: ${candidate.expectedCtc} LPA\n`;
+          }
+          if (candidate.noticePeriod) {
+            response += `📅 Notice Period: ${candidate.noticePeriod} days\n`;
+          }
+          if (candidate.resumePath || candidate.resumeUrl) {
+            response += `📄 Resume: ✅ Available\n`;
+          } else {
+            response += `📄 Resume: ❌ Not uploaded\n`;
+          }
+          
+          response += `\n`;
+        });
+        
+        if (candidatesArray.length > 20) {
+          response += `... and ${candidatesArray.length - 20} more candidate${candidatesArray.length - 20 !== 1 ? 's' : ''} with this status.\n`;
+        }
+        
+        return response;
+      } catch (error) {
+        console.error('Error fetching candidates by status:', error);
+        return `❌ Error fetching candidates with status "${statusDisplayName || detectedStatus}".\n\n${handleNetworkError(error, 'candidate status search')}`;
+      }
+    }
+
+    // Smart client name detection - if message looks like a company/client name, search for client
+    // Check if message contains client-related keywords or looks like a company name
+    const clientKeywords = ['client', 'company', 'organization', 'firm', 'corp', 'inc', 'ltd', 'llc'];
+    const hasClientKeyword = clientKeywords.some(keyword => lowerMessage.includes(keyword));
+    const words = trimmedMessage.split(/\s+/);
+    const commonCommands = ['show', 'find', 'search', 'list', 'get', 'tell', 'about', 'details', 'info', 
+                           'candidate', 'applicant', 'job', 'application', 'interview', 'help', 'how', 
+                           'what', 'when', 'where', 'why', 'who', 'which', 'can', 'could', 'the', 'a', 'an'];
+    
+    // Check if user wants to navigate to clients page
+    if ((lowerMessage.includes('list clients') || lowerMessage.includes('show clients') || 
+         lowerMessage.includes('all clients') || lowerMessage === 'clients') &&
+        !lowerMessage.includes('candidate') && !lowerMessage.includes('applicant')) {
+      return {
+        navigate: '/clients',
+        message: `🔗 Navigating to Clients page...`,
+        menuItem: 'clients'
+      };
+    }
+    
+    // Check if it's a client search query
+    const isClientQuery = hasClientKeyword || 
+                         (lowerMessage.includes('client') && words.length <= 4) ||
+                         (lowerMessage.includes('company') && words.length <= 4);
+    
+    // Extract client name from query if it contains client keywords
+    if (isClientQuery && !lowerMessage.includes('candidate') && !lowerMessage.includes('applicant')) {
+      try {
+        // Extract potential client name
+        let clientName = trimmedMessage;
+        
+        // Remove common client-related words to get the actual name
+        clientKeywords.forEach(keyword => {
+          clientName = clientName.replace(new RegExp(`\\b${keyword}\\b`, 'gi'), '').trim();
+        });
+        ['show', 'find', 'search', 'list', 'get', 'tell', 'about', 'details', 'info'].forEach(cmd => {
+          clientName = clientName.replace(new RegExp(`\\b${cmd}\\b`, 'gi'), '').trim();
+        });
+        
+        // If we have a name after cleaning, search for client
+        if (clientName.length > 1) {
+          const searchResults = await clientAPI.search(clientName);
+          const searchArray = Array.isArray(searchResults) ? searchResults : [];
+          
+          if (searchArray.length > 0) {
+            const client = searchArray[0];
+            return {
+              navigate: `/clients/${client.id}`,
+              message: `Found client: ${client.clientName || clientName}\n\n🔗 Navigating to client details page...`,
+              clientName: client.clientName || clientName
+            };
+          } else {
+            return `❌ No client found with the name "${clientName}".\n\nPlease check the spelling or try searching with a different name. You can also:\n• Type "list clients" to see all clients\n• Type "help" to see what I can do`;
+          }
+        }
+      } catch (error) {
+        console.error('Error searching for client:', error);
+        // Continue with normal processing if search fails
+      }
+    }
+
+    // Smart name detection - try job first, then client, then candidate
+    // Check if it's a simple name/term that could be job, client, or candidate
+    const isSimpleName = words.length >= 1 && 
+                        words.length <= 4 && 
+                        words.every(word => word.length > 1) &&
+                        !words.some(word => commonCommands.includes(word.toLowerCase())) &&
+                        !trimmedMessage.includes('?') &&
+                        !trimmedMessage.match(/^\d+$/) && // Not just numbers
+                        !lowerMessage.includes('application') && 
+                        !lowerMessage.includes('interview') &&
+                        !lowerMessage.includes('help') &&
+                        !lowerMessage.includes('feature');
+
+    // If it's a simple name without keywords, try job first, then client, then candidate
+    if (isSimpleName && 
+        !lowerMessage.includes('candidate') && 
+        !lowerMessage.includes('applicant') &&
+        !lowerMessage.includes('client') &&
+        !lowerMessage.includes('company')) {
+      try {
+        const searchName = trimmedMessage;
+        
+        // Try job search first
+        try {
+          const jobResults = await jobAPI.search(searchName);
+          const jobArray = Array.isArray(jobResults) ? jobResults : [];
+          
+          if (jobArray.length > 0) {
+            const job = jobArray[0];
+            return {
+              navigate: `/jobs/${job.id}`,
+              message: `Found job: ${job.jobName || searchName}\n\n🔗 Navigating to job details page...`,
+              jobName: job.jobName || searchName
+            };
+          }
+        } catch (jobError) {
+          console.error('Error searching for job:', jobError);
+        }
+        
+        // If no job found, try client search
+        try {
+          const clientResults = await clientAPI.search(searchName);
+          const clientArray = Array.isArray(clientResults) ? clientResults : [];
+          
+          if (clientArray.length > 0) {
+            const client = clientArray[0];
+            return {
+              navigate: `/clients/${client.id}`,
+              message: `Found client: ${client.clientName || searchName}\n\n🔗 Navigating to client details page...`,
+              clientName: client.clientName || searchName
+            };
+          }
+        } catch (clientError) {
+          console.error('Error searching for client:', clientError);
+        }
+        
+        // If no job or client found, try candidate search
+        const candidateResults = await candidateAPI.search(searchName);
+        const candidateArray = Array.isArray(candidateResults) ? candidateResults : [];
+        
+        if (candidateArray.length > 0) {
+          const candidate = candidateArray[0];
+          return {
+            navigate: `/candidates/${candidate.id}`,
+            message: `Found candidate: ${candidate.name || searchName}\n\n🔗 Navigating to candidate details page...`,
+            candidateName: candidate.name || searchName
+          };
+        }
+        
+        // If none found, show helpful error message
+        return `❌ No job, client, or candidate found with the name "${searchName}".\n\nPlease check the spelling or try searching with a different name. You can also:\n• Type "list jobs" to see all jobs\n• Type "list clients" to see all clients\n• Type "list candidates" to see all candidates\n• Type "help" to see what I can do`;
+        
+      } catch (error) {
+        console.error('Error searching:', error);
+        return `❌ Error searching for "${trimmedMessage}".\n\n${handleNetworkError(error, 'search')}\n\nPlease try again or type "help" for assistance.`;
+      }
+    }
+
     // Check for specific queries and fetch real data
     if (lowerMessage.includes('job') || lowerMessage.includes('position') || lowerMessage.includes('opening')) {
+      // Check if user wants to navigate to jobs page
+      if (lowerMessage.includes('list') || lowerMessage.includes('show') || lowerMessage.includes('all') || 
+          lowerMessage === 'jobs' || lowerMessage === 'job') {
+        return {
+          navigate: '/jobs',
+          message: `🔗 Navigating to Jobs page...`,
+          menuItem: 'jobs'
+        };
+      }
+      
       try {
         // Check if user wants detailed list
-        const wantsDetails = lowerMessage.includes('list') || 
-                            lowerMessage.includes('show') || 
-                            lowerMessage.includes('detail') || 
-                            lowerMessage.includes('all');
+        const wantsDetails = lowerMessage.includes('detail') || lowerMessage.includes('info');
         
         // Get all jobs
         const jobs = await jobAPI.getAll();
@@ -213,12 +565,194 @@ const Chatbot = () => {
 
     if (lowerMessage.includes('candidate') || lowerMessage.includes('applicant')) {
       try {
+        // Check if user is searching for candidates by status
+        // Map common status names to actual status values
+        const statusMap = {
+          'pending': 'PENDING',
+          'scheduled': 'SCHEDULED',
+          'interviewed': 'INTERVIEWED',
+          'placed': 'PLACED',
+          'rejected': 'REJECTED',
+          'not interested': 'NOT_INTERESTED',
+          'hold': 'HOLD',
+          'high ctc': 'HIGH_CTC',
+          'dropped by client': 'DROPPED_BY_CLIENT',
+          'submitted to client': 'SUBMITTED_TO_CLIENT',
+          'no response': 'NO_RESPONSE',
+          'immediate': 'IMMEDIATE',
+          'rejected by client': 'REJECTED_BY_CLIENT',
+          'client shortlist': 'CLIENT_SHORTLIST',
+          'first interview scheduled': 'FIRST_INTERVIEW_SCHEDULED',
+          'first interview feedback pending': 'FIRST_INTERVIEW_FEEDBACK_PENDING',
+          'first interview reject': 'FIRST_INTERVIEW_REJECT',
+          'second interview scheduled': 'SECOND_INTERVIEW_SCHEDULED',
+          'second interview feedback pending': 'SECOND_INTERVIEW_FEEDBACK_PENDING',
+          'second interview reject': 'SECOND_INTERVIEW_REJECT',
+          'third interview scheduled': 'THIRD_INTERVIEW_SCHEDULED',
+          'third interview feedback pending': 'THIRD_INTERVIEW_FEEDBACK_PENDING',
+          'third interview reject': 'THIRD_INTERVIEW_REJECT',
+          'internal reject': 'INTERNEL_REJECT',
+          'client reject': 'CLIENT_REJECT',
+          'final select': 'FINAL_SELECT',
+          'joined': 'JOINED',
+          'backedout': 'BACKEDOUT',
+          'not relevant': 'NOT_RELEVANT',
+          'new candidate': 'NEW_CANDIDATE',
+          'new': 'NEW_CANDIDATE'
+        };
+
+        // Check if message contains a status keyword
+        let detectedStatus = null;
+        let statusDisplayName = null;
+        
+        // Check for status in various formats
+        for (const [key, value] of Object.entries(statusMap)) {
+          if (lowerMessage.includes(key)) {
+            detectedStatus = value;
+            statusDisplayName = key.charAt(0).toUpperCase() + key.slice(1);
+            break;
+          }
+        }
+        
+        // Also check for direct status mentions (uppercase with underscores)
+        const statusPattern = /\b([A-Z_]+)\b/;
+        const statusMatch = message.match(statusPattern);
+        if (statusMatch && !detectedStatus) {
+          const potentialStatus = statusMatch[1];
+          // Check if it's a valid status format
+          if (potentialStatus.includes('_') || ['PENDING', 'SCHEDULED', 'REJECTED', 'PLACED', 'HOLD'].includes(potentialStatus)) {
+            detectedStatus = potentialStatus;
+            statusDisplayName = potentialStatus.replace(/_/g, ' ').toLowerCase()
+              .split(' ')
+              .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+              .join(' ');
+          }
+        }
+
+        // If status detected, fetch candidates with that status
+        if (detectedStatus) {
+          try {
+            const candidatesByStatus = await candidateAPI.getByStatus(detectedStatus);
+            const candidatesArray = Array.isArray(candidatesByStatus) ? candidatesByStatus : [];
+            
+            if (candidatesArray.length === 0) {
+              return `❌ No candidates found with status "${statusDisplayName || detectedStatus}".\n\nYou can try:\n• Type "list candidates" to see all candidates\n• Type "help" to see available statuses`;
+            }
+            
+            // Format status for display
+            const formatStatus = (status) => {
+              if (!status) return 'N/A';
+              return status.toLowerCase()
+                .split('_')
+                .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                .join(' ');
+            };
+            
+            // Format experience
+            const formatExperience = (exp) => {
+              if (!exp) return 'Not specified';
+              if (typeof exp === 'string' && exp.toLowerCase().includes('year')) return exp;
+              return `${exp} years`;
+            };
+            
+            // Build response with candidate list
+            let response = `📋 **CANDIDATES WITH STATUS: ${statusDisplayName || formatStatus(detectedStatus)}**\n\n`;
+            response += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+            response += `Total Found: ${candidatesArray.length} candidate${candidatesArray.length !== 1 ? 's' : ''}\n\n`;
+            
+            // Show detailed information for each candidate
+            candidatesArray.slice(0, 20).forEach((candidate, index) => {
+              response += `**${index + 1}. ${candidate.name || 'Unknown'}**\n`;
+              response += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+              response += `📧 Email: ${candidate.email || 'N/A'}\n`;
+              response += `📞 Phone: ${candidate.phone || 'N/A'}\n`;
+              response += `📋 Status: ${formatStatus(candidate.status)}\n`;
+              
+              if (candidate.experience) {
+                response += `💼 Experience: ${formatExperience(candidate.experience)}\n`;
+              }
+              if (candidate.skills) {
+                response += `🛠️ Skills: ${candidate.skills}\n`;
+              }
+              if (candidate.currentCtc) {
+                response += `💰 Current CTC: ${candidate.currentCtc} LPA\n`;
+              }
+              if (candidate.expectedCtc) {
+                response += `💰 Expected CTC: ${candidate.expectedCtc} LPA\n`;
+              }
+              if (candidate.noticePeriod) {
+                response += `📅 Notice Period: ${candidate.noticePeriod} days\n`;
+              }
+              if (candidate.resumePath || candidate.resumeUrl) {
+                response += `📄 Resume: ✅ Available\n`;
+              } else {
+                response += `📄 Resume: ❌ Not uploaded\n`;
+              }
+              
+              response += `\n`;
+            });
+            
+            if (candidatesArray.length > 20) {
+              response += `... and ${candidatesArray.length - 20} more candidate${candidatesArray.length - 20 !== 1 ? 's' : ''} with this status.\n`;
+            }
+            
+            return response;
+          } catch (error) {
+            console.error('Error fetching candidates by status:', error);
+            return `❌ Error fetching candidates with status "${statusDisplayName || detectedStatus}".\n\n${handleNetworkError(error, 'candidate status search')}`;
+          }
+        }
+        
+        // Check if user is searching for a specific candidate by name
+        // Extract potential candidate name from the message
+        const candidateNamePattern = /(?:candidate|applicant|search|find|show|details?|info|about)\s+(?:named|name|is|called)?\s*([A-Z][a-zA-Z\s]{2,30})/i;
+        const nameMatch = message.match(candidateNamePattern);
+        const directNamePattern = /^(?:who is|tell me about|show|find|search|details?|info about)\s+([A-Z][a-zA-Z\s]{2,30})/i;
+        const directNameMatch = message.match(directNamePattern);
+        
+        // Check if message contains a name (capitalized words that might be a person's name)
+        const words = message.split(/\s+/);
+        const potentialNames = words.filter(word => 
+          word.length > 2 && 
+          /^[A-Z][a-z]+$/.test(word) && 
+          !['Show', 'List', 'Find', 'Search', 'Tell', 'About', 'Details', 'Info', 'Candidate', 'Applicant', 'How', 'Many', 'What', 'When', 'Where', 'Why', 'Which'].includes(word)
+        );
+        
+        // If we have a potential name, search for that candidate
+        if (nameMatch || directNameMatch || (potentialNames.length > 0 && potentialNames.length <= 3)) {
+          const searchName = nameMatch?.[1] || directNameMatch?.[1] || potentialNames.join(' ');
+          
+          // Search for candidates by name
+          const searchResults = await candidateAPI.search(searchName);
+          const searchArray = Array.isArray(searchResults) ? searchResults : [];
+          
+          if (searchArray.length === 0) {
+            return `❌ No candidate found with the name "${searchName}".\n\nPlease check the spelling or try searching with a different name. You can also:\n• Type "list candidates" to see all candidates\n• Type "help" to see what I can do`;
+          }
+          
+          // If multiple candidates found, navigate to first candidate's detail page
+          const candidate = searchArray[0];
+          
+          // Return navigation instruction instead of showing details
+          return {
+            navigate: `/candidates/${candidate.id}`,
+            message: `Found candidate: ${candidate.name || searchName}\n\n🔗 Navigating to candidate details page...`,
+            candidateName: candidate.name || searchName
+          };
+        }
+        
+        // Check if user wants to navigate to candidates page
+        if (lowerMessage.includes('list') || lowerMessage.includes('show') || lowerMessage.includes('all') ||
+            lowerMessage === 'candidates' || lowerMessage === 'candidate') {
+          return {
+            navigate: '/candidates',
+            message: `🔗 Navigating to Candidates page...`,
+            menuItem: 'candidates'
+          };
+        }
+        
         // Check if user wants detailed list
-        const wantsDetails = lowerMessage.includes('list') || 
-                            lowerMessage.includes('show') || 
-                            lowerMessage.includes('detail') || 
-                            lowerMessage.includes('all') ||
-                            lowerMessage.includes('who are');
+        const wantsDetails = lowerMessage.includes('detail') || lowerMessage.includes('info') || lowerMessage.includes('who are');
         const asksHowMany = lowerMessage.includes('how many');
         
         if (wantsDetails) {
@@ -247,11 +781,23 @@ const Chatbot = () => {
           
           return response;
         } else if (asksHowMany) {
-          const count = await candidateAPI.getCount();
-          return `You have ${count} candidate${count !== 1 ? 's' : ''} in your database.`;
+          try {
+            const count = await candidateAPI.getCount();
+            return `You have ${count} candidate${count !== 1 ? 's' : ''} in your database.`;
+          } catch {
+            const candidates = await candidateAPI.getAll();
+            const count = Array.isArray(candidates) ? candidates.length : 0;
+            return `You have ${count} candidate${count !== 1 ? 's' : ''} in your database.`;
+          }
         } else {
-          const count = await candidateAPI.getCount();
-          return `You have ${count} candidate${count !== 1 ? 's' : ''} in your database. ${isQuestion ? 'Would you like to see the list?' : 'Ask me "show all candidates" or "list candidates" for detailed information.'}`;
+          try {
+            const count = await candidateAPI.getCount();
+            return `You have ${count} candidate${count !== 1 ? 's' : ''} in your database. ${isQuestion ? 'Would you like to see the list?' : 'Ask me "show all candidates" or "list candidates" for detailed information. You can also search for a specific candidate by name, e.g., "show candidate John Doe" or "find candidate named Sarah".'}`;
+          } catch {
+            const candidates = await candidateAPI.getAll();
+            const count = Array.isArray(candidates) ? candidates.length : 0;
+            return `You have ${count} candidate${count !== 1 ? 's' : ''} in your database. ${isQuestion ? 'Would you like to see the list?' : 'Ask me "show all candidates" or "list candidates" for detailed information. You can also search for a specific candidate by name, e.g., "show candidate John Doe" or "find candidate named Sarah".'}`;
+          }
         }
       } catch (error) {
         console.error('Error fetching candidates:', error);
@@ -260,13 +806,19 @@ const Chatbot = () => {
     }
 
     if (lowerMessage.includes('application') || lowerMessage.includes('apply')) {
+      // Check if user wants to navigate to applications page
+      if (lowerMessage.includes('list') || lowerMessage.includes('show') || lowerMessage.includes('all') ||
+          lowerMessage === 'applications' || lowerMessage === 'application') {
+        return {
+          navigate: '/applications',
+          message: `🔗 Navigating to Applications page...`,
+          menuItem: 'applications'
+        };
+      }
+      
       try {
         // Check if user wants detailed list
-        const wantsDetails = lowerMessage.includes('list') || 
-                            lowerMessage.includes('show') || 
-                            lowerMessage.includes('detail') || 
-                            lowerMessage.includes('all') ||
-                            lowerMessage.includes('what are');
+        const wantsDetails = lowerMessage.includes('detail') || lowerMessage.includes('info') || lowerMessage.includes('what are');
         const asksHowMany = lowerMessage.includes('how many');
         const asksStatus = lowerMessage.includes('status') || lowerMessage.includes('pending') || lowerMessage.includes('rejected');
         
@@ -324,14 +876,20 @@ const Chatbot = () => {
 
     // Interview queries - check for detailed requests first
     if (lowerMessage.includes('interview') || lowerMessage.includes('schedule')) {
+      // Check if user wants to navigate to interviews page
+      if (lowerMessage.includes('list') || lowerMessage.includes('show') || lowerMessage.includes('all') ||
+          lowerMessage === 'interviews' || lowerMessage === 'interview') {
+        return {
+          navigate: '/interviews',
+          message: `🔗 Navigating to Interviews page...`,
+          menuItem: 'interviews'
+        };
+      }
+      
       try {
         // Check if user wants detailed list
-        const wantsDetails = lowerMessage.includes('list') || 
-                            lowerMessage.includes('show') || 
-                            lowerMessage.includes('detail') || 
-                            lowerMessage.includes('who') || 
-                            lowerMessage.includes('what') ||
-                            lowerMessage.includes('all');
+        const wantsDetails = lowerMessage.includes('detail') || lowerMessage.includes('who') || 
+                            lowerMessage.includes('what') || lowerMessage.includes('info');
         
         // Check for date-specific queries
         const isToday = lowerMessage.includes('today') || lowerMessage.includes('today\'s');
@@ -432,19 +990,19 @@ const Chatbot = () => {
 
     // General help queries
     if (lowerMessage.includes('help') || lowerMessage.includes('what can you do') || lowerMessage.includes('features') || lowerMessage.includes('ats features')) {
-      return `🚀 **COMPLETE ATS FEATURES OVERVIEW**
+        return `🚀COMPLETE ATS FEATURES OVERVIEW
 
 I'm your ATS Assistant! Here are all the features available in your Applicant Tracking System:
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-📊 **DASHBOARD**
+📊DASHBOARD
 • Real-time statistics and metrics
 • Job, candidate, interview, and application counts
 • Trend analysis and performance indicators
 • Quick access to all modules
 
-📋 **JOB MANAGEMENT**
+📋JOB MANAGEMENT
 • Create, edit, and manage job postings
 • View job details and requirements
 • Track job status (Active, Closed, Draft)
@@ -452,7 +1010,7 @@ I'm your ATS Assistant! Here are all the features available in your Applicant Tr
 • Rich text editor for job descriptions
 • Job filtering and search capabilities
 
-👥 **CANDIDATE MANAGEMENT**
+👥CANDIDATE MANAGEMENT
 • Add, edit, and manage candidate profiles
 • Upload and store candidate resumes (PDF format)
 • Track candidate status and information
@@ -460,14 +1018,14 @@ I'm your ATS Assistant! Here are all the features available in your Applicant Tr
 • View detailed candidate profiles
 • Email and contact management
 
-🏢 **CLIENT MANAGEMENT**
+🏢CLIENT MANAGEMENT
 • Manage client accounts and information
 • Associate jobs with clients
 • View client job listings
 • Account manager assignments
 • Client relationship tracking
 
-📝 **APPLICATION MANAGEMENT**
+📝APPLICATION MANAGEMENT
 • Track all job applications
 • View application status (Pending, Shortlisted, Rejected, etc.)
 • Link applications to jobs and candidates
@@ -475,49 +1033,49 @@ I'm your ATS Assistant! Here are all the features available in your Applicant Tr
 • Resume viewing for each application
 • Status change tracking
 
-📅 **INTERVIEW MANAGEMENT**
+📅INTERVIEW MANAGEMENT
 • Schedule and manage interviews
 • View interviews by date (today, tomorrow, this week)
 • Interview details (candidate, job, time, location)
 • Interview status tracking
 • Calendar integration
 
-📈 **REPORTS & ANALYTICS** (Admin/Recruiter)
+📈REPORTS & ANALYTICS (Admin/Recruiter)
 • Comprehensive reporting dashboard
 • Performance metrics and KPIs
 • Data visualization and charts
 • Export capabilities
 
-👤 **USER MANAGEMENT** (Admin Only)
+👤USER MANAGEMENT (Admin Only)
 • Create and manage user accounts
 • Role-based access control (Admin, Recruiter, etc.)
 • User permissions and settings
 • Account administration
 
-💼 **ACCOUNT MANAGER** (Admin Only)
+💼ACCOUNT MANAGER (Admin Only)
 • Manage account manager assignments
 • Client-account manager relationships
 • Account manager performance tracking
 
-📧 **CANDIDATE EMAIL MANAGEMENT** (Admin Only)
+📧CANDIDATE EMAIL MANAGEMENT (Admin Only)
 • Manage candidate email communications
 • Email templates and automation
 • Email history and tracking
 
-🌐 **WEBSITE APPLICATIONS**
+🌐WEBSITE APPLICATIONS
 • Public job application portal
 • External candidate submissions
 • Website application tracking
 • Integration with main application system
 
-🔔 **NOTIFICATIONS**
+🔔NOTIFICATIONS
 • Real-time notification center
 • Bell icon with notification count
 • Application status updates
 • System notifications
 • Notification history
 
-🤖 **AI CHATBOT ASSISTANT** (That's me!)
+🤖AI CHATBOT ASSISTANT (That's me!)
 • Answer questions about jobs, candidates, applications, interviews
 • Quick data queries and statistics
 • Help with navigation and features
@@ -525,7 +1083,7 @@ I'm your ATS Assistant! Here are all the features available in your Applicant Tr
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-💡 **QUICK COMMANDS YOU CAN ASK ME:**
+💡QUICK COMMANDS YOU CAN ASK ME:
 
 📋 Jobs:
 • "How many jobs?" / "Show all jobs" / "List active jobs"
@@ -539,7 +1097,7 @@ I'm your ATS Assistant! Here are all the features available in your Applicant Tr
 📅 Interviews:
 • "How many interviews today?" / "Show interviews today" / "Interviews tomorrow"
 
-🔍 **NAVIGATION HELP:**
+🔍NAVIGATION HELP:
 • "Where can I create a job?" → Go to Jobs section
 • "Where are the candidates?" → Go to Candidates section
 • "How do I schedule an interview?" → Go to Interviews section
@@ -591,18 +1149,76 @@ Just ask me anything about your ATS system! I'm here to help! 🚀`;
     }
   };
 
-  const handleQuickAction = (action) => {
-    const quickMessages = {
-      jobs: "Show all jobs",
-      candidates: "Show all candidates",
-      applications: "Show all applications",
-      interviews: "Show interviews today"
-    };
-
-    setInput(quickMessages[action]);
-    setTimeout(() => {
-      handleSend({ preventDefault: () => {} });
-    }, 100);
+  const handleQuickAction = async (action) => {
+    setIsLoading(true);
+    
+    try {
+      let response = '';
+      
+      if (action === 'candidates') {
+        try {
+          const count = await candidateAPI.getCount();
+          response = `📊 CANDIDATES OVERVIEW\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nTotal Candidates: ${count}\n🔗 Would you like to see the full list? Type "list candidates" or I can navigate you to the Candidates page.`;
+        } catch {
+          const candidates = await candidateAPI.getAll();
+          const count = Array.isArray(candidates) ? candidates.length : 0;
+          response = `📊CANDIDATES OVERVIEW\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nTotal Candidates: ${count}\n🔗 Would you like to see the full list? Type "list candidates" or I can navigate you to the Candidates page.`;
+        }
+      } else if (action === 'jobs') {
+        const jobs = await jobAPI.getAll();
+        const jobsArray = Array.isArray(jobs) ? jobs : [];
+        const activeJobs = jobsArray.filter(job => {
+          const status = job?.status?.toUpperCase();
+          return status === 'ACTIVE' || status === 'OPEN';
+        });
+      response = `📊JOBS OVERVIEW\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nTotal Jobs: ${jobsArray.length}\nActive Jobs: ${activeJobs.length}\n🔗 Would you like to see the full list? Type "list jobs" or I can navigate you to the Jobs page.`;
+      } else if (action === 'applications') {
+        try {
+          const count = await applicationAPI.getCount();
+          response = `📊APPLICATIONS OVERVIEW\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nTotal Applications: ${count}\n🔗 Would you like to see the full list? Type "list applications" or I can navigate you to the Applications page.`;
+        } catch {
+          const applications = await applicationAPI.getAll();
+          const count = Array.isArray(applications) ? applications.length : 0;
+          response = `📊APPLICATIONS OVERVIEW\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nTotal Applications: ${count}\n🔗 Would you like to see the full list? Type "list applications" or I can navigate you to the Applications page.`;
+        }
+      } else if (action === 'interviews') {
+        try {
+          const count = await interviewAPI.getCount();
+          response = `📊INTERVIEWS OVERVIEW\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nTotal Interviews: ${count}\n🔗 Would you like to see today's interviews? Type "show interviews today" or I can navigate you to the Interviews page.`;
+        } catch {
+          const interviews = await interviewAPI.getAll();
+          const interviewsArray = Array.isArray(interviews) ? interviews : [];
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const todayInterviews = interviewsArray.filter(interview => {
+            const interviewDate = new Date(interview.interviewDate);
+            interviewDate.setHours(0, 0, 0, 0);
+            return interviewDate.getTime() === today.getTime();
+          });
+          response = `📊INTERVIEWS OVERVIEW\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nTotal Interviews: ${interviewsArray.length}\nToday's Interviews: ${todayInterviews.length}\n🔗 Would you like to see today's interviews? Type "show interviews today" or I can navigate you to the Interviews page.`;
+        }
+      }
+      
+      const botMessage = {
+        id: Date.now() + 1,
+        text: response,
+        sender: 'bot',
+        timestamp: new Date()
+      };
+      
+      setMessages(prev => [...prev, botMessage]);
+    } catch (error) {
+      console.error('Quick action error:', error);
+      const errorMessage = {
+        id: Date.now() + 1,
+        text: `❌ Error fetching ${action} information. Please try again.`,
+        sender: 'bot',
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const quickActionIcons = {
@@ -618,11 +1234,11 @@ Just ask me anything about your ATS system! I'm here to help! 🚀`;
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 text-white rounded-2xl sm:rounded-3xl shadow-2xl hover:shadow-blue-500/50 transition-all duration-300 flex items-center justify-center z-50 hover:scale-110 active:scale-95 group backdrop-blur-sm border-2 border-white/20"
+          className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 text-white rounded-full shadow-2xl hover:shadow-blue-500/50 transition-all duration-300 flex items-center justify-center z-50 hover:scale-110 active:scale-95 group backdrop-blur-sm border-2 border-white/20 p-0"
           aria-label="Open chatbot"
         >
           {/* Animated background glow */}
-          <div className="absolute inset-0 rounded-2xl sm:rounded-3xl bg-gradient-to-br from-blue-400 to-purple-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-xl"></div>
+          <div className="absolute inset-0 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-xl"></div>
           
           {/* Icon container */}
           <div className="relative z-10 transform group-hover:rotate-12 transition-transform duration-300">
@@ -638,13 +1254,25 @@ Just ask me anything about your ATS system! I'm here to help! 🚀`;
           </div>
           
           {/* Ripple effect */}
-          <div className="absolute inset-0 rounded-2xl sm:rounded-3xl bg-white/10 scale-0 group-active:scale-150 opacity-0 group-active:opacity-100 transition-all duration-500"></div>
+          <div className="absolute inset-0 rounded-full bg-white/10 scale-0 group-active:scale-150 opacity-0 group-active:opacity-100 transition-all duration-500"></div>
         </button>
+      )}
+
+      {/* Backdrop overlay - closes chatbot when clicked outside (transparent, no blur) */}
+      {isOpen && (
+        <div 
+          className="fixed inset-0 z-40"
+          onClick={() => setIsOpen(false)}
+          aria-hidden="true"
+        />
       )}
 
       {/* Modern Chat Window - Responsive */}
       {isOpen && (
-        <div className="fixed inset-4 sm:inset-auto sm:bottom-6 sm:right-6 sm:w-[420px] sm:h-[700px] h-[calc(100vh-2rem)] bg-white rounded-3xl shadow-2xl flex flex-col z-50 border border-gray-100 overflow-hidden backdrop-blur-xl bg-white/95">
+        <div 
+          className="fixed inset-4 sm:inset-auto sm:bottom-6 sm:right-6 sm:w-[420px] sm:h-[700px] h-[calc(100vh-2rem)] bg-white rounded-3xl shadow-2xl flex flex-col z-50 border border-gray-100 overflow-hidden backdrop-blur-xl bg-white/95"
+          onClick={(e) => e.stopPropagation()}
+        >
           {/* Modern Header - Responsive */}
           <div className="bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 text-white p-3 sm:p-4 rounded-t-3xl flex items-center justify-between relative overflow-hidden">
             {/* Animated background pattern */}
