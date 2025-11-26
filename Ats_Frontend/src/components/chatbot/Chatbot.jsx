@@ -279,73 +279,112 @@ const Chatbot = () => {
       }
     }
 
-    // Check for recruiter-specific candidate count queries
-    const recruiterCountPattern = /(?:how many|count|number of|total).*candidate.*(?:added|created|by).*(?:today|this day).*(?:by|recruiter|user)\s+([a-zA-Z\s]+)/i;
-    const recruiterCountMatch = trimmedMessage.match(recruiterCountPattern);
+    // Check for recruiter-specific candidate count queries (MUST be checked early, before candidate name search)
+    // Check if this is a recruiter query (must have "candidate" and "added/created" and "by/recruiter")
+    const isRecruiterQuery = (lowerMessage.includes('candidate') && 
+                              (lowerMessage.includes('added') || lowerMessage.includes('created')) && 
+                              (lowerMessage.includes('by') || lowerMessage.includes('recruiter') || lowerMessage.includes('user')));
     
-    if (recruiterCountMatch || (lowerMessage.includes('candidate') && lowerMessage.includes('added') && lowerMessage.includes('today') && (lowerMessage.includes('by') || lowerMessage.includes('recruiter')))) {
+    if (isRecruiterQuery) {
       try {
         let recruiterName = '';
+        let checkToday = lowerMessage.includes('today');
         
-        if (recruiterCountMatch) {
-          recruiterName = recruiterCountMatch[1].trim();
-        } else {
-          // Try to extract recruiter name from various patterns
-          const patterns = [
-            /by\s+([a-zA-Z\s]+?)(?:\s+today|\s+this|\s+added|$)/i,
-            /recruiter\s+([a-zA-Z\s]+?)(?:\s+today|\s+this|\s+added|$)/i,
-            /user\s+([a-zA-Z\s]+?)(?:\s+today|\s+this|\s+added|$)/i
-          ];
+        // Pattern 1: "by recruiter [name]" - most specific and common
+        const recruiterPattern1 = /by\s+recruiter\s+([a-zA-Z\s]+?)(?:\s+today|$)/i;
+        const match1 = trimmedMessage.match(recruiterPattern1);
+        if (match1 && match1[1]) {
+          recruiterName = match1[1].trim();
+        }
+        
+        // Pattern 2: "recruiter [name]" (without "by")
+        if (!recruiterName) {
+          const recruiterPattern2 = /recruiter\s+([a-zA-Z\s]+?)(?:\s+today|$)/i;
+          const match2 = trimmedMessage.match(recruiterPattern2);
+          if (match2 && match2[1]) {
+            recruiterName = match2[1].trim();
+          }
+        }
+        
+        // Pattern 3: "by [name]" after "added" or "created"
+        if (!recruiterName) {
+          const recruiterPattern3 = /(?:added|created).*by\s+([a-zA-Z\s]+?)(?:\s+today|$)/i;
+          const match3 = trimmedMessage.match(recruiterPattern3);
+          if (match3 && match3[1]) {
+            recruiterName = match3[1].trim();
+          }
+        }
+        
+        // Pattern 4: Fallback - extract capitalized word after "by" or "recruiter"
+        if (!recruiterName) {
+          const words = trimmedMessage.split(/\s+/);
+          const byIndex = words.findIndex(w => w.toLowerCase() === 'by');
+          const recruiterIndex = words.findIndex(w => w.toLowerCase() === 'recruiter');
+          const targetIndex = recruiterIndex !== -1 ? recruiterIndex + 1 : (byIndex !== -1 ? byIndex + 1 : -1);
           
-          for (const pattern of patterns) {
-            const match = trimmedMessage.match(pattern);
-            if (match && match[1]) {
-              recruiterName = match[1].trim();
-              break;
+          if (targetIndex !== -1 && targetIndex < words.length) {
+            const nextWord = words[targetIndex];
+            // Check if it's a capitalized word (likely a name)
+            if (/^[A-Z][a-z]*$/.test(nextWord)) {
+              recruiterName = nextWord;
             }
           }
         }
         
-        if (!recruiterName) {
-          return `Please specify the recruiter name. Example: "How many candidates were added by John today?"`;
+        // Clean up recruiter name (remove common words that might be captured)
+        if (recruiterName) {
+          recruiterName = recruiterName.replace(/\b(recruiter|user|by|today|added|created|candidate|how|many|count|number|of|total|were)\b/gi, '').trim();
+        }
+        
+        if (!recruiterName || recruiterName.length < 2) {
+          return `Please specify the recruiter name. Example: "How many candidates were added by Admin?" or "Candidates added by recruiter Admin"`;
         }
         
         // Fetch all candidates
         const candidates = await candidateAPI.getAll();
         const candidatesArray = Array.isArray(candidates) ? candidates : [];
         
-        // Get today's date (start of day)
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        
-        // Filter candidates added today by the specific recruiter
-        const recruiterCandidatesToday = candidatesArray.filter(candidate => {
-          // Check if created today
-          const createdAt = new Date(candidate.createdAt);
-          createdAt.setHours(0, 0, 0, 0);
-          const isToday = createdAt.getTime() === today.getTime();
+        // Filter candidates by recruiter
+        let recruiterCandidates = candidatesArray.filter(candidate => {
+          // Check if created by the specified recruiter (case-insensitive, exact match preferred)
+          const recruiterLower = recruiterName.toLowerCase().trim();
+          const createdByUsername = (candidate.createdByUsername || '').toLowerCase().trim();
+          const createdByName = (candidate.createdByName || '').toLowerCase().trim();
+          const createdByEmail = (candidate.createdByEmail || '').toLowerCase().trim();
           
-          if (!isToday) return false;
+          // Try exact match first, then partial match
+          const matchesRecruiter = createdByUsername === recruiterLower ||
+                                   createdByName === recruiterLower ||
+                                   createdByUsername.includes(recruiterLower) || 
+                                   createdByName.includes(recruiterLower) || 
+                                   createdByEmail.includes(recruiterLower);
           
-          // Check if created by the specified recruiter (case-insensitive)
-          const recruiterLower = recruiterName.toLowerCase();
-          const createdByUsername = (candidate.createdByUsername || '').toLowerCase();
-          const createdByName = (candidate.createdByName || '').toLowerCase();
-          const createdByEmail = (candidate.createdByEmail || '').toLowerCase();
+          if (!matchesRecruiter) return false;
           
-          return createdByUsername.includes(recruiterLower) || 
-                 createdByName.includes(recruiterLower) || 
-                 createdByEmail.includes(recruiterLower);
+          // If "today" is mentioned, filter by date
+          if (checkToday) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const createdAt = candidate.createdAt ? new Date(candidate.createdAt) : null;
+            if (!createdAt) return false;
+            createdAt.setHours(0, 0, 0, 0);
+            return createdAt.getTime() === today.getTime();
+          }
+          
+          return true;
         });
         
-        const count = recruiterCandidatesToday.length;
+        const count = recruiterCandidates.length;
         
         if (count === 0) {
-          return `No candidates were added by "${recruiterName}" today.`;
+          const timeFilter = checkToday ? ' today' : '';
+          return `No candidates were added by "${recruiterName}"${timeFilter}.`;
         }
         
-        return `${count} candidate${count !== 1 ? 's were' : ' was'} added by "${recruiterName}" today.`;
-      } catch {
+        const timeFilter = checkToday ? ' today' : '';
+        return `${count} candidate${count !== 1 ? 's were' : ' was'} added by "${recruiterName}"${timeFilter}.`;
+      } catch (error) {
+        console.error('Error fetching recruiter candidates:', error);
         return `Unable to fetch candidate count. Please try again.`;
       }
     }
@@ -942,41 +981,56 @@ const Chatbot = () => {
         }
         
         // Check if user is searching for a specific candidate by name
-        // Extract potential candidate name from the message
-        const candidateNamePattern = /(?:candidate|applicant|search|find|show|details?|info|about)\s+(?:named|name|is|called)?\s*([A-Z][a-zA-Z\s]{2,30})/i;
-        const nameMatch = message.match(candidateNamePattern);
-        const directNamePattern = /^(?:who is|tell me about|show|find|search|details?|info about)\s+([A-Z][a-zA-Z\s]{2,30})/i;
-        const directNameMatch = message.match(directNamePattern);
+        // BUT skip if this is a recruiter query (to avoid false matches)
+        const isRecruiterQueryCheck = (lowerMessage.includes('candidate') && 
+                                       (lowerMessage.includes('added') || lowerMessage.includes('created')) && 
+                                       (lowerMessage.includes('by') || lowerMessage.includes('recruiter') || lowerMessage.includes('user')));
         
-        // Check if message contains a name (capitalized words that might be a person's name)
-        const words = message.split(/\s+/);
-        const potentialNames = words.filter(word => 
-          word.length > 2 && 
-          /^[A-Z][a-z]+$/.test(word) && 
-          !['Show', 'List', 'Find', 'Search', 'Tell', 'About', 'Details', 'Info', 'Candidate', 'Applicant', 'How', 'Many', 'What', 'When', 'Where', 'Why', 'Which'].includes(word)
-        );
-        
-        // If we have a potential name, search for that candidate
-        if (nameMatch || directNameMatch || (potentialNames.length > 0 && potentialNames.length <= 3)) {
-          const searchName = nameMatch?.[1] || directNameMatch?.[1] || potentialNames.join(' ');
+        if (!isRecruiterQueryCheck) {
+          // Extract potential candidate name from the message
+          const candidateNamePattern = /(?:candidate|applicant|search|find|show|details?|info|about)\s+(?:named|name|is|called)?\s*([A-Z][a-zA-Z\s]{2,30})/i;
+          const nameMatch = message.match(candidateNamePattern);
+          const directNamePattern = /^(?:who is|tell me about|show|find|search|details?|info about)\s+([A-Z][a-zA-Z\s]{2,30})/i;
+          const directNameMatch = message.match(directNamePattern);
           
-          // Search for candidates by name
-          const searchResults = await candidateAPI.search(searchName);
-          const searchArray = Array.isArray(searchResults) ? searchResults : [];
+          // Check if message contains a name (capitalized words that might be a person's name)
+          // BUT exclude if it appears after "by recruiter" or "by user"
+          const words = message.split(/\s+/);
+          const potentialNames = words.filter((word, index) => {
+            const prevWord = index > 0 ? words[index - 1].toLowerCase() : '';
+            const prevPrevWord = index > 1 ? words[index - 2].toLowerCase() : '';
+            // Skip if word appears after "by", "recruiter", or "user"
+            if (prevWord === 'by' || prevWord === 'recruiter' || prevWord === 'user' || 
+                (prevPrevWord === 'by' && prevWord === 'recruiter')) {
+              return false;
+            }
+            return word.length > 2 && 
+                   /^[A-Z][a-z]+$/.test(word) && 
+                   !['Show', 'List', 'Find', 'Search', 'Tell', 'About', 'Details', 'Info', 'Candidate', 'Applicant', 'How', 'Many', 'What', 'When', 'Where', 'Why', 'Which', 'Admin'].includes(word);
+          });
           
-          if (searchArray.length === 0) {
-            return `❌ No candidate found with the name "${searchName}".\n\nPlease check the spelling or try searching with a different name. You can also:\n• Type "list candidates" to see all candidates\n• Type "help" to see what I can do`;
+          // If we have a potential name, search for that candidate
+          if (nameMatch || directNameMatch || (potentialNames.length > 0 && potentialNames.length <= 3)) {
+            const searchName = nameMatch?.[1] || directNameMatch?.[1] || potentialNames.join(' ');
+            
+            // Search for candidates by name
+            const searchResults = await candidateAPI.search(searchName);
+            const searchArray = Array.isArray(searchResults) ? searchResults : [];
+            
+            if (searchArray.length === 0) {
+              return `❌ No candidate found with the name "${searchName}".\n\nPlease check the spelling or try searching with a different name. You can also:\n• Type "list candidates" to see all candidates\n• Type "help" to see what I can do`;
+            }
+            
+            // If multiple candidates found, navigate to first candidate's detail page
+            const candidate = searchArray[0];
+            
+            // Return navigation instruction instead of showing details
+            return {
+              navigate: `/candidates/${candidate.id}`,
+              message: `Found candidate: ${candidate.name || searchName}\n\nClick the button below to view candidate details.`,
+              candidateName: candidate.name || searchName
+            };
           }
-          
-          // If multiple candidates found, navigate to first candidate's detail page
-          const candidate = searchArray[0];
-          
-          // Return navigation instruction instead of showing details
-          return {
-            navigate: `/candidates/${candidate.id}`,
-            message: `Found candidate: ${candidate.name || searchName}\n\nClick the button below to view candidate details.`,
-            candidateName: candidate.name || searchName
-          };
         }
         
         // Check if user wants to navigate to candidates page
