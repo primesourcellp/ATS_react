@@ -113,10 +113,10 @@ const Chatbot = () => {
       // Check if response contains applications array (for missing documents)
       if (response && typeof response === 'object' && response.applications && Array.isArray(response.applications)) {
         setIsLoading(false);
-        const botMessage = {
-          id: Date.now() + 1,
+      const botMessage = {
+        id: Date.now() + 1,
           text: response.message || 'Applications found',
-          sender: 'bot',
+        sender: 'bot',
           timestamp: new Date(),
           applications: response.applications
         };
@@ -136,7 +136,7 @@ const Chatbot = () => {
           navigate: response.navigate,
           entityName: entityName
         };
-        setMessages(prev => [...prev, botMessage]);
+      setMessages(prev => [...prev, botMessage]);
         return;
       }
       
@@ -1673,11 +1673,12 @@ Type any menu item name (jobs, candidates, applications, interviews) to navigate
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-green-600 to-teal-500 text-white rounded-full shadow-2xl hover:shadow-green-500/50 transition-all duration-300 flex items-center justify-center z-50 hover:scale-110 active:scale-95 group backdrop-blur-sm border-2 border-white/20 p-0"
+          className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 w-14 h-14 sm:w-16 sm:h-16 text-white rounded-full shadow-2xl hover:shadow-teal-500/50 transition-all duration-300 flex items-center justify-center z-50 hover:scale-110 active:scale-95 group backdrop-blur-sm border-2 border-white/20 p-0"
+          style={{ backgroundColor: '#3A9188' }}
           aria-label="Open chatbot"
         >
           {/* Animated background glow */}
-          <div className="absolute inset-0 rounded-full bg-gradient-to-br from-green-400 to-teal-400 opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-xl"></div>
+          <div className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-xl" style={{ backgroundColor: '#4CAF9F' }}></div>
           
           {/* Icon container */}
           <div className="relative z-10 transform group-hover:rotate-12 transition-transform duration-300">
@@ -1687,8 +1688,8 @@ Type any menu item name (jobs, candidates, applications, interviews) to navigate
           {/* Status indicator */}
           <div className="absolute -top-0.5 -right-0.5 sm:-top-1 sm:-right-1">
             <div className="relative">
-              <span className="absolute w-2.5 h-2.5 sm:w-3 sm:h-3 bg-emerald-400 rounded-full border border-white animate-ping"></span>
-              <span className="relative w-2.5 h-2.5 sm:w-3 sm:h-3 bg-emerald-500 rounded-full border border-white shadow-md"></span>
+              <span className="absolute w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full border border-white animate-ping" style={{ backgroundColor: '#4CAF9F' }}></span>
+              <span className="relative w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full border border-white shadow-md" style={{ backgroundColor: '#3A9188' }}></span>
             </div>
           </div>
           
@@ -1713,7 +1714,7 @@ Type any menu item name (jobs, candidates, applications, interviews) to navigate
           onClick={(e) => e.stopPropagation()}
         >
           {/* Modern Header - Responsive */}
-          <div className="bg-gradient-to-br from-green-600 to-teal-500 text-white p-3 sm:p-4 rounded-t-3xl flex items-center justify-between relative overflow-hidden">
+          <div className="text-white p-3 sm:p-4 rounded-t-3xl flex items-center justify-between relative overflow-hidden" style={{ backgroundColor: '#3A9188' }}>
             {/* Animated background pattern */}
             <div className="absolute inset-0 opacity-10">
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.3),transparent_50%)]"></div>
@@ -1726,16 +1727,16 @@ Type any menu item name (jobs, candidates, applications, interviews) to navigate
                   <FaRobot className="text-base sm:text-lg drop-shadow-lg" />
                 </div>
                 {/* Status badge */}
-                <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 sm:w-3 sm:h-3 bg-emerald-400 rounded-full border border-white shadow-md animate-pulse"></span>
+                <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full border border-white shadow-md animate-pulse" style={{ backgroundColor: '#4CAF9F' }}></span>
                 {/* Glow effect */}
-                <div className="absolute inset-0 bg-emerald-400/30 rounded-2xl blur-xl animate-pulse"></div>
+                <div className="absolute inset-0 rounded-2xl blur-xl animate-pulse" style={{ backgroundColor: 'rgba(58, 145, 136, 0.3)' }}></div>
               </div>
               
               {/* Title and status */}
               <div className="flex-1 min-w-0">
                 <h3 className="font-bold text-lg sm:text-xl drop-shadow-sm">ATS Assistant</h3>
                 <div className="flex items-center space-x-2 mt-0.5">
-                  <span className="w-2 h-2 bg-emerald-300 rounded-full animate-pulse shadow-sm"></span>
+                  <span className="w-2 h-2 rounded-full animate-pulse shadow-sm" style={{ backgroundColor: '#4CAF9F' }}></span>
                   <p className="text-xs sm:text-sm text-white/90 font-medium truncate">Online • Ready to help</p>
                 </div>
               </div>
@@ -1770,7 +1771,7 @@ Type any menu item name (jobs, candidates, applications, interviews) to navigate
                     {/* Avatar - Only for bot messages */}
                     {message.sender === 'bot' && (
                       <div className="mt-0.5 flex-shrink-0">
-                        <div className="w-6 h-6 sm:w-7 sm:h-7 bg-gradient-to-br from-green-500 to-teal-600 rounded-xl flex items-center justify-center shadow-md">
+                        <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-xl flex items-center justify-center shadow-md" style={{ backgroundColor: '#3A9188' }}>
                           <FaRobot className="text-xs text-white" />
                         </div>
                       </div>
@@ -1789,7 +1790,8 @@ Type any menu item name (jobs, candidates, applications, interviews) to navigate
                                 navigate(item.navigate);
                                 setIsOpen(false);
                               }}
-                              className="w-full px-4 py-2.5 bg-gradient-to-r from-green-600 to-teal-500 text-white rounded-xl hover:from-green-700 hover:to-teal-600 transition-all duration-300 flex items-center justify-between shadow-md hover:shadow-lg transform hover:scale-105 font-semibold text-sm"
+                              className="w-full px-4 py-2.5 text-white rounded-xl transition-all duration-300 flex items-center justify-between shadow-md hover:shadow-lg transform hover:scale-105 font-semibold text-sm hover:opacity-90"
+                              style={{ backgroundColor: '#3A9188' }}
                             >
                               <span className="flex-1 text-left">
                                 <span className="font-bold">{item.name}</span>
@@ -1806,7 +1808,8 @@ Type any menu item name (jobs, candidates, applications, interviews) to navigate
                             navigate(message.navigate);
                             setIsOpen(false);
                           }}
-                          className="mt-3 w-full px-4 py-2.5 bg-gradient-to-r from-green-600 to-teal-500 text-white rounded-xl hover:from-green-700 hover:to-teal-600 transition-all duration-300 flex items-center justify-center space-x-2 shadow-md hover:shadow-lg transform hover:scale-105 font-semibold text-sm"
+                          className="mt-3 w-full px-4 py-2.5 text-white rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 shadow-md hover:shadow-lg transform hover:scale-105 font-semibold text-sm hover:opacity-90"
+                          style={{ backgroundColor: '#3A9188' }}
                         >
                           <span>🔗 View Details</span>
                         </button>
@@ -1847,13 +1850,13 @@ Type any menu item name (jobs, candidates, applications, interviews) to navigate
                           >
                             <FaThumbsDown className="text-xs" />
                           </button>
-                        </div>
-                      )}
-                      
+                      </div>
+                    )}
+                    
                       {message.sender === 'bot' && (
                         <p className="text-xs mt-2 text-gray-400">
-                          {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </p>
+                        {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </p>
                       )}
                     </div>
                   </div>
@@ -1867,14 +1870,14 @@ Type any menu item name (jobs, candidates, applications, interviews) to navigate
                 <div className="bg-white rounded-2xl rounded-bl-md px-5 py-4 border border-gray-100 shadow-lg w-full overflow-x-hidden">
                   <div className="flex items-start space-x-3">
                     <div className="mt-0.5 flex-shrink-0">
-                      <div className="w-6 h-6 sm:w-7 sm:h-7 bg-gradient-to-br from-green-500 to-teal-600 rounded-xl flex items-center justify-center shadow-md">
+                      <div className="w-6 h-6 sm:w-7 sm:h-7 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-md">
                         <FaRobot className="text-xs text-white" />
                       </div>
                     </div>
                     <div className="flex-1 min-w-0 overflow-x-hidden">
                       <p className="text-sm sm:text-base whitespace-pre-wrap break-words leading-relaxed font-medium text-gray-800 overflow-x-hidden">
                         {typingText}
-                        <span className="inline-block w-2 h-4 bg-green-500 ml-1 animate-pulse"></span>
+                        <span className="inline-block w-2 h-4 ml-1 animate-pulse" style={{ backgroundColor: '#3A9188' }}></span>
                       </p>
                     </div>
                   </div>
@@ -1886,11 +1889,11 @@ Type any menu item name (jobs, candidates, applications, interviews) to navigate
             {isLoading && !isTyping && (
               <div className="flex justify-start animate-in fade-in duration-200">
                 <div className="bg-white rounded-2xl rounded-bl-md px-5 py-4 border border-gray-100 shadow-lg">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-2.5 h-2.5 bg-green-500 rounded-full animate-bounce shadow-sm" style={{ animationDelay: '0ms' }}></div>
-                    <div className="w-2.5 h-2.5 bg-teal-500 rounded-full animate-bounce shadow-sm" style={{ animationDelay: '150ms' }}></div>
-                    <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-bounce shadow-sm" style={{ animationDelay: '300ms' }}></div>
-                  </div>
+                    <div className="flex items-center space-x-2">
+                      <div className="w-2.5 h-2.5 rounded-full animate-bounce shadow-sm" style={{ animationDelay: '0ms', backgroundColor: '#3A9188' }}></div>
+                      <div className="w-2.5 h-2.5 rounded-full animate-bounce shadow-sm" style={{ animationDelay: '150ms', backgroundColor: '#4CAF9F' }}></div>
+                      <div className="w-2.5 h-2.5 rounded-full animate-bounce shadow-sm" style={{ animationDelay: '300ms', backgroundColor: '#2E7D6E' }}></div>
+                    </div>
                 </div>
               </div>
             )}
@@ -1900,9 +1903,9 @@ Type any menu item name (jobs, candidates, applications, interviews) to navigate
 
           {/* Modern Quick Actions - Responsive */}
           {messages.length === 1 && (
-            <div className="px-4 sm:px-6 py-4 bg-gradient-to-br from-green-50 via-teal-50 to-emerald-50 border-t border-gray-100">
+            <div className="px-4 sm:px-6 py-4 border-t border-gray-100" style={{ backgroundColor: '#F0FDFA' }}>
               <p className="text-xs font-bold text-gray-700 mb-3 flex items-center uppercase tracking-wide">
-                <span className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse shadow-sm"></span>
+                <span className="w-2 h-2 rounded-full mr-2 animate-pulse shadow-sm" style={{ backgroundColor: '#3A9188' }}></span>
                 Quick Actions
               </p>
               <div className="grid grid-cols-2 gap-2 sm:gap-3">
@@ -1910,7 +1913,9 @@ Type any menu item name (jobs, candidates, applications, interviews) to navigate
                   <button
                     key={action}
                     onClick={() => handleQuickAction(action)}
-                    className="group flex items-center justify-center sm:justify-start space-x-2 px-3 sm:px-4 py-3 sm:py-3.5 bg-white text-gray-700 rounded-xl hover:bg-gradient-to-r hover:from-green-600 hover:to-teal-500 hover:text-white transition-all duration-300 shadow-md hover:shadow-xl transform hover:scale-105 border border-gray-100 hover:border-transparent backdrop-blur-sm"
+                      className="group flex items-center justify-center sm:justify-start space-x-2 px-3 sm:px-4 py-3 sm:py-3.5 bg-white text-gray-700 rounded-xl hover:text-white transition-all duration-300 shadow-md hover:shadow-xl transform hover:scale-105 border border-gray-100 hover:border-transparent backdrop-blur-sm"
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#3A9188'}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
                   >
                     {React.createElement(IconComponent, { className: "text-sm sm:text-base group-hover:scale-110 transition-transform drop-shadow-sm" })}
                     <span className="text-xs sm:text-sm font-semibold capitalize hidden sm:inline">{action}</span>
@@ -1934,7 +1939,9 @@ Type any menu item name (jobs, candidates, applications, interviews) to navigate
                       setShowAutoComplete(false);
                       inputRef.current?.focus();
                     }}
-                    className="w-full px-4 py-2.5 text-left hover:bg-green-50 transition-colors flex items-center space-x-2 border-b border-gray-100 last:border-b-0"
+                      className="w-full px-4 py-2.5 text-left transition-colors flex items-center space-x-2 border-b border-gray-100 last:border-b-0"
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#F0FDFA'}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
                   >
                     <FaSearch className="text-xs text-gray-400" />
                     <span className="text-sm text-gray-700">{suggestion}</span>
@@ -1950,26 +1957,31 @@ Type any menu item name (jobs, candidates, applications, interviews) to navigate
                   type="text"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  onFocus={() => {
+                  onFocus={(e) => {
                     if (autoCompleteSuggestions.length > 0) setShowAutoComplete(true);
+                    e.currentTarget.style.borderColor = '#3A9188';
+                    e.currentTarget.style.boxShadow = '0 0 0 2px rgba(58, 145, 136, 0.2)';
                   }}
-                  onBlur={() => {
+                  onBlur={(e) => {
                     setTimeout(() => setShowAutoComplete(false), 200);
+                    e.currentTarget.style.borderColor = '#e5e7eb';
+                    e.currentTarget.style.boxShadow = '';
                   }}
                   placeholder="Type your message..."
-                         className="w-full px-4 sm:px-5 py-3 sm:py-4 pr-12 sm:pr-14 border-2 border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white text-gray-900 text-sm sm:text-base transition-all duration-300 placeholder:text-gray-400 shadow-sm hover:shadow-md focus:shadow-lg"
+                  className="w-full px-4 sm:px-5 py-3 sm:py-4 pr-12 sm:pr-14 border-2 border-gray-200 rounded-2xl focus:outline-none focus:ring-2 bg-white text-gray-900 text-sm sm:text-base transition-all duration-300 placeholder:text-gray-400 shadow-sm hover:shadow-md focus:shadow-lg"
                   disabled={isLoading}
                 />
                 {input.trim() && (
                   <div className="absolute right-4 sm:right-5 top-1/2 -translate-y-1/2">
-                    <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse shadow-lg"></div>
+                    <div className="w-2.5 h-2.5 rounded-full animate-pulse shadow-lg" style={{ backgroundColor: '#3A9188' }}></div>
                   </div>
                 )}
               </div>
               <button
                 type="submit"
                 disabled={!input.trim() || isLoading}
-                className="px-5 py-3 sm:px-6 sm:py-4 bg-gradient-to-r from-green-600 to-teal-500 text-white rounded-2xl hover:from-green-700 hover:to-teal-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 flex items-center justify-center shadow-lg hover:shadow-xl transform hover:scale-110 disabled:hover:scale-100 disabled:hover:shadow-lg backdrop-blur-sm border border-white/20"
+                 className="px-5 py-3 sm:px-6 sm:py-4 text-white rounded-2xl disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 flex items-center justify-center shadow-lg hover:shadow-xl transform hover:scale-110 disabled:hover:scale-100 disabled:hover:shadow-lg backdrop-blur-sm border border-white/20 hover:opacity-90"
+                 style={{ backgroundColor: '#3A9188' }}
               >
                 <FaPaperPlane className="text-sm sm:text-base drop-shadow-sm" />
               </button>
