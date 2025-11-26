@@ -8,7 +8,7 @@ const Chatbot = () => {
   const [messages, setMessages] = useState([
     {
       id: 1,
-      text: "Hello! I'm your ATS assistant. I can help you with questions about jobs, candidates, applications, and interviews. How can I assist you today?",
+      text: "Hello! I'm your ATS assistant. I can help you with questions about jobs, candidates, applications, interviews, and all ATS features. Type 'help' or 'features' to see everything I can do. How can I assist you today?",
       sender: 'bot',
       timestamp: new Date()
     }
@@ -113,6 +113,13 @@ const Chatbot = () => {
   const processMessage = async (message) => {
     const lowerMessage = message.toLowerCase();
     const trimmedMessage = lowerMessage.trim();
+
+    // Check for feature-related queries first
+    if (lowerMessage.includes('features') || lowerMessage.includes('ats features') || 
+        lowerMessage.includes('what features') || lowerMessage.includes('show features') ||
+        lowerMessage.includes('list features') || lowerMessage.includes('all features')) {
+      // This will be handled by the help section below
+    }
 
     // Question pattern detection
     const isQuestion = trimmedMessage.endsWith('?') || 
@@ -424,33 +431,124 @@ const Chatbot = () => {
     }
 
     // General help queries
-    if (lowerMessage.includes('help') || lowerMessage.includes('what can you do')) {
-      return `I can help you with:
+    if (lowerMessage.includes('help') || lowerMessage.includes('what can you do') || lowerMessage.includes('features') || lowerMessage.includes('ats features')) {
+      return `🚀 **COMPLETE ATS FEATURES OVERVIEW**
 
-📋 JOBS:
-• "How many jobs?" - Get job counts
-• "Show all jobs" or "List jobs" - See detailed job list
-• "Show active jobs" - See only active positions
+I'm your ATS Assistant! Here are all the features available in your Applicant Tracking System:
 
-👥 CANDIDATES:
-• "How many candidates?" - Get candidate count
-• "Show all candidates" or "List candidates" - See detailed candidate list
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-📝 APPLICATIONS:
-• "How many applications?" - Get application count
-• "Show all applications" or "List applications" - See detailed application list
+📊 **DASHBOARD**
+• Real-time statistics and metrics
+• Job, candidate, interview, and application counts
+• Trend analysis and performance indicators
+• Quick access to all modules
 
-📅 INTERVIEWS:
-• "How many interviews today?" - Get today's interview count
-• "Show interviews today" or "List interviews today" - See today's interview details
-• "Show interviews tomorrow" - See tomorrow's interviews
-• "Show all interviews" - See all scheduled interviews
+📋 **JOB MANAGEMENT**
+• Create, edit, and manage job postings
+• View job details and requirements
+• Track job status (Active, Closed, Draft)
+• Associate jobs with clients
+• Rich text editor for job descriptions
+• Job filtering and search capabilities
 
-Just ask me anything about your recruitment process!`;
+👥 **CANDIDATE MANAGEMENT**
+• Add, edit, and manage candidate profiles
+• Upload and store candidate resumes (PDF format)
+• Track candidate status and information
+• Candidate filtering and search
+• View detailed candidate profiles
+• Email and contact management
+
+🏢 **CLIENT MANAGEMENT**
+• Manage client accounts and information
+• Associate jobs with clients
+• View client job listings
+• Account manager assignments
+• Client relationship tracking
+
+📝 **APPLICATION MANAGEMENT**
+• Track all job applications
+• View application status (Pending, Shortlisted, Rejected, etc.)
+• Link applications to jobs and candidates
+• Application history and timeline
+• Resume viewing for each application
+• Status change tracking
+
+📅 **INTERVIEW MANAGEMENT**
+• Schedule and manage interviews
+• View interviews by date (today, tomorrow, this week)
+• Interview details (candidate, job, time, location)
+• Interview status tracking
+• Calendar integration
+
+📈 **REPORTS & ANALYTICS** (Admin/Recruiter)
+• Comprehensive reporting dashboard
+• Performance metrics and KPIs
+• Data visualization and charts
+• Export capabilities
+
+👤 **USER MANAGEMENT** (Admin Only)
+• Create and manage user accounts
+• Role-based access control (Admin, Recruiter, etc.)
+• User permissions and settings
+• Account administration
+
+💼 **ACCOUNT MANAGER** (Admin Only)
+• Manage account manager assignments
+• Client-account manager relationships
+• Account manager performance tracking
+
+📧 **CANDIDATE EMAIL MANAGEMENT** (Admin Only)
+• Manage candidate email communications
+• Email templates and automation
+• Email history and tracking
+
+🌐 **WEBSITE APPLICATIONS**
+• Public job application portal
+• External candidate submissions
+• Website application tracking
+• Integration with main application system
+
+🔔 **NOTIFICATIONS**
+• Real-time notification center
+• Bell icon with notification count
+• Application status updates
+• System notifications
+• Notification history
+
+🤖 **AI CHATBOT ASSISTANT** (That's me!)
+• Answer questions about jobs, candidates, applications, interviews
+• Quick data queries and statistics
+• Help with navigation and features
+• Real-time information retrieval
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💡 **QUICK COMMANDS YOU CAN ASK ME:**
+
+📋 Jobs:
+• "How many jobs?" / "Show all jobs" / "List active jobs"
+
+👥 Candidates:
+• "How many candidates?" / "Show all candidates" / "List candidates"
+
+📝 Applications:
+• "How many applications?" / "Show all applications" / "Application status"
+
+📅 Interviews:
+• "How many interviews today?" / "Show interviews today" / "Interviews tomorrow"
+
+🔍 **NAVIGATION HELP:**
+• "Where can I create a job?" → Go to Jobs section
+• "Where are the candidates?" → Go to Candidates section
+• "How do I schedule an interview?" → Go to Interviews section
+
+Just ask me anything about your ATS system! I'm here to help! 🚀`;
     }
 
     if (lowerMessage.includes('hello') || lowerMessage.includes('hi') || lowerMessage.includes('hey')) {
-      return "Hello! I'm here to help you with your ATS. What would you like to know?";
+      return "Hello! 👋 I'm your ATS assistant. I can help you with:\n\n• Jobs, Candidates, Applications, Interviews\n• Reports, User Management, Clients\n• Notifications, Website Applications\n• And much more!\n\nType 'help' or 'features' to see all available features, or ask me anything about your ATS system!";
     }
 
     // Enhanced question understanding for other queries
