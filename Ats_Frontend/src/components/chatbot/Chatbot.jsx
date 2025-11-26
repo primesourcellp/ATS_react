@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FaRobot, FaTimes, FaPaperPlane, FaUser, FaBriefcase, FaUserTie, FaFileAlt, FaCalendarAlt, FaThumbsUp, FaThumbsDown, FaSearch } from 'react-icons/fa';
 import { chatbotAPI } from '../../api/chatbotApi';
-import { jobAPI, candidateAPI, applicationAPI, interviewAPI, clientAPI } from '../../api/api';
+import { jobAPI, candidateAPI, applicationAPI, interviewAPI, clientAPI, candidateEmailAPI, notificationAPI } from '../../api/api';
 
 const Chatbot = () => {
   const navigate = useNavigate();
@@ -261,6 +261,186 @@ const Chatbot = () => {
         return `📊 New Applications Today: ${newApps.length}\n\n${newApps.length > 0 ? `Latest: ${newApps[0]?.candidateName || 'N/A'} → ${newApps[0]?.jobName || 'N/A'}` : 'No new applications today.'}`;
       } catch {
         return `Unable to fetch new applications. Please try again.`;
+      }
+    }
+
+    // Send reminders to recruiters with pending interviews
+    if ((lowerMessage.includes('send reminder') && lowerMessage.includes('recruiter')) || 
+        (lowerMessage.includes('remind recruiter') && lowerMessage.includes('interview'))) {
+      try {
+        // Fetch all interviews
+        const interviews = await interviewAPI.getAll();
+        const interviewsArray = Array.isArray(interviews) ? interviews : [];
+        
+        // Get current date and time
+        const now = new Date();
+        const today = new Date(now);
+        today.setHours(0, 0, 0, 0);
+        
+        // Filter for pending/upcoming interviews (today or future)
+        const pendingInterviews = interviewsArray.filter(interview => {
+          if (!interview.interviewDate) return false;
+          
+          const interviewDate = new Date(interview.interviewDate);
+          interviewDate.setHours(0, 0, 0, 0);
+          
+          // Include interviews scheduled for today or future dates
+          if (interviewDate >= today) {
+            // If it's today, check if the interview time hasn't passed
+            if (interviewDate.getTime() === today.getTime() && interview.interviewTime) {
+              const interviewDateTime = new Date(`${interview.interviewDate}T${interview.interviewTime}`);
+              return interviewDateTime > now;
+            }
+            return true;
+          }
+          return false;
+        });
+        
+        if (pendingInterviews.length === 0) {
+          return `No pending interviews found. All scheduled interviews have either passed or there are no upcoming interviews.`;
+        }
+        
+        // Group interviews by recruiter
+        const recruiterInterviewsMap = new Map();
+        
+        pendingInterviews.forEach(interview => {
+          // Extract recruiter information
+          const recruiterId = interview.scheduledByUserId || 
+                             interview.scheduledBy?.id || 
+                             interview.scheduledBy?.userId;
+          const recruiterName = interview.scheduledByName || 
+                               interview.scheduledBy?.username || 
+                               interview.scheduledBy?.name || 
+                               'Unknown Recruiter';
+          const recruiterEmail = interview.scheduledByEmail || 
+                               interview.scheduledBy?.email;
+          
+          if (recruiterId || recruiterName !== 'Unknown Recruiter') {
+            const key = recruiterId || recruiterName;
+            if (!recruiterInterviewsMap.has(key)) {
+              recruiterInterviewsMap.set(key, {
+                recruiterId,
+                recruiterName,
+                recruiterEmail,
+                interviews: []
+              });
+            }
+            recruiterInterviewsMap.get(key).interviews.push(interview);
+          }
+        });
+        
+        if (recruiterInterviewsMap.size === 0) {
+          return `Found ${pendingInterviews.length} pending interview${pendingInterviews.length !== 1 ? 's' : ''}, but unable to identify recruiters.`;
+        }
+        
+        // Create notifications for each recruiter
+        let notificationsCreated = 0;
+        const errors = [];
+        
+        for (const [, recruiterData] of recruiterInterviewsMap.entries()) {
+          try {
+            const interviewCount = recruiterData.interviews.length;
+            const candidateNames = recruiterData.interviews
+              .map(i => i.candidateName || i.candidate?.name || i.application?.candidate?.name || 'Unknown')
+              .filter((name, index, self) => self.indexOf(name) === index) // Remove duplicates
+              .slice(0, 5)
+              .join(', ');
+            
+            const title = `Pending Interview${interviewCount !== 1 ? 's' : ''} Reminder`;
+            const message = `You have ${interviewCount} pending interview${interviewCount !== 1 ? 's' : ''} scheduled. ${candidateNames ? `Candidates: ${candidateNames}${recruiterData.interviews.length > 5 ? ' and more...' : ''}` : 'Please check your interview schedule.'}`;
+            
+            // Create notification for the recruiter
+            await notificationAPI.create({
+              title,
+              message,
+              type: 'INTERVIEW_REMINDER',
+              relatedEntityId: recruiterData.recruiterId,
+              relatedEntityType: 'RECRUITER'
+            });
+            
+            notificationsCreated++;
+          } catch (error) {
+            console.error(`Error creating notification for recruiter ${recruiterData.recruiterName}:`, error);
+            errors.push(recruiterData.recruiterName);
+          }
+        }
+        
+        if (notificationsCreated === 0) {
+          return `Failed to send reminders to recruiters. Please try again or contact support.`;
+        }
+        
+        const errorMsg = errors.length > 0 ? `\n\nNote: Failed to send reminders to ${errors.length} recruiter${errors.length !== 1 ? 's' : ''}: ${errors.join(', ')}` : '';
+        return `✅ Successfully sent reminders to ${notificationsCreated} recruiter${notificationsCreated !== 1 ? 's' : ''} with pending interviews.\n\nTotal pending interviews: ${pendingInterviews.length}${errorMsg}`;
+      } catch (error) {
+        console.error('Error sending reminders to recruiters:', error);
+        return `Unable to send reminders to recruiters. Please try again.`;
+      }
+    }
+
+    // Send reminders to candidates with pending interviews
+    if (lowerMessage.includes('send reminder') || lowerMessage.includes('remind candidate') || 
+        (lowerMessage.includes('reminder') && lowerMessage.includes('interview'))) {
+      try {
+        // Fetch all interviews
+        const interviews = await interviewAPI.getAll();
+        const interviewsArray = Array.isArray(interviews) ? interviews : [];
+        
+        // Get current date and time
+        const now = new Date();
+        const today = new Date(now);
+        today.setHours(0, 0, 0, 0);
+        
+        // Filter for pending/upcoming interviews (today or future)
+        const pendingInterviews = interviewsArray.filter(interview => {
+          if (!interview.interviewDate) return false;
+          
+          const interviewDate = new Date(interview.interviewDate);
+          interviewDate.setHours(0, 0, 0, 0);
+          
+          // Include interviews scheduled for today or future dates
+          if (interviewDate >= today) {
+            // If it's today, check if the interview time hasn't passed
+            if (interviewDate.getTime() === today.getTime() && interview.interviewTime) {
+              const interviewDateTime = new Date(`${interview.interviewDate}T${interview.interviewTime}`);
+              return interviewDateTime > now;
+            }
+            return true;
+          }
+          return false;
+        });
+        
+        if (pendingInterviews.length === 0) {
+          return `No pending interviews found. All scheduled interviews have either passed or there are no upcoming interviews.`;
+        }
+        
+        // Extract unique candidate IDs from pending interviews
+        const candidateIds = [...new Set(pendingInterviews
+          .map(interview => {
+            // Try multiple possible structures
+            return interview.candidateId || 
+                   interview.candidate?.id || 
+                   interview.application?.candidate?.id ||
+                   interview.application?.candidateId;
+          })
+          .filter(id => id != null))];
+        
+        if (candidateIds.length === 0) {
+          return `Found ${pendingInterviews.length} pending interview${pendingInterviews.length !== 1 ? 's' : ''}, but unable to identify candidate IDs.`;
+        }
+        
+        // Send reminders via email
+        const reminderMessage = `This is a reminder about your upcoming interview. Please check your interview details and be prepared.`;
+        
+        try {
+          await candidateEmailAPI.sendBulkEmails(candidateIds, '', reminderMessage);
+          return `✅ Successfully sent reminders to ${candidateIds.length} candidate${candidateIds.length !== 1 ? 's' : ''} with pending interviews.\n\nTotal pending interviews: ${pendingInterviews.length}`;
+        } catch (emailError) {
+          console.error('Error sending reminder emails:', emailError);
+          return `Found ${pendingInterviews.length} pending interview${pendingInterviews.length !== 1 ? 's' : ''} for ${candidateIds.length} candidate${candidateIds.length !== 1 ? 's' : ''}, but failed to send reminder emails. Please try again or contact support.`;
+        }
+      } catch (error) {
+        console.error('Error fetching pending interviews:', error);
+        return `Unable to fetch pending interviews. Please try again.`;
       }
     }
 
@@ -1493,11 +1673,11 @@ Type any menu item name (jobs, candidates, applications, interviews) to navigate
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 text-white rounded-full shadow-2xl hover:shadow-blue-500/50 transition-all duration-300 flex items-center justify-center z-50 hover:scale-110 active:scale-95 group backdrop-blur-sm border-2 border-white/20 p-0"
+          className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-green-600 to-teal-500 text-white rounded-full shadow-2xl hover:shadow-green-500/50 transition-all duration-300 flex items-center justify-center z-50 hover:scale-110 active:scale-95 group backdrop-blur-sm border-2 border-white/20 p-0"
           aria-label="Open chatbot"
         >
           {/* Animated background glow */}
-          <div className="absolute inset-0 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-xl"></div>
+          <div className="absolute inset-0 rounded-full bg-gradient-to-br from-green-400 to-teal-400 opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-xl"></div>
           
           {/* Icon container */}
           <div className="relative z-10 transform group-hover:rotate-12 transition-transform duration-300">
@@ -1533,7 +1713,7 @@ Type any menu item name (jobs, candidates, applications, interviews) to navigate
           onClick={(e) => e.stopPropagation()}
         >
           {/* Modern Header - Responsive */}
-          <div className="bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 text-white p-3 sm:p-4 rounded-t-3xl flex items-center justify-between relative overflow-hidden">
+          <div className="bg-gradient-to-br from-green-600 to-teal-500 text-white p-3 sm:p-4 rounded-t-3xl flex items-center justify-between relative overflow-hidden">
             {/* Animated background pattern */}
             <div className="absolute inset-0 opacity-10">
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.3),transparent_50%)]"></div>
@@ -1590,7 +1770,7 @@ Type any menu item name (jobs, candidates, applications, interviews) to navigate
                     {/* Avatar - Only for bot messages */}
                     {message.sender === 'bot' && (
                       <div className="mt-0.5 flex-shrink-0">
-                        <div className="w-6 h-6 sm:w-7 sm:h-7 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-md">
+                        <div className="w-6 h-6 sm:w-7 sm:h-7 bg-gradient-to-br from-green-500 to-teal-600 rounded-xl flex items-center justify-center shadow-md">
                           <FaRobot className="text-xs text-white" />
                         </div>
                       </div>
@@ -1609,7 +1789,7 @@ Type any menu item name (jobs, candidates, applications, interviews) to navigate
                                 navigate(item.navigate);
                                 setIsOpen(false);
                               }}
-                              className="w-full px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 flex items-center justify-between shadow-md hover:shadow-lg transform hover:scale-105 font-semibold text-sm"
+                              className="w-full px-4 py-2.5 bg-gradient-to-r from-green-600 to-teal-500 text-white rounded-xl hover:from-green-700 hover:to-teal-600 transition-all duration-300 flex items-center justify-between shadow-md hover:shadow-lg transform hover:scale-105 font-semibold text-sm"
                             >
                               <span className="flex-1 text-left">
                                 <span className="font-bold">{item.name}</span>
@@ -1626,7 +1806,7 @@ Type any menu item name (jobs, candidates, applications, interviews) to navigate
                             navigate(message.navigate);
                             setIsOpen(false);
                           }}
-                          className="mt-3 w-full px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 flex items-center justify-center space-x-2 shadow-md hover:shadow-lg transform hover:scale-105 font-semibold text-sm"
+                          className="mt-3 w-full px-4 py-2.5 bg-gradient-to-r from-green-600 to-teal-500 text-white rounded-xl hover:from-green-700 hover:to-teal-600 transition-all duration-300 flex items-center justify-center space-x-2 shadow-md hover:shadow-lg transform hover:scale-105 font-semibold text-sm"
                         >
                           <span>🔗 View Details</span>
                         </button>
@@ -1687,14 +1867,14 @@ Type any menu item name (jobs, candidates, applications, interviews) to navigate
                 <div className="bg-white rounded-2xl rounded-bl-md px-5 py-4 border border-gray-100 shadow-lg w-full overflow-x-hidden">
                   <div className="flex items-start space-x-3">
                     <div className="mt-0.5 flex-shrink-0">
-                      <div className="w-6 h-6 sm:w-7 sm:h-7 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-md">
+                      <div className="w-6 h-6 sm:w-7 sm:h-7 bg-gradient-to-br from-green-500 to-teal-600 rounded-xl flex items-center justify-center shadow-md">
                         <FaRobot className="text-xs text-white" />
                       </div>
                     </div>
                     <div className="flex-1 min-w-0 overflow-x-hidden">
                       <p className="text-sm sm:text-base whitespace-pre-wrap break-words leading-relaxed font-medium text-gray-800 overflow-x-hidden">
                         {typingText}
-                        <span className="inline-block w-2 h-4 bg-blue-500 ml-1 animate-pulse"></span>
+                        <span className="inline-block w-2 h-4 bg-green-500 ml-1 animate-pulse"></span>
                       </p>
                     </div>
                   </div>
@@ -1707,9 +1887,9 @@ Type any menu item name (jobs, candidates, applications, interviews) to navigate
               <div className="flex justify-start animate-in fade-in duration-200">
                 <div className="bg-white rounded-2xl rounded-bl-md px-5 py-4 border border-gray-100 shadow-lg">
                   <div className="flex items-center space-x-2">
-                    <div className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-bounce shadow-sm" style={{ animationDelay: '0ms' }}></div>
-                    <div className="w-2.5 h-2.5 bg-indigo-500 rounded-full animate-bounce shadow-sm" style={{ animationDelay: '150ms' }}></div>
-                    <div className="w-2.5 h-2.5 bg-purple-500 rounded-full animate-bounce shadow-sm" style={{ animationDelay: '300ms' }}></div>
+                    <div className="w-2.5 h-2.5 bg-green-500 rounded-full animate-bounce shadow-sm" style={{ animationDelay: '0ms' }}></div>
+                    <div className="w-2.5 h-2.5 bg-teal-500 rounded-full animate-bounce shadow-sm" style={{ animationDelay: '150ms' }}></div>
+                    <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-bounce shadow-sm" style={{ animationDelay: '300ms' }}></div>
                   </div>
                 </div>
               </div>
@@ -1720,9 +1900,9 @@ Type any menu item name (jobs, candidates, applications, interviews) to navigate
 
           {/* Modern Quick Actions - Responsive */}
           {messages.length === 1 && (
-            <div className="px-4 sm:px-6 py-4 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 border-t border-gray-100">
+            <div className="px-4 sm:px-6 py-4 bg-gradient-to-br from-green-50 via-teal-50 to-emerald-50 border-t border-gray-100">
               <p className="text-xs font-bold text-gray-700 mb-3 flex items-center uppercase tracking-wide">
-                <span className="w-2 h-2 bg-blue-500 rounded-full mr-2 animate-pulse shadow-sm"></span>
+                <span className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse shadow-sm"></span>
                 Quick Actions
               </p>
               <div className="grid grid-cols-2 gap-2 sm:gap-3">
@@ -1730,7 +1910,7 @@ Type any menu item name (jobs, candidates, applications, interviews) to navigate
                   <button
                     key={action}
                     onClick={() => handleQuickAction(action)}
-                    className="group flex items-center justify-center sm:justify-start space-x-2 px-3 sm:px-4 py-3 sm:py-3.5 bg-white text-gray-700 rounded-xl hover:bg-gradient-to-r hover:from-blue-600 hover:to-indigo-600 hover:text-white transition-all duration-300 shadow-md hover:shadow-xl transform hover:scale-105 border border-gray-100 hover:border-transparent backdrop-blur-sm"
+                    className="group flex items-center justify-center sm:justify-start space-x-2 px-3 sm:px-4 py-3 sm:py-3.5 bg-white text-gray-700 rounded-xl hover:bg-gradient-to-r hover:from-green-600 hover:to-teal-500 hover:text-white transition-all duration-300 shadow-md hover:shadow-xl transform hover:scale-105 border border-gray-100 hover:border-transparent backdrop-blur-sm"
                   >
                     {React.createElement(IconComponent, { className: "text-sm sm:text-base group-hover:scale-110 transition-transform drop-shadow-sm" })}
                     <span className="text-xs sm:text-sm font-semibold capitalize hidden sm:inline">{action}</span>
@@ -1754,7 +1934,7 @@ Type any menu item name (jobs, candidates, applications, interviews) to navigate
                       setShowAutoComplete(false);
                       inputRef.current?.focus();
                     }}
-                    className="w-full px-4 py-2.5 text-left hover:bg-blue-50 transition-colors flex items-center space-x-2 border-b border-gray-100 last:border-b-0"
+                    className="w-full px-4 py-2.5 text-left hover:bg-green-50 transition-colors flex items-center space-x-2 border-b border-gray-100 last:border-b-0"
                   >
                     <FaSearch className="text-xs text-gray-400" />
                     <span className="text-sm text-gray-700">{suggestion}</span>
@@ -1777,7 +1957,7 @@ Type any menu item name (jobs, candidates, applications, interviews) to navigate
                     setTimeout(() => setShowAutoComplete(false), 200);
                   }}
                   placeholder="Type your message..."
-                  className="w-full px-4 sm:px-5 py-3 sm:py-4 pr-12 sm:pr-14 border-2 border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900 text-sm sm:text-base transition-all duration-300 placeholder:text-gray-400 shadow-sm hover:shadow-md focus:shadow-lg"
+                         className="w-full px-4 sm:px-5 py-3 sm:py-4 pr-12 sm:pr-14 border-2 border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white text-gray-900 text-sm sm:text-base transition-all duration-300 placeholder:text-gray-400 shadow-sm hover:shadow-md focus:shadow-lg"
                   disabled={isLoading}
                 />
                 {input.trim() && (
@@ -1789,7 +1969,7 @@ Type any menu item name (jobs, candidates, applications, interviews) to navigate
               <button
                 type="submit"
                 disabled={!input.trim() || isLoading}
-                className="px-5 py-3 sm:px-6 sm:py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 flex items-center justify-center shadow-lg hover:shadow-xl transform hover:scale-110 disabled:hover:scale-100 disabled:hover:shadow-lg backdrop-blur-sm border border-white/20"
+                className="px-5 py-3 sm:px-6 sm:py-4 bg-gradient-to-r from-green-600 to-teal-500 text-white rounded-2xl hover:from-green-700 hover:to-teal-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 flex items-center justify-center shadow-lg hover:shadow-xl transform hover:scale-110 disabled:hover:scale-100 disabled:hover:shadow-lg backdrop-blur-sm border border-white/20"
               >
                 <FaPaperPlane className="text-sm sm:text-base drop-shadow-sm" />
               </button>
