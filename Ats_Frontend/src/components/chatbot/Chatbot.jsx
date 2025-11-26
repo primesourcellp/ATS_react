@@ -282,24 +282,28 @@ const Chatbot = () => {
     if (lowerMessage.includes('missing document') || lowerMessage.includes('missing resume') || 
         lowerMessage.includes('no resume') || lowerMessage.includes('document missing')) {
       try {
-        const applications = await applicationAPI.getAll();
-        const applicationsArray = Array.isArray(applications) ? applications : [];
-        const missingResume = applicationsArray.filter(app => {
-          return !app.resumePath && !app.resumeUrl && !app.resume;
+        // Fetch only candidates
+        const candidates = await candidateAPI.getAll();
+        const candidatesArray = Array.isArray(candidates) ? candidates : [];
+        
+        // Filter candidates without resumes
+        const missingCandidateResume = candidatesArray.filter(candidate => {
+          return !candidate.resumePath && !candidate.resumeUrl;
         });
         
-        if (missingResume.length === 0) {
-          return `All applications have resumes attached.`;
+        if (missingCandidateResume.length === 0) {
+          return `All candidates have resumes attached.`;
         }
         
-        // Return object with applications array for navigation
+        // Return object with candidates array for navigation
         return {
-          message: `📄 Missing Documents: ${missingResume.length} application${missingResume.length !== 1 ? 's' : ''} ${missingResume.length !== 1 ? 'have' : 'has'} no resume.\n\nClick on any application below to view details:`,
-          applications: missingResume.slice(0, 10).map(app => ({
-            id: app.id,
-            candidateName: app.candidate?.name || app.candidateName || 'Unknown',
-            jobName: app.job?.jobName || app.jobName || 'N/A',
-            navigate: `/applications/${app.id}`
+          message: `📄 Missing Documents: ${missingCandidateResume.length} candidate${missingCandidateResume.length !== 1 ? 's' : ''} ${missingCandidateResume.length !== 1 ? 'have' : 'has'} no resume.\n\nClick on any candidate below to view details:`,
+          applications: missingCandidateResume.slice(0, 15).map(candidate => ({
+            id: candidate.id,
+            name: candidate.name || 'Unknown',
+            type: 'candidate',
+            navigate: `/candidates/${candidate.id}`,
+            displayText: `${candidate.name || 'Unknown'} (Candidate)`
           }))
         };
       } catch {
@@ -1407,21 +1411,20 @@ Type any menu item name (jobs, candidates, applications, interviews) to navigate
                     {/* Message content */}
                     <div className="flex-1 min-w-0 overflow-x-hidden">
                       <p className="text-sm sm:text-base whitespace-pre-wrap break-words leading-relaxed font-medium overflow-x-hidden">{message.text}</p>
-                      {/* Clickable navigation links for multiple applications */}
+                      {/* Clickable navigation links for multiple candidates */}
                       {message.applications && Array.isArray(message.applications) && message.applications.length > 0 && (
                         <div className="mt-3 space-y-2">
-                          {message.applications.map((app, idx) => (
+                          {message.applications.map((item, idx) => (
                             <button
                               key={idx}
                               onClick={() => {
-                                navigate(app.navigate);
+                                navigate(item.navigate);
                                 setIsOpen(false);
                               }}
                               className="w-full px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 flex items-center justify-between shadow-md hover:shadow-lg transform hover:scale-105 font-semibold text-sm"
                             >
                               <span className="flex-1 text-left">
-                                <span className="font-bold">{app.candidateName}</span>
-                                <span className="text-xs opacity-90 ml-2">→ {app.jobName}</span>
+                                <span className="font-bold">{item.name}</span>
                               </span>
                               <span className="ml-2">🔗</span>
                             </button>
