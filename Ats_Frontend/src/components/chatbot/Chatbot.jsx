@@ -279,6 +279,77 @@ const Chatbot = () => {
       }
     }
 
+    // Check for recruiter-specific candidate count queries
+    const recruiterCountPattern = /(?:how many|count|number of|total).*candidate.*(?:added|created|by).*(?:today|this day).*(?:by|recruiter|user)\s+([a-zA-Z\s]+)/i;
+    const recruiterCountMatch = trimmedMessage.match(recruiterCountPattern);
+    
+    if (recruiterCountMatch || (lowerMessage.includes('candidate') && lowerMessage.includes('added') && lowerMessage.includes('today') && (lowerMessage.includes('by') || lowerMessage.includes('recruiter')))) {
+      try {
+        let recruiterName = '';
+        
+        if (recruiterCountMatch) {
+          recruiterName = recruiterCountMatch[1].trim();
+        } else {
+          // Try to extract recruiter name from various patterns
+          const patterns = [
+            /by\s+([a-zA-Z\s]+?)(?:\s+today|\s+this|\s+added|$)/i,
+            /recruiter\s+([a-zA-Z\s]+?)(?:\s+today|\s+this|\s+added|$)/i,
+            /user\s+([a-zA-Z\s]+?)(?:\s+today|\s+this|\s+added|$)/i
+          ];
+          
+          for (const pattern of patterns) {
+            const match = trimmedMessage.match(pattern);
+            if (match && match[1]) {
+              recruiterName = match[1].trim();
+              break;
+            }
+          }
+        }
+        
+        if (!recruiterName) {
+          return `Please specify the recruiter name. Example: "How many candidates were added by John today?"`;
+        }
+        
+        // Fetch all candidates
+        const candidates = await candidateAPI.getAll();
+        const candidatesArray = Array.isArray(candidates) ? candidates : [];
+        
+        // Get today's date (start of day)
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        // Filter candidates added today by the specific recruiter
+        const recruiterCandidatesToday = candidatesArray.filter(candidate => {
+          // Check if created today
+          const createdAt = new Date(candidate.createdAt);
+          createdAt.setHours(0, 0, 0, 0);
+          const isToday = createdAt.getTime() === today.getTime();
+          
+          if (!isToday) return false;
+          
+          // Check if created by the specified recruiter (case-insensitive)
+          const recruiterLower = recruiterName.toLowerCase();
+          const createdByUsername = (candidate.createdByUsername || '').toLowerCase();
+          const createdByName = (candidate.createdByName || '').toLowerCase();
+          const createdByEmail = (candidate.createdByEmail || '').toLowerCase();
+          
+          return createdByUsername.includes(recruiterLower) || 
+                 createdByName.includes(recruiterLower) || 
+                 createdByEmail.includes(recruiterLower);
+        });
+        
+        const count = recruiterCandidatesToday.length;
+        
+        if (count === 0) {
+          return `No candidates were added by "${recruiterName}" today.`;
+        }
+        
+        return `${count} candidate${count !== 1 ? 's were' : ' was'} added by "${recruiterName}" today.`;
+      } catch {
+        return `Unable to fetch candidate count. Please try again.`;
+      }
+    }
+
     if (lowerMessage.includes('missing document') || lowerMessage.includes('missing resume') || 
         lowerMessage.includes('no resume') || lowerMessage.includes('document missing')) {
       try {
