@@ -51,6 +51,7 @@ const ApplicationTracker = () => {
   const [selectedApplication, setSelectedApplication] = useState(null);
   const [toasts, setToasts] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [applicationIdSearch, setApplicationIdSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [userRole, setUserRole] = useState('');
   const [sortOrder, setSortOrder] = useState('newest');
@@ -73,7 +74,7 @@ const ApplicationTracker = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, statusFilter, showMyApplications]);
+  }, [searchTerm, applicationIdSearch, statusFilter, showMyApplications]);
 
   useEffect(() => {
     loadApplications();
@@ -94,7 +95,7 @@ const ApplicationTracker = () => {
 
   useEffect(() => {
     filterApplications();
-  }, [applications, searchTerm, statusFilter, showMyApplications, currentUserName]);
+  }, [applications, searchTerm, applicationIdSearch, statusFilter, showMyApplications, currentUserName]);
 
   const clearHighlight = useCallback(() => {
     if (highlightId == null) {
@@ -188,14 +189,30 @@ const ApplicationTracker = () => {
 
   const filterApplications = () => {
     let result = [...applications];
+    
+    // Filter by application ID (dedicated search - exact match)
+    if (applicationIdSearch) {
+      const idToSearch = applicationIdSearch.trim();
+      result = result.filter(app => {
+        if (app.id) {
+          return app.id.toString() === idToSearch;
+        }
+        return false;
+      });
+    }
+    
+    // Filter by search term (general search - excludes ID)
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       result = result.filter(app =>
         (app.candidateName || app.candidate?.name || '').toLowerCase().includes(term) ||
         (app.job?.jobName || app.job?.title || '').toLowerCase().includes(term) ||
-        (app.id && app.id.toString().toLowerCase().includes(term))
+        (app.candidate?.email || '').toLowerCase().includes(term) ||
+        (app.candidate?.phone || '').toLowerCase().includes(term) ||
+        (app.job?.client?.clientName || '').toLowerCase().includes(term)
       );
     }
+    
     if (statusFilter) result = result.filter(app => app.status === statusFilter);
     
     // Filter by "My Applications" if enabled
@@ -426,148 +443,239 @@ const ApplicationTracker = () => {
     <div className="flex">
       <Navbar />
 
-      <main className="flex-1 p-4">
-        {/* Role badge */}
-        <div className="mb-3">
-          <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${
-            userRole === 'ADMIN' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
-          }`}>{userRole}</span>
-        </div>
-
+      <main className="flex-1 p-6">
         {/* Header */}
-        <div className="bg-white rounded-lg shadow-md p-8 mb-4 flex justify-between items-center">
-          <h2 className="text-xl font-bold text-gray-800 flex items-center">
-            <i className="fas fa-briefcase mr-2 text-blue-500"></i>
-            Job Applications
-          </h2>
-          <button onClick={handleNewApplication} className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-lg flex items-center">
-            <i className="fas fa-plus mr-1"></i> New Application
-          </button>
+        <div className="py-10">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Job Applications</h1>
+              <p className="text-gray-600 mt-1">Manage and track all job applications</p>
+            </div>
+          </div>
         </div>
 
-        {/* Stats Card with My Applications Toggle */}
-        <div className="bg-white rounded-xl shadow-sm p-5 mb-6 border border-gray-100">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-lg font-semibold text-gray-800">
-                {showMyApplications
-                  ? "My Applications"
-                  : "Total Applications"}
-              </h3>
-              <p className="text-xs text-gray-500">
-                {showMyApplications
-                  ? `Showing applications created by ${currentUserName || "you"}.`
-                  : "Across all recruiters"}
-              </p>
+        {/* Simple Stats Overview */}
+        <div className="bg-white rounded-lg border border-gray-200 p-4 mb-1">
+          <div className="flex flex-wrap items-center justify-between gap-6">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-600">Total Applications:</span>
+              <span className="text-lg font-semibold text-gray-900">{effectiveTotal}</span>
             </div>
             <button
               type="button"
               onClick={() => setShowMyApplications((prev) => !prev)}
               className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors ${
                 showMyApplications
-                  ? "border-green-500 bg-green-50 text-green-700"
-                  : "border-gray-300 bg-white text-gray-700 hover:border-green-400 hover:text-green-600"
+                  ? "border-purple-500 bg-purple-50 text-purple-700"
+                  : "border-gray-300 bg-white text-gray-700 hover:border-purple-400 hover:text-purple-600"
               }`}
             >
               <i className="fas fa-user-check"></i>
-              {showMyApplications ? "Show All Applications" : "My Applications"}
+              {showMyApplications ? "Show All Applications" : `My Applications (${myApplicationsCount})`}
             </button>
-          </div>
-          <div>
-            <p className="text-3xl font-semibold text-gray-900">
-              {effectiveTotal}
-            </p>
-            {currentUserName && (
-              <p className="text-xs text-gray-500 mt-1">
-                {showMyApplications
-                  ? `${currentUserName.charAt(0).toUpperCase()}${currentUserName.slice(1)} has ${myApplicationsCount} application${myApplicationsCount === 1 ? "" : "s"} in total.`
-                  : `You have created ${myApplicationsCount} application${myApplicationsCount === 1 ? "" : "s"}.`}
-              </p>
-            )}
           </div>
         </div>
 
-        {/* Filters */}
-        <div className="bg-white rounded-lg shadow-md p-4 mb-4 grid grid-cols-1 md:grid-cols-4 gap-3">
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <i className="fas fa-search text-gray-400"></i>
+        {/* Real-time ATS Search Bar */}
+        <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl shadow-md p-4 mb-6 border border-purple-100">
+          <div className="flex flex-col lg:flex-row gap-3 items-end">
+            {/* General Search - Large and Prominent */}
+            <div className="flex-1 w-full">
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <svg className="h-5 w-5 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+                <input
+                  type="text"
+                  placeholder="Search applications by candidate name, email, job title, or client..."
+                  className="w-full pl-12 pr-12 py-3.5 text-base border-2 border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white shadow-sm transition-all duration-200"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+                {searchTerm && (
+                  <button
+                    onClick={() => setSearchTerm('')}
+                    className="absolute inset-y-0 right-0 pr-4 flex items-center hover:bg-purple-50 rounded-r-lg transition-colors"
+                    title="Clear search"
+                  >
+                    <svg className="h-5 w-5 text-gray-400 hover:text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                  </button>
+                )}
+              </div>
             </div>
-            <input
-              type="text"
-              placeholder="Search by candidate, job, or application ID..."
-              className="pl-10 w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-            />
-          </div>
 
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <i className="fas fa-sort text-gray-400"></i>
+            {/* ID Search - Compact */}
+            <div className="w-full lg:w-48">
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <svg className="h-5 w-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"></path>
+                  </svg>
+                </div>
+                <input
+                  type="text"
+                  placeholder="Application ID..."
+                  className="w-full pl-10 pr-10 py-3.5 text-base border-2 border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm transition-all duration-200"
+                  value={applicationIdSearch}
+                  onChange={(e) => setApplicationIdSearch(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      filterApplications();
+                    }
+                  }}
+                />
+                {applicationIdSearch && (
+                  <button
+                    onClick={() => {
+                      setApplicationIdSearch('');
+                      filterApplications();
+                    }}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center hover:bg-blue-50 rounded-r-lg transition-colors"
+                    title="Clear ID search"
+                  >
+                    <svg className="h-5 w-5 text-gray-400 hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                  </button>
+                )}
+              </div>
             </div>
-            <select
-              className="pl-10 w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              value={sortOrder}
-              onChange={e => {
-                setSortOrder(e.target.value);
-                setCurrentPage(1);
-              }}
-            >
-              <option value="newest">Newest First</option>
-              <option value="oldest">Oldest First</option>
-            </select>
-          </div>
 
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <i className="fas fa-filter text-gray-400"></i>
-            </div>
-            <select
-              className="pl-10 w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              value={statusFilter}
-              onChange={e => setStatusFilter(e.target.value)}
-            >
-              <option value="">All Statuses</option>
-              <option value="NEW_CANDIDATE">New Candidate</option>
-              <option value="PENDING">Pending</option>
-              <option value="SCHEDULED">Scheduled</option>
-              <option value="INTERVIEWED">Interviewed</option>
-              <option value="PLACED">Placed</option>
-              <option value="REJECTED">Rejected</option>
-              <option value="NOT_INTERESTED">Not Interested</option>
-              <option value="HOLD">Hold</option>
-              <option value="HIGH_CTC">High CTC</option>
-              <option value="DROPPED_BY_CLIENT">Dropped by Client</option>
-              <option value="SUBMITTED_TO_CLIENT">Submitted to Client</option>
-              <option value="NO_RESPONSE">No Response</option>
-              <option value="IMMEDIATE">Immediate</option>
-              <option value="REJECTED_BY_CLIENT">Rejected by Client</option>
-              <option value="CLIENT_SHORTLIST">Client Shortlist</option>
-              <option value="FIRST_INTERVIEW_SCHEDULED">1st Interview Scheduled</option>
-              <option value="FIRST_INTERVIEW_FEEDBACK_PENDING">1st Interview Feedback Pending</option>
-              <option value="FIRST_INTERVIEW_REJECT">1st Interview Reject</option>
-              <option value="SECOND_INTERVIEW_SCHEDULED">2nd Interview Scheduled</option>
-              <option value="SECOND_INTERVIEW_FEEDBACK_PENDING">2nd Interview Feedback Pending</option>
-              <option value="SECOND_INTERVIEW_REJECT">2nd Interview Reject</option>
-              <option value="THIRD_INTERVIEW_SCHEDULED">3rd Interview Scheduled</option>
-              <option value="THIRD_INTERVIEW_FEEDBACK_PENDING">3rd Interview Feedback Pending</option>
-              <option value="THIRD_INTERVIEW_REJECT">3rd Interview Reject</option>
-              <option value="INTERNEL_REJECT">Internel Reject</option>
-              <option value="CLIENT_REJECT">Client Reject</option>
-              <option value="FINAL_SELECT">Final Select</option>
-              <option value="JOINED">Joined</option>
-              <option value="BACKEDOUT">Backed Out</option>
-              <option value="NOT_RELEVANT">Not Relevant</option>
-            </select>
+            {/* Clear Button - Only show when search is active */}
+            {(searchTerm || applicationIdSearch) && (
+              <button
+                onClick={() => {
+                  setSearchTerm('');
+                  setApplicationIdSearch('');
+                  loadApplications();
+                }}
+                className="px-4 py-3.5 bg-white border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-all duration-200 font-medium whitespace-nowrap shadow-sm"
+              >
+                Clear All
+              </button>
+            )}
           </div>
-{/* 
-          <button
-            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-lg flex items-center justify-center"
-            onClick={loadApplications}
-          >
-            <i className="fas fa-search mr-1"></i> Search
-          </button> */}
+          
+          {/* Real-time Results Count */}
+          {(searchTerm || applicationIdSearch) && (
+            <div className="mt-3 flex items-center text-sm text-purple-700">
+              <svg className="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span className="font-medium">{filteredApplications.length} application{filteredApplications.length !== 1 ? 's' : ''} found</span>
+              {(searchTerm || applicationIdSearch) && (
+                <span className="ml-2 text-purple-600">
+                  {searchTerm && `• "${searchTerm}"`}
+                  {applicationIdSearch && ` • ID: ${applicationIdSearch}`}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Quick Filters - Compact ATS Style */}
+        <div className="bg-white rounded-xl shadow-sm p-4 mb-6 border border-gray-100">
+          <div className="flex flex-wrap items-center gap-4">
+            {/* Status Filter */}
+            <div className="flex items-center gap-2">
+              <svg className="h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <select
+                className="px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white min-w-[180px]"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+              >
+                <option value="">All Statuses</option>
+                <option value="NEW_CANDIDATE">New Candidate</option>
+                <option value="PENDING">Pending</option>
+                <option value="SCHEDULED">Scheduled</option>
+                <option value="INTERVIEWED">Interviewed</option>
+                <option value="PLACED">Placed</option>
+                <option value="REJECTED">Rejected</option>
+                <option value="NOT_INTERESTED">Not Interested</option>
+                <option value="HOLD">Hold</option>
+                <option value="HIGH_CTC">High CTC</option>
+                <option value="DROPPED_BY_CLIENT">Dropped by Client</option>
+                <option value="SUBMITTED_TO_CLIENT">Submitted to Client</option>
+                <option value="NO_RESPONSE">No Response</option>
+                <option value="IMMEDIATE">Immediate</option>
+                <option value="REJECTED_BY_CLIENT">Rejected by Client</option>
+                <option value="CLIENT_SHORTLIST">Client Shortlist</option>
+                <option value="FIRST_INTERVIEW_SCHEDULED">1st Interview Scheduled</option>
+                <option value="FIRST_INTERVIEW_FEEDBACK_PENDING">1st Interview Feedback Pending</option>
+                <option value="FIRST_INTERVIEW_REJECT">1st Interview Reject</option>
+                <option value="SECOND_INTERVIEW_SCHEDULED">2nd Interview Scheduled</option>
+                <option value="SECOND_INTERVIEW_FEEDBACK_PENDING">2nd Interview Feedback Pending</option>
+                <option value="SECOND_INTERVIEW_REJECT">2nd Interview Reject</option>
+                <option value="THIRD_INTERVIEW_SCHEDULED">3rd Interview Scheduled</option>
+                <option value="THIRD_INTERVIEW_FEEDBACK_PENDING">3rd Interview Feedback Pending</option>
+                <option value="THIRD_INTERVIEW_REJECT">3rd Interview Reject</option>
+                <option value="INTERNEL_REJECT">Internal Reject</option>
+                <option value="CLIENT_REJECT">Client Reject</option>
+                <option value="FINAL_SELECT">Final Select</option>
+                <option value="JOINED">Joined</option>
+                <option value="BACKEDOUT">Backed Out</option>
+                <option value="NOT_RELEVANT">Not Relevant</option>
+              </select>
+              {statusFilter && (
+                <button
+                  onClick={() => setStatusFilter('')}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                  </svg>
+                </button>
+              )}
+            </div>
+
+            {/* Sort By */}
+            <div className="flex items-center gap-2">
+              <svg className="h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4" />
+              </svg>
+              <select
+                className="px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white"
+                value={sortOrder}
+                onChange={e => {
+                  setSortOrder(e.target.value);
+                  setCurrentPage(1);
+                }}
+              >
+                <option value="newest">Newest First</option>
+                <option value="oldest">Oldest First</option>
+              </select>
+            </div>
+
+            {/* Clear All Filters */}
+            {(statusFilter) && (
+              <button
+                onClick={() => {
+                  setStatusFilter('');
+                }}
+                className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+              >
+                Clear Filters
+              </button>
+            )}
+
+            {/* Add Application Button */}
+            <button
+              onClick={handleNewApplication}
+              className="ml-auto px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md flex items-center gap-2 transition-colors font-medium shadow-sm"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+              New Application
+            </button>
+          </div>
         </div>
 
         {/* Applications Table */}

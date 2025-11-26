@@ -83,14 +83,28 @@ getAll: async () => {
 
   // Schedule interview
   schedule: async (applicationId, interviewData) => {
-    const { interviewDate, interviewTime, endTime } = interviewData;
-    const response = await fetch(
-      `${BASE_URL}/api/interviews/schedule/${applicationId}?interviewDate=${interviewDate}&interviewTime=${interviewTime}&endTime=${endTime}`,
-      {
-        method: "POST",
-        headers: getAuthHeaders()
-      }
-    );
+    const { interviewDate, interviewTime, endTime, description } = interviewData;
+    let url = `${BASE_URL}/api/interviews/schedule/${applicationId}?interviewDate=${interviewDate}&interviewTime=${interviewTime}&endTime=${endTime}`;
+    if (description) {
+      url += `&description=${encodeURIComponent(description)}`;
+    }
+    const response = await fetch(url, {
+      method: "POST",
+      headers: getAuthHeaders()
+    });
+    return handleResponse(response);
+  },
+
+  // Complete interview
+  complete: async (interviewId, completionNotes) => {
+    let url = `${BASE_URL}/api/interviews/${interviewId}/complete`;
+    if (completionNotes) {
+      url += `?completionNotes=${encodeURIComponent(completionNotes)}`;
+    }
+    const response = await fetch(url, {
+      method: "POST",
+      headers: getAuthHeaders()
+    });
     return handleResponse(response);
   }
 };

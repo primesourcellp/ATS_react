@@ -11,6 +11,7 @@ const WebsiteApplication = () => {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [toasts, setToasts] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [applicationIdSearch, setApplicationIdSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState('');
   const [jobs, setJobs] = useState([]);
@@ -27,7 +28,7 @@ const WebsiteApplication = () => {
 
   useEffect(() => {
     filterApplications();
-  }, [applications, searchTerm, selectedJobFilter, statusFilter, sortBy]);
+  }, [applications, searchTerm, applicationIdSearch, selectedJobFilter, statusFilter, sortBy]);
 
   const loadApplications = async () => {
     try {
@@ -53,16 +54,28 @@ const WebsiteApplication = () => {
   const filterApplications = () => {
     let result = [...applications];
 
-    // Filter by search term
+    // Filter by application ID (dedicated search - exact match)
+    if (applicationIdSearch) {
+      const idToSearch = applicationIdSearch.trim();
+      result = result.filter(app => {
+        if (app.id) {
+          return app.id.toString() === idToSearch;
+        }
+        return false;
+      });
+    }
+
+    // Filter by search term (general search - excludes ID)
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       result = result.filter(app => 
-        (app.id && app.id.toString().includes(term)) ||
         (app.applierName && app.applierName.toLowerCase().includes(term)) ||
         (app.email && app.email.toLowerCase().includes(term)) ||
-        (app.phoneNumber && app.phoneNumber.includes(term)) ||
+        (app.phoneNumber && app.phoneNumber.toLowerCase().includes(term)) ||
         (app.currentLocation && app.currentLocation.toLowerCase().includes(term)) ||
-        (app.skills && app.skills.toLowerCase().includes(term))
+        (app.skills && app.skills.toLowerCase().includes(term)) ||
+        (app.jobName && app.jobName.toLowerCase().includes(term)) ||
+        (app.clientName && app.clientName.toLowerCase().includes(term))
       );
     }
 
@@ -145,118 +158,136 @@ const WebsiteApplication = () => {
       {/* Main content */}
       <main className="flex-1 p-6">
         {/* Header */}
-        <div className="mb-6 py-10">
+        <div className="py-10">
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Website Applications</h1>
-              <p className="text-gray-600 mt-1">Manage and review all job applications</p>
-            </div>
-            <div className="flex items-center space-x-3">
-              <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
-                userRole === 'ADMIN' ? 'bg-purple-100 text-purple-800' : 'bg-green-100 text-green-800'
-              }`}>
-                {userRole}
-              </span>
-              <div className="flex items-center text-sm bg-white rounded-lg shadow-sm px-3 py-2 border border-gray-200">
-                <div className="w-2 h-2 rounded-full bg-green-500 mr-2"></div>
-                <span className="text-gray-700">{localStorage.getItem("username") || "User"}</span>
-              </div>
+              <p className="text-gray-600 mt-1">Manage and review all job applications from website</p>
             </div>
           </div>
         </div>
 
-        {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
-            <div className="flex items-center">
-              <div className="rounded-lg bg-blue-100 p-3">
-                <svg className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-              </div>
-              <div className="ml-4">
-                <h3 className="text-sm font-medium text-gray-600">Total Applications</h3>
-                <p className="text-2xl font-semibold text-gray-900">{applications.length}</p>
-              </div>
+        {/* Real-time ATS Search Bar */}
+        <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl shadow-md p-4 mb-6 border border-purple-100">
+          <div className="flex flex-col lg:flex-row gap-3 items-end">
+            {/* Application Count - Inline */}
+            <div className="flex items-center gap-2 px-3 py-3.5 bg-white rounded-lg border-2 border-purple-200 shadow-sm">
+              <svg className="h-5 w-5 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <span className="text-sm font-medium text-purple-700 whitespace-nowrap">Applications:</span>
+              <span className="text-lg font-bold text-purple-900">{filteredApplications.length}</span>
             </div>
-          </div>
-          
-          <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
-            <div className="flex items-center">
-              <div className="rounded-lg bg-green-100 p-3">
-                <svg className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <div className="ml-4">
-                <h3 className="text-sm font-medium text-gray-600">Contacted</h3>
-                <p className="text-2xl font-semibold text-gray-900">
-                  {applications.filter(app => app.status === 'CONTACTED').length}
-                </p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
-            <div className="flex items-center">
-              <div className="rounded-lg bg-purple-100 p-3">
-                <svg className="h-6 w-6 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-              </div>
-              <div className="ml-4">
-                <h3 className="text-sm font-medium text-gray-600">Interviews</h3>
-                <p className="text-2xl font-semibold text-gray-900">
-                  {applications.filter(app => app.status === 'INTERVIEW').length}
-                </p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
-            <div className="flex items-center">
-              <div className="rounded-lg bg-red-100 p-3">
-               <svg className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-    d="M9 12l2 2l4-4M7 21h10a2 2 0 002-2V7a2 2 0 00-.586-1.414l-4-4A2 2 0 0013 1H7a2 2 0 00-2 2v16a2 2 0 002 2z" />
-</svg>
 
-              </div>
-              <div className="ml-4">
-                <h3 className="text-sm font-medium text-gray-600">Reviewed</h3>
-                <p className="text-2xl font-semibold text-gray-900">
-                  {applications.filter(app => app.status === 'REVIEWED').length}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Filters */}
-        <div className="bg-white rounded-xl shadow-sm p-5 mb-6 border border-gray-100">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Search Applications</label>
+            {/* General Search - Large and Prominent */}
+            <div className="flex-1 w-full">
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <svg className="h-5 w-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <svg className="h-5 w-5 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                 </div>
                 <input
                   type="text"
-                  placeholder="Search by name, email, skills..."
-                  className="pl-10 w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Search by name, email, phone, location, skills, job, or client..."
+                  className="w-full pl-12 pr-12 py-3.5 text-base border-2 border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white shadow-sm transition-all duration-200"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
+                {searchTerm && (
+                  <button
+                    onClick={() => setSearchTerm('')}
+                    className="absolute inset-y-0 right-0 pr-4 flex items-center hover:bg-purple-50 rounded-r-lg transition-colors"
+                    title="Clear search"
+                  >
+                    <svg className="h-5 w-5 text-gray-400 hover:text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                  </button>
+                )}
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Job</label>
+            {/* ID Search - Compact */}
+            <div className="w-full lg:w-48">
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <svg className="h-5 w-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"></path>
+                  </svg>
+                </div>
+                <input
+                  type="text"
+                  placeholder="Application ID..."
+                  className="w-full pl-10 pr-10 py-3.5 text-base border-2 border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm transition-all duration-200"
+                  value={applicationIdSearch}
+                  onChange={(e) => setApplicationIdSearch(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      filterApplications();
+                    }
+                  }}
+                />
+                {applicationIdSearch && (
+                  <button
+                    onClick={() => {
+                      setApplicationIdSearch('');
+                      filterApplications();
+                    }}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center hover:bg-blue-50 rounded-r-lg transition-colors"
+                    title="Clear ID search"
+                  >
+                    <svg className="h-5 w-5 text-gray-400 hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Clear Button - Only show when search is active */}
+            {(searchTerm || applicationIdSearch) && (
+              <button
+                onClick={() => {
+                  setSearchTerm('');
+                  setApplicationIdSearch('');
+                  loadApplications();
+                }}
+                className="px-4 py-3.5 bg-white border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-all duration-200 font-medium whitespace-nowrap shadow-sm"
+              >
+                Clear All
+              </button>
+            )}
+          </div>
+          
+          {/* Real-time Results Count */}
+          {(searchTerm || applicationIdSearch) && (
+            <div className="mt-3 flex items-center text-sm text-purple-700">
+              <svg className="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span className="font-medium">{filteredApplications.length} application{filteredApplications.length !== 1 ? 's' : ''} found</span>
+              {(searchTerm || applicationIdSearch) && (
+                <span className="ml-2 text-purple-600">
+                  {searchTerm && `• "${searchTerm}"`}
+                  {applicationIdSearch && ` • ID: ${applicationIdSearch}`}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Quick Filters - Compact ATS Style */}
+        <div className="bg-white rounded-xl shadow-sm p-4 mb-6 border border-gray-100">
+          <div className="flex flex-wrap items-center gap-4">
+            {/* Job Filter */}
+            <div className="flex items-center gap-2">
+              <svg className="h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
               <select
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white min-w-[180px]"
                 value={selectedJobFilter}
                 onChange={(e) => setSelectedJobFilter(e.target.value)}
               >
@@ -265,12 +296,25 @@ const WebsiteApplication = () => {
                   <option key={job.id} value={job.id}>{job.jobName}</option>
                 ))}
               </select>
+              {selectedJobFilter !== 'all' && (
+                <button
+                  onClick={() => setSelectedJobFilter('all')}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                  </svg>
+                </button>
+              )}
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Status</label>
+            {/* Status Filter */}
+            <div className="flex items-center gap-2">
+              <svg className="h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
               <select
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white min-w-[160px]"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
               >
@@ -279,14 +323,26 @@ const WebsiteApplication = () => {
                 <option value="REVIEWED">Reviewed</option>
                 <option value="CONTACTED">Contacted</option>
                 <option value="INTERVIEW">Interview</option>
-               
               </select>
+              {statusFilter !== 'all' && (
+                <button
+                  onClick={() => setStatusFilter('all')}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                  </svg>
+                </button>
+              )}
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Sort By</label>
+            {/* Sort By */}
+            <div className="flex items-center gap-2">
+              <svg className="h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4" />
+              </svg>
               <select
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white"
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
               >
@@ -295,6 +351,19 @@ const WebsiteApplication = () => {
                 <option value="name">By Name</option>
               </select>
             </div>
+
+            {/* Clear All Filters */}
+            {(selectedJobFilter !== 'all' || statusFilter !== 'all') && (
+              <button
+                onClick={() => {
+                  setSelectedJobFilter('all');
+                  setStatusFilter('all');
+                }}
+                className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+              >
+                Clear Filters
+              </button>
+            )}
           </div>
         </div>
 
@@ -319,6 +388,7 @@ const WebsiteApplication = () => {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Applicant</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Contact</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Job & Client</th>
@@ -330,6 +400,15 @@ const WebsiteApplication = () => {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {currentItems.map((application) => (
                       <tr key={application.id} className="hover:bg-gray-50 transition-colors duration-150">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <button
+                            type="button"
+                            onClick={() => handleViewDetails(application)}
+                            className="text-blue-600 hover:text-blue-800 font-semibold hover:underline transition-colors"
+                          >
+                            {application.id}
+                          </button>
+                        </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
                             <div className="flex-shrink-0 h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
@@ -345,9 +424,6 @@ const WebsiteApplication = () => {
                                 >
                                   {application.applierName || 'N/A'}
                                 </button>
-                              </div>
-                              <div className="text-xs text-gray-400">
-                                ID: {application.id}
                               </div>
                               <div className="text-sm text-gray-500">
                                 {application.currentLocation || 'Location not specified'}

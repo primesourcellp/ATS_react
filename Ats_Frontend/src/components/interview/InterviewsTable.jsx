@@ -1,13 +1,16 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-const InterviewsTable = ({ interviews, loading, onEditInterview, onDeleteInterview, onBulkAction }) => {
+const InterviewsTable = ({ interviews, loading, searchTerm: externalSearchTerm = '', onEditInterview, onDeleteInterview, onCompleteInterview, onBulkAction }) => {
   const navigate = useNavigate();
+
+  const handleViewDetails = (interviewId) => {
+    navigate(`/interviews/${interviewId}`);
+  };
   const [expandedInterviewId, setExpandedInterviewId] = useState(null);
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [dateFilter, setDateFilter] = useState('ALL');
   const [viewMode, setViewMode] = useState('table');
-  const [searchTerm, setSearchTerm] = useState('');
   const [selectedInterviews, setSelectedInterviews] = useState([]);
   const [sortConfig, setSortConfig] = useState({ key: 'interviewDate', direction: 'ascending' });
 
@@ -105,22 +108,26 @@ const InterviewsTable = ({ interviews, loading, onEditInterview, onDeleteIntervi
 
   // Helper function to get interview status with appropriate styling
   const getInterviewStatus = (interview) => {
-    const now = new Date();
-    const interviewDate = new Date(`${interview.interviewDate}T${interview.interviewTime}`);
-    const endTime = new Date(`${interview.interviewDate}T${interview.endTime}`);
+    // Use backend status only - backend auto-completes when end time passes
+    const status = interview.status || 'SCHEDULED';
     
-    if (interview.status === 'COMPLETED') {
+    if (status === 'COMPLETED') {
       return { text: 'Completed', class: 'bg-green-100 text-green-800' };
-    } else if (interview.status === 'CANCELLED') {
+    } else if (status === 'CANCELLED') {
       return { text: 'Cancelled', class: 'bg-red-100 text-red-800' };
-    } else if (now > endTime) {
-      return { text: 'Completed', class: 'bg-green-100 text-green-800' };
-    } else if (now >= interviewDate && now <= endTime) {
-      return { text: 'In Progress', class: 'bg-blue-100 text-blue-800' };
-    } else if (now < interviewDate) {
+    } else if (status === 'SCHEDULED') {
+      // If scheduled, check if currently in progress
+      const now = new Date();
+      const interviewDate = new Date(`${interview.interviewDate}T${interview.interviewTime}`);
+      const endTime = new Date(`${interview.interviewDate}T${interview.endTime}`);
+      
+      if (now >= interviewDate && now <= endTime) {
+        return { text: 'In Progress', class: 'bg-blue-100 text-blue-800' };
+      }
       return { text: 'Scheduled', class: 'bg-yellow-100 text-yellow-800' };
     }
     
+    // Default fallback
     return { text: 'Scheduled', class: 'bg-yellow-100 text-yellow-800' };
   };
 
@@ -196,9 +203,10 @@ const InterviewsTable = ({ interviews, loading, onEditInterview, onDeleteIntervi
           (interview.interviewDate === today && new Date(`${interview.interviewDate}T${interview.endTime}`) < now));
       }
       
-      // Search filtering
-      const lowerSearch = searchTerm.toLowerCase();
-      const searchMatch = searchTerm === '' || 
+      // Search filtering (use external search term if provided)
+      const searchTermToUse = externalSearchTerm || '';
+      const lowerSearch = searchTermToUse.toLowerCase();
+      const searchMatch = searchTermToUse === '' || 
         getCandidateName(interview).toLowerCase().includes(lowerSearch) ||
         getJobTitle(interview).toLowerCase().includes(lowerSearch) ||
         getClientName(interview).toLowerCase().includes(lowerSearch) ||
@@ -207,7 +215,7 @@ const InterviewsTable = ({ interviews, loading, onEditInterview, onDeleteIntervi
       
       return statusMatch && dateMatch && searchMatch;
     });
-  }, [sortedInterviews, statusFilter, dateFilter, searchTerm]);
+  }, [sortedInterviews, statusFilter, dateFilter, externalSearchTerm]);
 
   // Group interviews by date for calendar view
   const interviewsByDate = useMemo(() => {
@@ -251,7 +259,13 @@ const InterviewsTable = ({ interviews, loading, onEditInterview, onDeleteIntervi
                         </button>
                         <div className="text-xs text-gray-500 mt-1">{getJobTitle(interview)}</div>
                         <div className="text-xs text-gray-500 mt-1">Client: {getClientName(interview)}</div>
-                        <div className="text-xs text-gray-400 mt-1">ID: {interview.id}</div>
+                        <button
+                          onClick={() => handleViewDetails(interview.id)}
+                          className="text-xs text-blue-600 hover:text-blue-800 hover:underline mt-1"
+                          title="View Interview Details"
+                        >
+                          ID: #{interview.id}
+                        </button>
                         <div className="text-xs text-gray-400 mt-1">
                           {interview.interviewTime} - {interview.endTime} • {duration} • {interview.interviewer || 'No interviewer'}
                         </div>
@@ -261,6 +275,32 @@ const InterviewsTable = ({ interviews, loading, onEditInterview, onDeleteIntervi
                       </span>
                     </div>
                     <div className="flex justify-end space-x-2 mt-2">
+                      <button
+                        onClick={() => handleViewDetails(interview.id)}
+                        className="text-blue-600 hover:text-blue-800 p-1 rounded-md hover:bg-blue-50 transition-colors"
+                        title="View Details"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                        </svg>
+                      </button>
+                      {interview.status !== 'COMPLETED' && onCompleteInterview && (
+                        <button
+                          onClick={() => {
+                            const notes = window.prompt('Enter completion notes (optional):');
+                            if (notes !== null) {
+                              onCompleteInterview(interview.id, notes);
+                            }
+                          }}
+                          className="text-purple-600 hover:text-purple-800 p-1 rounded-md hover:bg-purple-50 transition-colors"
+                          title="Mark as Completed"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                          </svg>
+                        </button>
+                      )}
                       <button
                         onClick={() => onEditInterview(interview)}
                         className="text-green-600 hover:text-green-800 p-1 rounded-md hover:bg-green-50 transition-colors"
@@ -319,20 +359,6 @@ const InterviewsTable = ({ interviews, loading, onEditInterview, onDeleteIntervi
       <div className="p-4 bg-gray-50 border-b border-gray-200">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
           <div className="flex flex-col md:flex-row md:items-center space-y-4 md:space-y-0 md:space-x-4">
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Search by candidate, job, or interview ID..."
-                className="w-full md:w-64 pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <svg className="h-5 w-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                  <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd"></path>
-                </svg>
-              </div>
-            </div>
             <div className="flex space-x-2">
               <select
                 className="border border-gray-300 rounded-md px-3 py-2 focus:ring-green-500 focus:border-green-500"
@@ -384,6 +410,9 @@ const InterviewsTable = ({ interviews, loading, onEditInterview, onDeleteIntervi
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                    ID
+                  </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                     Candidate & Job
                   </th>
@@ -440,6 +469,18 @@ const InterviewsTable = ({ interviews, loading, onEditInterview, onDeleteIntervi
                     <React.Fragment key={interview.id}>
                       <tr className="hover:bg-gray-50 transition-colors duration-150">
                         <td className="px-6 py-4">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleViewDetails(interview.id);
+                            }}
+                            className="text-sm font-semibold text-blue-600 hover:text-blue-800 hover:underline"
+                            title="View Interview Details"
+                          >
+                            #{interview.id}
+                          </button>
+                        </td>
+                        <td className="px-6 py-4">
                           <div className="min-w-0">
                             <button
                               onClick={(e) => {
@@ -451,7 +492,6 @@ const InterviewsTable = ({ interviews, loading, onEditInterview, onDeleteIntervi
                               {candidateName}
                             </button>
                             <div className="text-sm text-gray-600 truncate">{jobTitle}</div>
-                            <div className="text-xs text-gray-500 mt-1">ID: {interview.id}</div>
                           </div>
                         </td>
                         <td className="px-6 py-4">
@@ -474,6 +514,32 @@ const InterviewsTable = ({ interviews, loading, onEditInterview, onDeleteIntervi
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center space-x-2">
+                            <button
+                              onClick={() => handleViewDetails(interview.id)}
+                              className="text-blue-600 hover:text-blue-800 p-1 rounded-md hover:bg-blue-50 transition-colors"
+                              title="View Details"
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                              </svg>
+                            </button>
+                            {interview.status !== 'COMPLETED' && onCompleteInterview && (
+                              <button
+                                onClick={() => {
+                                  const notes = window.prompt('Enter completion notes (optional):');
+                                  if (notes !== null) {
+                                    onCompleteInterview(interview.id, notes);
+                                  }
+                                }}
+                                className="text-purple-600 hover:text-purple-800 p-1 rounded-md hover:bg-purple-50 transition-colors"
+                                title="Mark as Completed"
+                              >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                              </button>
+                            )}
                             <button
                               onClick={() => onEditInterview(interview)}
                               className="text-green-600 hover:text-green-800 p-1 rounded-md hover:bg-green-50 transition-colors"
@@ -512,7 +578,7 @@ const InterviewsTable = ({ interviews, loading, onEditInterview, onDeleteIntervi
                       </tr>
                       {expandedInterviewId === interview.id && (
                         <tr className="bg-green-50">
-                          <td colSpan="6" className="px-6 py-4">
+                          <td colSpan="7" className="px-6 py-4">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                               <div>
                                 <h4 className="text-sm font-medium text-gray-700 mb-2">Interview Details</h4>
@@ -569,16 +635,15 @@ const InterviewsTable = ({ interviews, loading, onEditInterview, onDeleteIntervi
               <p className="text-sm text-gray-700">
                 Showing <span className="font-medium">{filteredInterviews.length}</span> of <span className="font-medium">{interviews.length}</span> interviews
               </p>
-              {(statusFilter !== 'ALL' || dateFilter !== 'ALL' || searchTerm !== '') && (
+              {(statusFilter !== 'ALL' || dateFilter !== 'ALL') && (
                 <button 
                   className="text-sm text-green-600 hover:text-green-800"
                   onClick={() => {
                     setStatusFilter('ALL');
                     setDateFilter('ALL');
-                    setSearchTerm('');
                   }}
                 >
-                  Clear all filters
+                  Clear filters
                 </button>
               )}
             </div>

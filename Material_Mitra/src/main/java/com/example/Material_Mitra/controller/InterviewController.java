@@ -19,9 +19,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-// import com.example.Material_Mitra.dto.DTOMapper;
 import com.example.Material_Mitra.dto.InterviewApplicationDTO;
 import com.example.Material_Mitra.dto.InterviewDTO;
+import com.example.Material_Mitra.dto.InterviewDetailDTO;
 import com.example.Material_Mitra.dto.InterviewListDTO;
 import com.example.Material_Mitra.dto.InterviewPatchDTO;
 import com.example.Material_Mitra.dto.InterviewUpdateDTO;
@@ -41,12 +41,14 @@ public class InterviewController {
             @PathVariable Long applicationId,
             @RequestParam("interviewDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate interviewDate,
             @RequestParam("interviewTime") @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime interviewTime,
-            @RequestParam("endTime") @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime endTime) {
+            @RequestParam("endTime") @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime endTime,
+            @RequestParam(required = false) String description) {
 
         Interview interview = new Interview();
         interview.setInterviewDate(interviewDate);
         interview.setInterviewTime(interviewTime);
         interview.setEndTime(endTime);
+        interview.setDescription(description);
 
         return ResponseEntity.ok(interviewService.scheduleInterview(applicationId, interview));
     }
@@ -142,6 +144,20 @@ public class InterviewController {
     public ResponseEntity<List<InterviewDTO>> getAllInterviewsWithClient() {
         List<InterviewDTO> interviews = interviewService.getAllInterviewsWithClient();
         return ResponseEntity.ok(interviews);
+    }
+
+    @PostMapping("/{id}/complete")
+    public ResponseEntity<Interview> completeInterview(
+            @PathVariable Long id,
+            @RequestParam(required = false) String completionNotes) {
+        Interview interview = interviewService.completeInterview(id, completionNotes);
+        return ResponseEntity.ok(interview);
+    }
+
+    @GetMapping("/{id}/details")
+    public ResponseEntity<InterviewDetailDTO> getInterviewDetails(@PathVariable Long id) {
+        InterviewDetailDTO details = interviewService.getInterviewDetails(id);
+        return ResponseEntity.ok(details);
     }
 
 

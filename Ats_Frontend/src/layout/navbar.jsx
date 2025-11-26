@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   FaBars,
@@ -19,15 +19,16 @@ import {
   FaEnvelope
 } from "react-icons/fa";
 import { authAPI } from "../api/api";
-import logo from "../assets/logo.png";
 
 const Navbar = () => {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [currentPath, setCurrentPath] = useState(window.location.pathname.toLowerCase());
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [adminDropdownOpen, setAdminDropdownOpen] = useState(false);
   const [role, setRole] = useState("");
   const navigate = useNavigate();
   const location = useLocation();
+  const adminDropdownRef = useRef(null);
 
   useEffect(() => {
     const userRole = localStorage.getItem("role")?.replace("ROLE_", "") || "";
@@ -37,6 +38,27 @@ const Navbar = () => {
   useEffect(() => {
     setCurrentPath(location.pathname.toLowerCase());
   }, [location.pathname]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (adminDropdownRef.current && !adminDropdownRef.current.contains(event.target)) {
+        setAdminDropdownOpen(false);
+      }
+    };
+
+    if (adminDropdownOpen) {
+      // Delay adding listener to avoid immediate closure
+      const timeoutId = setTimeout(() => {
+        document.addEventListener('mousedown', handleClickOutside);
+      }, 10);
+
+      return () => {
+        clearTimeout(timeoutId);
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [adminDropdownOpen]);
 
   const handleLogout = async () => {
     const token = localStorage.getItem("jwtToken");
@@ -55,7 +77,9 @@ const Navbar = () => {
 
   const normalizedRole = (role || "").toUpperCase();
 
-  const navItems = [
+  // Main navigation items - always visible
+  const mainNavItems = [
+    { name: "Dashboard", path: "/dashboard", icon: <FaChartLine className="text-sm" /> },
     { name: "Jobs", path: "/jobs", icon: <FaBriefcase className="text-sm" /> },
     { name: "Clients", path: "/clients", icon: <FaUser className="text-sm" /> },
     { name: "Candidates", path: "/candidates", icon: <FaUsers className="text-sm" /> },
@@ -64,117 +88,184 @@ const Navbar = () => {
   ];
 
   if (["ADMIN", "SECONDARY_ADMIN", "RECRUITER"].includes(normalizedRole)) {
-    navItems.push({ name: "Reports", path: "/reports", icon: <FaChartBar className="text-sm" /> });
+    mainNavItems.push({ name: "Reports", path: "/reports", icon: <FaChartBar className="text-sm" /> });
   }
 
+  // Dropdown items for ADMIN
+  const adminDropdownItems = [];
   if (normalizedRole.includes("ADMIN")) {
-    navItems.push({ name: "User Management", path: "/Users", icon: <FaUserCog className="text-sm" /> });
-    navItems.push({ name: "Account Manager", path: "/account-manager", icon: <FaUserCog className="text-sm" /> });
-    navItems.push({ name: "Candidate Email", path: "/candidate-emails", icon: <FaEnvelope className="text-sm" />, hasDropdown: true });
-    navItems.push({ name: "Website Applications", path: "/wesiteapplication", icon: <FaGlobe className="text-sm" /> });
+    adminDropdownItems.push(
+      { name: "User Management", path: "/Users", icon: <FaUserCog className="text-sm" /> },
+      { name: "Website Applications", path: "/wesiteapplication", icon: <FaGlobe className="text-sm" /> },
+      { name: "Candidate Email", path: "/candidate-emails", icon: <FaEnvelope className="text-sm" /> },
+      { name: "Account Manager", path: "/account-manager", icon: <FaUserCog className="text-sm" /> }
+    );
   } else if (normalizedRole === "RECRUITER") {
-    navItems.push({ name: "Website Applications", path: "/wesiteapplication", icon: <FaGlobe className="text-sm" /> });
+    adminDropdownItems.push(
+      { name: "Website Applications", path: "/wesiteapplication", icon: <FaGlobe className="text-sm" /> }
+    );
   }
 
-  // Sort by text length, but keep Dashboard first
-  navItems.sort((a, b) => {
-    if (a.name === "Dashboard") return -1;
-    if (b.name === "Dashboard") return 1;
-    return a.name.length - b.name.length;
-  });
-
-  // Add Dashboard at the beginning
-  navItems.unshift({ name: "Dashboard", path: "/dashboard", icon: <FaChartLine className="text-sm" /> });
+  const username = localStorage.getItem("username") || "User";
 
   return (
     <>
-      {/* Top Navbar */}
-      <header className="fixed top-0 left-0 right-0 h-16 bg-gradient-to-r from-green-600 to-teal-500 shadow-md z-30 flex items-center justify-between px-4">
-        {/* Logo and Mobile Menu */}
-        <div className="flex items-center">
-          <button 
-            className="lg:hidden text-white mr-3"
-            onClick={() => setMobileNavOpen(true)}
-          >
-            <FaBars className="text-lg" />
-          </button>
-          <div className="flex items-center">
-            <FaCubes className="text-white mr-2" />
-            <h1 className="text-white font-bold text-lg">TalentPrime</h1>
-          </div>
-        </div>
-
-        {/* User Info */}
-        <div className="flex items-center space-x-4">
-          {/* User Info and Logout */}
-          <div className="relative">
+      {/* Modern Top Navbar */}
+      <header className="fixed top-0 left-0 right-0 h-16 shadow-lg z-30" style={{ backgroundColor: '#3A9188', overflow: 'visible' }}>
+        <div className="h-full flex items-center justify-between px-4 lg:px-6" style={{ overflow: 'visible', position: 'relative' }}>
+          {/* Left Section: Logo & Navigation */}
+          <div className="flex items-center flex-1" style={{ position: 'relative', overflow: 'visible', zIndex: 50 }}>
+            {/* Mobile Menu Button */}
             <button 
-              className="flex items-center text-white text-sm"
-              onClick={() => setUserMenuOpen(!userMenuOpen)}
+              className="lg:hidden text-white mr-3 p-2 hover:bg-white/20 rounded-lg transition-colors"
+              onClick={() => setMobileNavOpen(true)}
+              aria-label="Toggle menu"
             >
-              <div className="w-8 h-8 rounded-full bg-green-700 flex items-center justify-center mr-2">
-                <FaUser className="text-xs" />
-              </div>
-              <span className="hidden sm:inline mr-2 font-semibold">{role || "User"}</span>
-              <FaChevronDown className="text-xs" />
+              <FaBars className="text-lg" />
             </button>
 
-            {userMenuOpen && (
-              <div className="absolute right-0 top-10 mt-1 w-48 bg-white rounded-md shadow-lg py-1 z-50">
-                <div className="px-4 py-2 border-b border-gray-100">
-                  <p className="text-sm text-gray-800">Signed in as</p>
-                  <p className="text-sm font-medium text-gray-900">{role || "User"}</p>
-                </div>
+            {/* Logo */}
+            <div 
+              className="flex items-center cursor-pointer hover:opacity-90 transition-opacity"
+              onClick={() => navigate("/dashboard")}
+            >
+              <h1 className="text-white font-bold text-xl">TalentPrime</h1>
+            </div>
+
+            {/* Desktop Navigation - Main items always visible */}
+            <nav className="hidden lg:flex items-center ml-8 space-x-1 overflow-x-auto scrollbar-hide" style={{ overflowY: 'visible', overflow: 'visible' }}>
+              {mainNavItems.map((item, idx) => (
                 <button
-                  onClick={handleLogout}
-                  className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  key={idx}
+                  type="button"
+                  className={`flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 whitespace-nowrap flex-shrink-0 ${
+                    currentPath === item.path
+                      ? "text-white bg-white/20 backdrop-blur-sm shadow-md"
+                      : "text-white/90 hover:bg-white/10 hover:text-white"
+                  }`}
+                  onClick={() => navigate(item.path)}
+                  title={item.name}
                 >
-                  <FaSignOutAlt className="mr-2 text-gray-500" />
-                  Logout
+                  <span className="mr-2">{item.icon}</span>
+                  <span>{item.name}</span>
                 </button>
-              </div>
-            )}
+              ))}
+              
+              {/* Admin Dropdown */}
+              {adminDropdownItems.length > 0 && (
+                <div className="relative" ref={adminDropdownRef}>
+                  <button
+                    type="button"
+                    className={`flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 whitespace-nowrap flex-shrink-0 text-white/90 hover:bg-white/10 hover:text-white ${
+                      adminDropdownItems.some(item => currentPath === item.path)
+                        ? "bg-white/20 backdrop-blur-sm shadow-md"
+                        : ""
+                    }`}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setAdminDropdownOpen(prev => !prev);
+                    }}
+                  >
+                    <span>More</span>
+                    <FaChevronDown className={`ml-2 text-xs transition-transform duration-200 ${adminDropdownOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                  {adminDropdownOpen && (
+                    <div 
+                      className="absolute top-full right-0 mt-2 w-56 bg-white rounded-xl shadow-2xl py-2 border border-gray-200"
+                      style={{ zIndex: 99999 }}
+                      onClick={(e) => e.stopPropagation()}
+                      role="menu"
+                    >
+                      {adminDropdownItems && adminDropdownItems.length > 0 ? adminDropdownItems.map((item, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          className={`flex items-center w-full px-4 py-2.5 text-sm transition-colors ${
+                            currentPath === item.path
+                              ? "bg-green-50 text-green-600 font-medium"
+                              : "text-gray-700 hover:bg-gray-50"
+                          }`}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            navigate(item.path);
+                            setAdminDropdownOpen(false);
+                          }}
+                        >
+                          <span className="mr-3">{item.icon}</span>
+                          <span>{item.name}</span>
+                        </button>
+                      )) : (
+                        <div className="px-4 py-2 text-sm text-gray-500">No items available</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </nav>
+          </div>
+
+          {/* Right Section: User Info & Actions */}
+          <div className="flex items-center space-x-3">
+            {/* Username Display */}
+            <div className="hidden md:flex items-center text-white/90 bg-white/10 backdrop-blur-sm rounded-lg px-3 py-1.5 border border-white/20">
+              <div className="w-2 h-2 rounded-full bg-green-300 mr-2 animate-pulse"></div>
+              <span className="text-sm font-medium">{username}</span>
+            </div>
+
+            {/* Role Badge */}
+            <div className={`hidden sm:flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold ${
+              role === 'ADMIN' 
+                ? 'bg-white/20 text-white border border-white/30' 
+                : 'bg-white/15 text-white border border-white/25'
+            }`}>
+              {role || "User"}
+            </div>
+
+            {/* User Menu */}
+            <div className="relative">
+              <button 
+                className="flex items-center text-white hover:bg-white/20 rounded-lg p-2 transition-colors"
+                onClick={() => setUserMenuOpen(!userMenuOpen)}
+                aria-label="User menu"
+              >
+                <div className="w-9 h-9 rounded-full bg-white/20 backdrop-blur-sm border-2 border-white/30 flex items-center justify-center">
+                  <FaUser className="text-sm" />
+                </div>
+                <FaChevronDown className={`ml-2 text-xs transition-transform ${userMenuOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {userMenuOpen && (
+                <>
+                  <div 
+                    className="fixed inset-0 z-40"
+                    onClick={() => setUserMenuOpen(false)}
+                  ></div>
+                  <div className="absolute right-0 top-12 mt-2 w-56 bg-white rounded-xl shadow-2xl py-2 z-50 border border-gray-100">
+                    <div className="px-4 py-3 border-b border-gray-100">
+                      <p className="text-xs text-gray-500 font-medium uppercase">Signed in as</p>
+                      <p className="text-sm font-semibold text-gray-900 mt-1">{username}</p>
+                      <p className="text-xs text-gray-500 mt-1">{role || "User"}</p>
+                    </div>
+                    <div className="py-1">
+                      <button
+                        onClick={handleLogout}
+                        className="flex items-center w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-red-50 hover:text-red-600 transition-colors"
+                      >
+                        <FaSignOutAlt className="mr-3 text-gray-400" />
+                        Logout
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </header>
 
-      {/* Sidebar */}
-      <aside className="hidden lg:flex flex-col w-20 hover:w-60 bg-white shadow-xl rounded-r-2xl h-screen fixed top-0 left-0 z-20 transition-all duration-300 group">
-        <div className="flex items-center justify-center h-16 border-b border-gray-200 relative">
-          <img 
-            src={logo} 
-            alt="ATS Logo" 
-            className="h-10 w-auto object-contain opacity-100 group-hover:opacity-100 transition-opacity duration-300"
-          />
-        </div>
-        <nav className="flex-1 px-2 py-6 space-y-2 overflow-y-auto overflow-x-hidden">
-          {navItems.map((item, idx) => (
-            <button
-              key={idx}
-              type="button"
-              className={`flex items-center justify-between px-3 py-3 rounded-xl transition-all duration-200 ${
-                currentPath === item.path
-                  ? "text-white bg-gradient-to-r from-green-600 to-teal-500 shadow-md"
-                  : "text-gray-600 hover:bg-green-50 hover:text-green-600"
-              }`}
-              title={item.name}
-              onClick={() => navigate(item.path)}
-            >
-              <div className="flex items-center">
-                <span className="min-w-[24px] flex justify-center">
-                  {item.icon}
-                </span>
-                <span className="ml-3 text-sm font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                  {item.name}
-                </span>
-              </div>
-              {item.hasDropdown && (
-                <FaChevronRight className="text-xs ml-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-              )}
-            </button>
-          ))}
-        </nav>
-      </aside>
+      {/* Sidebar - Removed since navigation is now in top navbar */}
 
       {/* Mobile Navigation */}
       {mobileNavOpen && (
@@ -187,17 +278,14 @@ const Navbar = () => {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b pb-4 mb-4 p-4 flex-shrink-0">
-              <img 
-                src={logo} 
-                alt="ATS Logo" 
-                className="h-10 w-auto object-contain"
-              />
+              <h1 className="text-green-600 font-bold text-xl">TalentPrime</h1>
               <button onClick={() => setMobileNavOpen(false)}>
                 <FaTimes className="text-xl text-gray-600 hover:text-green-600" />
               </button>
             </div>
             <nav className="flex-1 overflow-y-auto overflow-x-hidden px-4 space-y-2">
-              {navItems.map((item, idx) => (
+              {/* Main Navigation Items */}
+              {mainNavItems.map((item, idx) => (
                 <button
                   key={idx}
                   type="button"
@@ -215,11 +303,37 @@ const Navbar = () => {
                     {item.icon}
                     <span className="ml-3 text-sm font-medium">{item.name}</span>
                   </div>
-                  {item.hasDropdown && (
-                    <FaChevronRight className="text-xs ml-2" />
-                  )}
                 </button>
               ))}
+              
+              {/* Admin Dropdown Items */}
+              {adminDropdownItems.length > 0 && (
+                <>
+                  <div className="px-4 py-2 mt-4">
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Admin Tools</p>
+                  </div>
+                  {adminDropdownItems.map((item, idx) => (
+                    <button
+                      key={`admin-${idx}`}
+                      type="button"
+                      className={`flex items-center justify-between px-4 py-3 rounded-xl transition-all ${
+                        currentPath === item.path
+                          ? "text-white bg-gradient-to-r from-green-600 to-teal-500 shadow-md"
+                          : "text-gray-600 hover:bg-green-50 hover:text-green-600"
+                      }`}
+                      onClick={() => {
+                        navigate(item.path);
+                        setMobileNavOpen(false);
+                      }}
+                    >
+                      <div className="flex items-center">
+                        {item.icon}
+                        <span className="ml-3 text-sm font-medium">{item.name}</span>
+                      </div>
+                    </button>
+                  ))}
+                </>
+              )}
             </nav>
 
             <div className="flex-shrink-0 p-4 border-t border-gray-200">
@@ -244,8 +358,8 @@ const Navbar = () => {
         </div>
       )}
 
-      {/* Add padding to main content */}
-      <div className="pt-16 lg:pl-20"></div>
+      {/* Add padding to main content for top navbar */}
+      <div className="pt-16"></div>
     </>
   );
 };

@@ -12,11 +12,12 @@ public class InterviewDTO {
     private LocalDate interviewDate;
     private LocalTime interviewTime;
     private LocalTime endTime;
+    private String status; // Interview status
 
     public InterviewDTO() {}
 
     public InterviewDTO(Long id, Long candidateId, String candidateName, String jobTitle, String clientName,
-                            LocalDate interviewDate, LocalTime interviewTime, LocalTime endTime) {
+                            LocalDate interviewDate, LocalTime interviewTime, LocalTime endTime, String status) {
         this.id = id;
         this.candidateId = candidateId;
         this.candidateName = candidateName;
@@ -25,6 +26,7 @@ public class InterviewDTO {
         this.interviewDate = interviewDate;
         this.interviewTime = interviewTime;
         this.endTime = endTime;
+        this.status = status;
     }
 
     // Getters and Setters
@@ -44,4 +46,6 @@ public class InterviewDTO {
     public void setInterviewTime(LocalTime interviewTime) { this.interviewTime = interviewTime; }
     public LocalTime getEndTime() { return endTime; }
     public void setEndTime(LocalTime endTime) { this.endTime = endTime; }
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
 }

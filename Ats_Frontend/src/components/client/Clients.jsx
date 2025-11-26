@@ -24,6 +24,7 @@ const ClientManagement = () => {
   const [showJobCandidates, setShowJobCandidates] = useState(false);
   const [toasts, setToasts] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [clientIdSearch, setClientIdSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState('');
   const [currentJobId, setCurrentJobId] = useState(null);
@@ -37,7 +38,7 @@ const ClientManagement = () => {
 
   useEffect(() => {
     filterClients();
-  }, [clients, searchTerm]);
+  }, [clients, searchTerm, clientIdSearch]);
 
   // Load all clients
   const loadClients = async () => {
@@ -59,40 +60,39 @@ const ClientManagement = () => {
       return;
     }
 
-    const term = searchTerm.toLowerCase().trim();
+    let result = [...clients];
 
-    if (!term) {
-      setFilteredClients(clients);
-      return;
+    // Filter by client ID (dedicated search - exact match)
+    if (clientIdSearch) {
+      const idToSearch = clientIdSearch.trim();
+      result = result.filter(client => {
+        if (client.id) {
+          return client.id.toString() === idToSearch;
+        }
+        return false;
+      });
     }
 
-    const result = clients.filter(client =>
-      client &&
-      (
-        Object.values(client).some(value =>
-          value && value.toString().toLowerCase().includes(term)
-        ) ||
-        (client.jobs && Array.isArray(client.jobs) && client.jobs.some(job =>
-          [
-            job.jobName,
-            // job.jobLocation,
-            // job.skillsname,
-            // job.status,
-            // job.jobDiscription,
-            // job.jobExperience,
-            // job.jobSalaryRange
-          ].some(field =>
-            field && field.toString().toLowerCase().includes(term)
-          )
-        ))
-      )
-    );
+    // Filter by search term (general search - excludes ID)
+    const term = searchTerm.toLowerCase().trim();
+    if (term) {
+      result = result.filter(client =>
+        client &&
+        (
+          (client.clientName && client.clientName.toLowerCase().includes(term)) ||
+          (client.client_name && client.client_name.toLowerCase().includes(term)) ||
+          (client.contactPerson && client.contactPerson.toLowerCase().includes(term)) ||
+          (client.email && client.email.toLowerCase().includes(term)) ||
+          (client.phone && client.phone.toLowerCase().includes(term)) ||
+          (client.address && client.address.toLowerCase().includes(term)) ||
+          (client.jobs && Array.isArray(client.jobs) && client.jobs.some(job =>
+            job.jobName && job.jobName.toLowerCase().includes(term)
+          ))
+        )
+      );
+    }
 
     setFilteredClients(result);
-  };
-
-  const handleSearch = (e) => {
-    setSearchTerm(e.target.value);
   };
 
   const handleAddClient = () => {
@@ -197,44 +197,138 @@ const ClientManagement = () => {
       <Navbar />
 
       {/* Main content */}
-      <main className="flex-1 p-4">
-        {/* Role badge */}
-        <div className="mb-3">
-          <span className={`inline-block px-3 py-4 rounded-full text-xs font-semibold ${
-            userRole === 'ADMIN' ? 'bg-purple-100 text-purple-800' : 'bg-green-100 text-green-800'
-          }`}>{userRole}</span>
-        </div>
-
+      <main className="flex-1 p-6">
         {/* Header */}
-        <div className="bg-white rounded-lg shadow-md p-4 mb-4 flex justify-between items-center">
-          <h2 className="text-xl font-bold text-gray-800 flex items-center">
-            <i className="fas fa-user-tie mr-2 text-blue-500"></i>
-            Client Management
-          </h2>
-          <div className="flex items-center space-x-2">
-            <span className="text-sm text-gray-600">
-              Welcome, {localStorage.getItem("username") || "User"}
-            </span>
+        <div className="py-10">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Client Management</h1>
+              <p className="text-gray-600 mt-1">Manage and track all clients</p>
+            </div>
           </div>
         </div>
 
-        {/* Filters / Search */}
-        <div className="bg-white rounded-lg shadow-md p-4 mb-4 grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={handleSearch}
-            placeholder="Search by any field..."
-            className="border border-gray-300 rounded-lg px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
+        {/* Real-time ATS Search Bar */}
+        <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl shadow-md p-4 mb-6 border border-purple-100">
+          <div className="flex flex-col lg:flex-row gap-3 items-end">
+            {/* Client Count - Inline */}
+            <div className="flex items-center gap-2 px-3 py-3.5 bg-white rounded-lg border-2 border-purple-200 shadow-sm">
+              <svg className="h-5 w-5 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+              <span className="text-sm font-medium text-purple-700 whitespace-nowrap">Clients:</span>
+              <span className="text-lg font-bold text-purple-900">{filteredClients.length}</span>
+            </div>
+            {/* General Search - Large and Prominent */}
+            <div className="flex-1 w-full">
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <svg className="h-5 w-5 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+                <input
+                  type="text"
+                  placeholder="Search clients by name, contact person, email, phone, address, or job..."
+                  className="w-full pl-12 pr-12 py-3.5 text-base border-2 border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white shadow-sm transition-all duration-200"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+                {searchTerm && (
+                  <button
+                    onClick={() => setSearchTerm('')}
+                    className="absolute inset-y-0 right-0 pr-4 flex items-center hover:bg-purple-50 rounded-r-lg transition-colors"
+                    title="Clear search"
+                  >
+                    <svg className="h-5 w-5 text-gray-400 hover:text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                  </button>
+                )}
+              </div>
+            </div>
 
-          <button
-            onClick={handleAddClient}
-            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center justify-center"
-          >
-            <i className="fas fa-plus mr-1"></i> Add New Client
-          </button>
+            {/* ID Search - Compact */}
+            <div className="w-full lg:w-48">
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <svg className="h-5 w-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"></path>
+                  </svg>
+                </div>
+                <input
+                  type="text"
+                  placeholder="Client ID..."
+                  className="w-full pl-10 pr-10 py-3.5 text-base border-2 border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm transition-all duration-200"
+                  value={clientIdSearch}
+                  onChange={(e) => setClientIdSearch(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      filterClients();
+                    }
+                  }}
+                />
+                {clientIdSearch && (
+                  <button
+                    onClick={() => {
+                      setClientIdSearch('');
+                      filterClients();
+                    }}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center hover:bg-blue-50 rounded-r-lg transition-colors"
+                    title="Clear ID search"
+                  >
+                    <svg className="h-5 w-5 text-gray-400 hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Clear Button - Only show when search is active */}
+            {(searchTerm || clientIdSearch) && (
+              <button
+                onClick={() => {
+                  setSearchTerm('');
+                  setClientIdSearch('');
+                  loadClients();
+                }}
+                className="px-4 py-3.5 bg-white border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-all duration-200 font-medium whitespace-nowrap shadow-sm"
+              >
+                Clear All
+              </button>
+            )}
+
+            {/* Add Client Button - Inline */}
+            <button
+              onClick={handleAddClient}
+              className="px-4 py-3.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg flex items-center gap-2 transition-all duration-200 font-medium whitespace-nowrap shadow-sm"
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+              Add Client
+            </button>
+          </div>
+          
+          {/* Real-time Results Count */}
+          {(searchTerm || clientIdSearch) && (
+            <div className="mt-3 flex items-center text-sm text-purple-700">
+              <svg className="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span className="font-medium">{filteredClients.length} client{filteredClients.length !== 1 ? 's' : ''} found</span>
+              {(searchTerm || clientIdSearch) && (
+                <span className="ml-2 text-purple-600">
+                  {searchTerm && `• "${searchTerm}"`}
+                  {clientIdSearch && ` • ID: ${clientIdSearch}`}
+                </span>
+              )}
+            </div>
+          )}
         </div>
+
 
         {/* Clients Table */}
         <div className="bg-white rounded-lg shadow-md p-4">

@@ -115,19 +115,6 @@ const DesktopNav = ({ role, currentPath }) => {
           </a>
         ))}
       </nav>
-      <div className="p-4 border-t border-gray-200">
-        <div className="flex items-center px-2 py-3 text-gray-600">
-          <div className="flex-shrink-0">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-r from-indigo-100 to-purple-100 flex items-center justify-center text-indigo-600 font-bold shadow-inner">
-              {normalizedRole.charAt(0)}
-            </div>
-          </div>
-          <div className="ml-3">
-            <p className="text-sm font-medium">User Account</p>
-            <p className="text-xs text-gray-500 capitalize">{normalizedRole.toLowerCase()}</p>
-          </div>
-        </div>
-      </div>
     </aside>
   );
 };
@@ -233,19 +220,6 @@ const MobileNav = ({ role, mobileNavOpen, setMobileNavOpen, currentPath }) => {
                 </a>
               ))}
             </nav>
-            <div className="flex-shrink-0 p-4 border-t border-gray-200">
-              <div className="flex items-center px-2 py-3 text-gray-600">
-                <div className="flex-shrink-0">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-r from-indigo-100 to-purple-100 flex items-center justify-center text-indigo-600 font-bold">
-                    {normalizedRole.charAt(0)}
-                  </div>
-                </div>
-                <div className="ml-3">
-                  <p className="text-sm font-medium">User Account</p>
-                  <p className="text-xs text-gray-500 capitalize">{normalizedRole.toLowerCase()}</p>
-                </div>
-                </div>
-            </div>
           </div>
         </div>
       )}
