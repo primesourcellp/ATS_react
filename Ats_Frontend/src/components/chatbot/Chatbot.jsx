@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FaRobot, FaTimes, FaPaperPlane, FaUser, FaBriefcase, FaUserTie, FaFileAlt, FaCalendarAlt } from 'react-icons/fa';
+import { FaRobot, FaTimes, FaPaperPlane, FaUser, FaBriefcase, FaUserTie, FaFileAlt, FaCalendarAlt, FaThumbsUp, FaThumbsDown, FaSearch } from 'react-icons/fa';
 import { chatbotAPI } from '../../api/chatbotApi';
 import { jobAPI, candidateAPI, applicationAPI, interviewAPI, clientAPI } from '../../api/api';
 
@@ -10,15 +10,21 @@ const Chatbot = () => {
   const [messages, setMessages] = useState([
     {
       id: 1,
-      text: "Hello! I'm your ATS assistant. I can help you with questions about jobs, candidates, applications, interviews, and all ATS features. Type 'help' or 'features' to see everything I can do. How can I assist you today?",
+      text: "Hello! I'm your AI assistant for the ATS dashboard.\n\nI provide quick insights on:\n• Candidate data summaries\n• Pending actions and follow-ups\n• Interview schedules\n• New applications\n• Missing documents\n\nHow can I assist you today?",
       sender: 'bot',
       timestamp: new Date()
     }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [typingText, setTypingText] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
+  const [autoCompleteSuggestions, setAutoCompleteSuggestions] = useState([]);
+  const [showAutoComplete, setShowAutoComplete] = useState(false);
+  const [messageReactions, setMessageReactions] = useState({});
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+  const typingIntervalRef = useRef(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -26,7 +32,25 @@ const Chatbot = () => {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, typingText]);
+
+  // Auto-complete suggestions based on input
+  useEffect(() => {
+    if (input.trim().length > 0) {
+      const suggestions = [
+        'show jobs', 'show candidates', 'show applications', 'show interviews',
+        'list jobs', 'list candidates', 'list applications', 'list clients',
+        'help', 'features', 'dashboard', 'reports',
+        'schedule interview', 'application status', 'shortlisted'
+      ].filter(s => s.toLowerCase().includes(input.toLowerCase().trim()));
+      setAutoCompleteSuggestions(suggestions.slice(0, 5));
+      setShowAutoComplete(suggestions.length > 0);
+    } else {
+      setAutoCompleteSuggestions([]);
+      setShowAutoComplete(false);
+    }
+  }, [input]);
+
 
   useEffect(() => {
     if (isOpen && inputRef.current) {
@@ -86,33 +110,72 @@ const Chatbot = () => {
       // Process the message and get response
       const response = await processMessage(messageText);
       
-      // Check if response contains navigation instruction
-      if (response && typeof response === 'object' && response.navigate) {
-        // Show brief message before navigating
+      // Check if response contains applications array (for missing documents)
+      if (response && typeof response === 'object' && response.applications && Array.isArray(response.applications)) {
+        setIsLoading(false);
         const botMessage = {
           id: Date.now() + 1,
-          text: response.message || `🔗 Navigating to ${response.candidateName || 'candidate'} details page...`,
+          text: response.message || 'Applications found',
           sender: 'bot',
-          timestamp: new Date()
+          timestamp: new Date(),
+          applications: response.applications
         };
         setMessages(prev => [...prev, botMessage]);
-        
-        // Navigate after a short delay
-        setTimeout(() => {
-          navigate(response.navigate);
-          setIsOpen(false); // Close chatbot after navigation
-        }, 800);
+        setTimeout(() => scrollToBottom(), 100);
         return;
       }
       
+      // Check if response contains navigation instruction - show clickable link instead of auto-navigating
+      if (response && typeof response === 'object' && response.navigate) {
+        const entityName = response.candidateName || response.clientName || response.jobName || response.menuItem || 'page';
       const botMessage = {
         id: Date.now() + 1,
-        text: typeof response === 'string' ? response : response.message || 'Response received',
+          text: response.message || `Found: ${entityName}\n\nClick the link below to view details:`,
         sender: 'bot',
-        timestamp: new Date()
-      };
-
+          timestamp: new Date(),
+          navigate: response.navigate,
+          entityName: entityName
+        };
+        setMessages(prev => [...prev, botMessage]);
+        return;
+      }
+      
+      const responseText = typeof response === 'string' ? response : response.message || 'Response received';
+      
+      // Start typing animation
+      setIsTyping(true);
+      setTypingText('');
+      
+      // Clear any existing typing interval
+      if (typingIntervalRef.current) {
+        clearInterval(typingIntervalRef.current);
+      }
+      
+      // Animate typing
+      let currentIndex = 0;
+      typingIntervalRef.current = setInterval(() => {
+        if (currentIndex < responseText.length) {
+          setTypingText(responseText.substring(0, currentIndex + 1));
+          currentIndex++;
+          scrollToBottom();
+        } else {
+          if (typingIntervalRef.current) {
+            clearInterval(typingIntervalRef.current);
+            typingIntervalRef.current = null;
+          }
+          setIsTyping(false);
+          
+          // Add message after typing completes
+          const botMessage = {
+            id: Date.now() + 1,
+            text: responseText,
+            sender: 'bot',
+            timestamp: new Date()
+          };
       setMessages(prev => [...prev, botMessage]);
+          setTypingText('');
+        }
+      }, 15); // Speed of typing (15ms per character)
     } catch (error) {
       console.error('Chatbot error:', error);
       
@@ -176,9 +239,109 @@ const Chatbot = () => {
       if (matches) {
         return {
           navigate: path,
-          message: `🔗 Navigating to ${keyword}...`,
+          message: `Click the button below to navigate to ${keyword}.`,
           menuItem: keyword
         };
+      }
+    }
+
+    // Quick Insights for Recruiters - Professional and Concise
+    if (lowerMessage.includes('new application') || lowerMessage.includes('new applications') || 
+        lowerMessage.includes('recent application')) {
+      try {
+        const applications = await applicationAPI.getAll();
+        const applicationsArray = Array.isArray(applications) ? applications : [];
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const newApps = applicationsArray.filter(app => {
+          const appDate = new Date(app.appliedAt || app.createdAt);
+          appDate.setHours(0, 0, 0, 0);
+          return appDate.getTime() === today.getTime();
+        });
+        return `📊 New Applications Today: ${newApps.length}\n\n${newApps.length > 0 ? `Latest: ${newApps[0]?.candidateName || 'N/A'} → ${newApps[0]?.jobName || 'N/A'}` : 'No new applications today.'}`;
+      } catch {
+        return `Unable to fetch new applications. Please try again.`;
+      }
+    }
+
+    if (lowerMessage.includes('pending follow') || lowerMessage.includes('follow-up') || 
+        lowerMessage.includes('pending action') || lowerMessage.includes('action required')) {
+      try {
+        const applications = await applicationAPI.getAll();
+        const applicationsArray = Array.isArray(applications) ? applications : [];
+        const pending = applicationsArray.filter(app => {
+          const status = (app.status || '').toUpperCase();
+          return status.includes('PENDING') || status.includes('FEEDBACK_PENDING');
+        });
+        return `📋 Pending Actions: ${pending.length} application${pending.length !== 1 ? 's' : ''} require${pending.length !== 1 ? '' : 's'} follow-up.\n\n${pending.length > 0 ? `Status: ${pending.slice(0, 3).map(a => a.status).join(', ')}` : 'All actions are up to date.'}`;
+      } catch {
+        return `Unable to fetch pending actions. Please try again.`;
+      }
+    }
+
+    if (lowerMessage.includes('missing document') || lowerMessage.includes('missing resume') || 
+        lowerMessage.includes('no resume') || lowerMessage.includes('document missing')) {
+      try {
+        const applications = await applicationAPI.getAll();
+        const applicationsArray = Array.isArray(applications) ? applications : [];
+        const missingResume = applicationsArray.filter(app => {
+          return !app.resumePath && !app.resumeUrl && !app.resume;
+        });
+        
+        if (missingResume.length === 0) {
+          return `All applications have resumes attached.`;
+        }
+        
+        // Return object with applications array for navigation
+        return {
+          message: `📄 Missing Documents: ${missingResume.length} application${missingResume.length !== 1 ? 's' : ''} ${missingResume.length !== 1 ? 'have' : 'has'} no resume.\n\nClick on any application below to view details:`,
+          applications: missingResume.slice(0, 10).map(app => ({
+            id: app.id,
+            candidateName: app.candidate?.name || app.candidateName || 'Unknown',
+            jobName: app.job?.jobName || app.jobName || 'N/A',
+            navigate: `/applications/${app.id}`
+          }))
+        };
+      } catch {
+        return `Unable to check documents. Please try again.`;
+      }
+    }
+
+    if (lowerMessage.includes('today interview') || lowerMessage.includes('interview today') || 
+        lowerMessage.includes('schedule today') || lowerMessage.includes('upcoming interview')) {
+      try {
+        const interviews = await interviewAPI.getAll();
+        const interviewsArray = Array.isArray(interviews) ? interviews : [];
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const todayInterviews = interviewsArray.filter(interview => {
+          const interviewDate = new Date(interview.interviewDate);
+          interviewDate.setHours(0, 0, 0, 0);
+          return interviewDate.getTime() === today.getTime();
+        });
+        return `📅 Interviews Today: ${todayInterviews.length}\n\n${todayInterviews.length > 0 ? todayInterviews.slice(0, 3).map(i => `• ${i.candidateName || 'N/A'} at ${i.interviewTime || 'N/A'}`).join('\n') : 'No interviews scheduled today.'}`;
+      } catch {
+        return `Unable to fetch interview schedule. Please try again.`;
+      }
+    }
+
+    if (lowerMessage.includes('candidate summary') || (lowerMessage.includes('summary') && 
+        (lowerMessage.includes('candidate') || lowerMessage.includes('all candidate')))) {
+      try {
+        const candidates = await candidateAPI.getAll();
+        const candidatesArray = Array.isArray(candidates) ? candidates : [];
+        const byStatus = {};
+        candidatesArray.forEach(c => {
+          const status = c.status || 'UNKNOWN';
+          byStatus[status] = (byStatus[status] || 0) + 1;
+        });
+        let summary = `👥 Candidate Summary:\n\nTotal: ${candidatesArray.length}\n`;
+        Object.entries(byStatus).slice(0, 5).forEach(([status, count]) => {
+          summary += `${status}: ${count}\n`;
+        });
+        return summary;
+      } catch {
+        return `Unable to generate candidate summary. Please try again.`;
       }
     }
 
@@ -293,13 +456,13 @@ const Chatbot = () => {
         };
         
         // Build response with candidate list
-        let response = `📋 **CANDIDATES WITH STATUS: ${statusDisplayName || formatStatus(detectedStatus)}**\n\n`;
+        let response = `📋 CANDIDATES WITH STATUS: ${statusDisplayName || formatStatus(detectedStatus)}\n\n`;
         response += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
         response += `Total Found: ${candidatesArray.length} candidate${candidatesArray.length !== 1 ? 's' : ''}\n\n`;
         
         // Show detailed information for each candidate
         candidatesArray.slice(0, 20).forEach((candidate, index) => {
-          response += `**${index + 1}. ${candidate.name || 'Unknown'}**\n`;
+          response += `${index + 1}. ${candidate.name || 'Unknown'}\n`;
           response += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
           response += `📧 Email: ${candidate.email || 'N/A'}\n`;
           response += `📞 Phone: ${candidate.phone || 'N/A'}\n`;
@@ -355,7 +518,7 @@ const Chatbot = () => {
         !lowerMessage.includes('candidate') && !lowerMessage.includes('applicant')) {
       return {
         navigate: '/clients',
-        message: `🔗 Navigating to Clients page...`,
+        message: `Click the button below to navigate to Clients page.`,
         menuItem: 'clients'
       };
     }
@@ -388,7 +551,7 @@ const Chatbot = () => {
             const client = searchArray[0];
             return {
               navigate: `/clients/${client.id}`,
-              message: `Found client: ${client.clientName || clientName}\n\n🔗 Navigating to client details page...`,
+              message: `Found client: ${client.clientName || clientName}\n\nClick the button below to view client details.`,
               clientName: client.clientName || clientName
             };
           } else {
@@ -432,7 +595,7 @@ const Chatbot = () => {
             const job = jobArray[0];
             return {
               navigate: `/jobs/${job.id}`,
-              message: `Found job: ${job.jobName || searchName}\n\n🔗 Navigating to job details page...`,
+              message: `Found job: ${job.jobName || searchName}\n\nClick the button below to view job details.`,
               jobName: job.jobName || searchName
             };
           }
@@ -449,7 +612,7 @@ const Chatbot = () => {
             const client = clientArray[0];
             return {
               navigate: `/clients/${client.id}`,
-              message: `Found client: ${client.clientName || searchName}\n\n🔗 Navigating to client details page...`,
+              message: `Found client: ${client.clientName || searchName}\n\nClick the button below to view client details.`,
               clientName: client.clientName || searchName
             };
           }
@@ -465,7 +628,7 @@ const Chatbot = () => {
           const candidate = candidateArray[0];
           return {
             navigate: `/candidates/${candidate.id}`,
-            message: `Found candidate: ${candidate.name || searchName}\n\n🔗 Navigating to candidate details page...`,
+            message: `Found candidate: ${candidate.name || searchName}\n\nClick the button below to view candidate details.`,
             candidateName: candidate.name || searchName
           };
         }
@@ -486,7 +649,7 @@ const Chatbot = () => {
           lowerMessage === 'jobs' || lowerMessage === 'job') {
         return {
           navigate: '/jobs',
-          message: `🔗 Navigating to Jobs page...`,
+          message: `Click the button below to navigate to Jobs page.`,
           menuItem: 'jobs'
         };
       }
@@ -656,13 +819,13 @@ const Chatbot = () => {
             };
             
             // Build response with candidate list
-            let response = `📋 **CANDIDATES WITH STATUS: ${statusDisplayName || formatStatus(detectedStatus)}**\n\n`;
+            let response = `📋 CANDIDATES WITH STATUS: ${statusDisplayName || formatStatus(detectedStatus)}\n\n`;
             response += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
             response += `Total Found: ${candidatesArray.length} candidate${candidatesArray.length !== 1 ? 's' : ''}\n\n`;
             
             // Show detailed information for each candidate
             candidatesArray.slice(0, 20).forEach((candidate, index) => {
-              response += `**${index + 1}. ${candidate.name || 'Unknown'}**\n`;
+              response += `${index + 1}. ${candidate.name || 'Unknown'}\n`;
               response += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
               response += `📧 Email: ${candidate.email || 'N/A'}\n`;
               response += `📞 Phone: ${candidate.phone || 'N/A'}\n`;
@@ -736,7 +899,7 @@ const Chatbot = () => {
           // Return navigation instruction instead of showing details
           return {
             navigate: `/candidates/${candidate.id}`,
-            message: `Found candidate: ${candidate.name || searchName}\n\n🔗 Navigating to candidate details page...`,
+            message: `Found candidate: ${candidate.name || searchName}\n\nClick the button below to view candidate details.`,
             candidateName: candidate.name || searchName
           };
         }
@@ -746,7 +909,7 @@ const Chatbot = () => {
             lowerMessage === 'candidates' || lowerMessage === 'candidate') {
           return {
             navigate: '/candidates',
-            message: `🔗 Navigating to Candidates page...`,
+            message: `Click the button below to navigate to Candidates page.`,
             menuItem: 'candidates'
           };
         }
@@ -782,8 +945,8 @@ const Chatbot = () => {
           return response;
         } else if (asksHowMany) {
           try {
-            const count = await candidateAPI.getCount();
-            return `You have ${count} candidate${count !== 1 ? 's' : ''} in your database.`;
+          const count = await candidateAPI.getCount();
+          return `You have ${count} candidate${count !== 1 ? 's' : ''} in your database.`;
           } catch {
             const candidates = await candidateAPI.getAll();
             const count = Array.isArray(candidates) ? candidates.length : 0;
@@ -791,7 +954,7 @@ const Chatbot = () => {
           }
         } else {
           try {
-            const count = await candidateAPI.getCount();
+          const count = await candidateAPI.getCount();
             return `You have ${count} candidate${count !== 1 ? 's' : ''} in your database. ${isQuestion ? 'Would you like to see the list?' : 'Ask me "show all candidates" or "list candidates" for detailed information. You can also search for a specific candidate by name, e.g., "show candidate John Doe" or "find candidate named Sarah".'}`;
           } catch {
             const candidates = await candidateAPI.getAll();
@@ -811,7 +974,7 @@ const Chatbot = () => {
           lowerMessage === 'applications' || lowerMessage === 'application') {
         return {
           navigate: '/applications',
-          message: `🔗 Navigating to Applications page...`,
+          message: `Click the button below to navigate to Applications page.`,
           menuItem: 'applications'
         };
       }
@@ -881,7 +1044,7 @@ const Chatbot = () => {
           lowerMessage === 'interviews' || lowerMessage === 'interview') {
         return {
           navigate: '/interviews',
-          message: `🔗 Navigating to Interviews page...`,
+          message: `Click the button below to navigate to Interviews page.`,
           menuItem: 'interviews'
         };
       }
@@ -988,125 +1151,29 @@ const Chatbot = () => {
       }
     }
 
-    // General help queries
+    // General help queries - Professional and Concise
     if (lowerMessage.includes('help') || lowerMessage.includes('what can you do') || lowerMessage.includes('features') || lowerMessage.includes('ats features')) {
-        return `🚀COMPLETE ATS FEATURES OVERVIEW
+         return `Quick Insights I Provide:
 
-I'm your ATS Assistant! Here are all the features available in your Applicant Tracking System:
+• New applications count
+• Pending follow-ups and actions
+• Missing documents
+• Interview schedules
+• Candidate summaries
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Example Queries:
+• "New applications"
+• "Pending follow-ups"
+• "Missing documents"
+• "Interviews today"
+• "Candidate summary"
 
-📊DASHBOARD
-• Real-time statistics and metrics
-• Job, candidate, interview, and application counts
-• Trend analysis and performance indicators
-• Quick access to all modules
-
-📋JOB MANAGEMENT
-• Create, edit, and manage job postings
-• View job details and requirements
-• Track job status (Active, Closed, Draft)
-• Associate jobs with clients
-• Rich text editor for job descriptions
-• Job filtering and search capabilities
-
-👥CANDIDATE MANAGEMENT
-• Add, edit, and manage candidate profiles
-• Upload and store candidate resumes (PDF format)
-• Track candidate status and information
-• Candidate filtering and search
-• View detailed candidate profiles
-• Email and contact management
-
-🏢CLIENT MANAGEMENT
-• Manage client accounts and information
-• Associate jobs with clients
-• View client job listings
-• Account manager assignments
-• Client relationship tracking
-
-📝APPLICATION MANAGEMENT
-• Track all job applications
-• View application status (Pending, Shortlisted, Rejected, etc.)
-• Link applications to jobs and candidates
-• Application history and timeline
-• Resume viewing for each application
-• Status change tracking
-
-📅INTERVIEW MANAGEMENT
-• Schedule and manage interviews
-• View interviews by date (today, tomorrow, this week)
-• Interview details (candidate, job, time, location)
-• Interview status tracking
-• Calendar integration
-
-📈REPORTS & ANALYTICS (Admin/Recruiter)
-• Comprehensive reporting dashboard
-• Performance metrics and KPIs
-• Data visualization and charts
-• Export capabilities
-
-👤USER MANAGEMENT (Admin Only)
-• Create and manage user accounts
-• Role-based access control (Admin, Recruiter, etc.)
-• User permissions and settings
-• Account administration
-
-💼ACCOUNT MANAGER (Admin Only)
-• Manage account manager assignments
-• Client-account manager relationships
-• Account manager performance tracking
-
-📧CANDIDATE EMAIL MANAGEMENT (Admin Only)
-• Manage candidate email communications
-• Email templates and automation
-• Email history and tracking
-
-🌐WEBSITE APPLICATIONS
-• Public job application portal
-• External candidate submissions
-• Website application tracking
-• Integration with main application system
-
-🔔NOTIFICATIONS
-• Real-time notification center
-• Bell icon with notification count
-• Application status updates
-• System notifications
-• Notification history
-
-🤖AI CHATBOT ASSISTANT (That's me!)
-• Answer questions about jobs, candidates, applications, interviews
-• Quick data queries and statistics
-• Help with navigation and features
-• Real-time information retrieval
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-💡QUICK COMMANDS YOU CAN ASK ME:
-
-📋 Jobs:
-• "How many jobs?" / "Show all jobs" / "List active jobs"
-
-👥 Candidates:
-• "How many candidates?" / "Show all candidates" / "List candidates"
-
-📝 Applications:
-• "How many applications?" / "Show all applications" / "Application status"
-
-📅 Interviews:
-• "How many interviews today?" / "Show interviews today" / "Interviews tomorrow"
-
-🔍NAVIGATION HELP:
-• "Where can I create a job?" → Go to Jobs section
-• "Where are the candidates?" → Go to Candidates section
-• "How do I schedule an interview?" → Go to Interviews section
-
-Just ask me anything about your ATS system! I'm here to help! 🚀`;
+Navigation:
+Type any menu item name (jobs, candidates, applications, interviews) to navigate directly.`;
     }
 
     if (lowerMessage.includes('hello') || lowerMessage.includes('hi') || lowerMessage.includes('hey')) {
-      return "Hello! 👋 I'm your ATS assistant. I can help you with:\n\n• Jobs, Candidates, Applications, Interviews\n• Reports, User Management, Clients\n• Notifications, Website Applications\n• And much more!\n\nType 'help' or 'features' to see all available features, or ask me anything about your ATS system!";
+      return "Hello. I'm your AI assistant for the ATS dashboard.\n\nI provide quick insights on candidate data, pending actions, interview schedules, new applications, and missing documents.\n\nHow can I assist you?";
     }
 
     // Enhanced question understanding for other queries
@@ -1270,7 +1337,7 @@ Just ask me anything about your ATS system! I'm here to help! 🚀`;
       {/* Modern Chat Window - Responsive */}
       {isOpen && (
         <div 
-          className="fixed inset-4 sm:inset-auto sm:bottom-6 sm:right-6 sm:w-[420px] sm:h-[700px] h-[calc(100vh-2rem)] bg-white rounded-3xl shadow-2xl flex flex-col z-50 border border-gray-100 overflow-hidden backdrop-blur-xl bg-white/95"
+          className="fixed inset-4 sm:inset-auto sm:bottom-6 sm:right-6 sm:w-[420px] sm:h-[700px] h-[calc(100vh-2rem)] bg-white rounded-3xl shadow-2xl flex flex-col z-50 border border-gray-100 overflow-hidden backdrop-blur-xl bg-white/95 chatbot-container"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Modern Header - Responsive */}
@@ -1313,7 +1380,7 @@ Just ask me anything about your ATS system! I'm here to help! 🚀`;
           </div>
 
           {/* Modern Messages Container - Responsive */}
-          <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 bg-gradient-to-b from-slate-50 via-white to-slate-50 scrollbar-thin scrollbar-thumb-blue-300 scrollbar-track-transparent">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 space-y-4 bg-gradient-to-b from-slate-50 via-white to-slate-50 scrollbar-hide">
             {messages.map((message, index) => (
               <div
                 key={message.id}
@@ -1321,14 +1388,14 @@ Just ask me anything about your ATS system! I'm here to help! 🚀`;
                 style={{ animationDelay: `${index * 30}ms` }}
               >
                 <div
-                  className={`max-w-[88%] sm:max-w-[80%] rounded-2xl sm:rounded-3xl px-4 py-3 sm:px-5 sm:py-4 shadow-lg transition-all duration-300 hover:shadow-xl transform hover:scale-[1.02] ${
+                  className={`${message.sender === 'bot' ? 'w-full' : 'max-w-[88%] sm:max-w-[80%]'} rounded-2xl sm:rounded-3xl ${message.sender === 'user' ? 'px-2.5 py-1.5 sm:px-3 sm:py-2' : 'px-4 py-3 sm:px-5 sm:py-4'} shadow-lg transition-all duration-300 hover:shadow-xl transform hover:scale-[1.02] ${
                     message.sender === 'user'
-                      ? 'bg-gradient-to-br from-blue-600 to-indigo-600 text-white rounded-br-md shadow-blue-500/20'
+                      ? 'bg-gray-100 text-gray-800 rounded-br-md shadow-gray-200/50 border border-gray-200'
                       : 'bg-white text-gray-800 border border-gray-100 rounded-bl-md shadow-gray-200/50'
                   }`}
                 >
-                  <div className="flex items-start space-x-3">
-                    {/* Avatar */}
+                  <div className={`flex items-start ${message.sender === 'bot' ? 'space-x-3' : ''}`}>
+                    {/* Avatar - Only for bot messages */}
                     {message.sender === 'bot' && (
                       <div className="mt-0.5 flex-shrink-0">
                         <div className="w-6 h-6 sm:w-7 sm:h-7 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-md">
@@ -1336,28 +1403,116 @@ Just ask me anything about your ATS system! I'm here to help! 🚀`;
                         </div>
                       </div>
                     )}
-                    {message.sender === 'user' && (
-                      <div className="mt-0.5 flex-shrink-0">
-                        <div className="w-6 h-6 sm:w-7 sm:h-7 bg-white/25 backdrop-blur-sm rounded-xl flex items-center justify-center border border-white/30">
-                          <FaUser className="text-xs text-white" />
-                        </div>
-                      </div>
-                    )}
                     
                     {/* Message content */}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm sm:text-base whitespace-pre-wrap leading-relaxed font-medium">{message.text}</p>
-                      <p className={`text-xs mt-2 ${message.sender === 'user' ? 'text-white/60' : 'text-gray-400'}`}>
-                        {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </p>
+                    <div className="flex-1 min-w-0 overflow-x-hidden">
+                      <p className="text-sm sm:text-base whitespace-pre-wrap break-words leading-relaxed font-medium overflow-x-hidden">{message.text}</p>
+                      {/* Clickable navigation links for multiple applications */}
+                      {message.applications && Array.isArray(message.applications) && message.applications.length > 0 && (
+                        <div className="mt-3 space-y-2">
+                          {message.applications.map((app, idx) => (
+                            <button
+                              key={idx}
+                              onClick={() => {
+                                navigate(app.navigate);
+                                setIsOpen(false);
+                              }}
+                              className="w-full px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 flex items-center justify-between shadow-md hover:shadow-lg transform hover:scale-105 font-semibold text-sm"
+                            >
+                              <span className="flex-1 text-left">
+                                <span className="font-bold">{app.candidateName}</span>
+                                <span className="text-xs opacity-90 ml-2">→ {app.jobName}</span>
+                              </span>
+                              <span className="ml-2">🔗</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {/* Clickable navigation link for single item */}
+                      {message.navigate && !message.applications && (
+                        <button
+                          onClick={() => {
+                            navigate(message.navigate);
+                            setIsOpen(false);
+                          }}
+                          className="mt-3 w-full px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 flex items-center justify-center space-x-2 shadow-md hover:shadow-lg transform hover:scale-105 font-semibold text-sm"
+                        >
+                          <span>🔗 View Details</span>
+                        </button>
+                      )}
+                      
+                      {/* Reaction Buttons for Bot Messages */}
+                      {message.sender === 'bot' && !message.navigate && !message.applications && (
+                        <div className="flex items-center space-x-2 mt-3 pt-2 border-t border-gray-100">
+                          <button
+                            onClick={() => {
+                              setMessageReactions(prev => ({
+                                ...prev,
+                                [message.id]: prev[message.id] === 'like' ? null : 'like'
+                              }));
+                            }}
+                            className={`p-1.5 rounded-lg transition-all duration-200 ${
+                              messageReactions[message.id] === 'like'
+                                ? 'bg-green-100 text-green-600'
+                                : 'bg-gray-100 text-gray-500 hover:bg-green-50 hover:text-green-600'
+                            }`}
+                            title="Helpful"
+                          >
+                            <FaThumbsUp className="text-xs" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setMessageReactions(prev => ({
+                                ...prev,
+                                [message.id]: prev[message.id] === 'dislike' ? null : 'dislike'
+                              }));
+                            }}
+                            className={`p-1.5 rounded-lg transition-all duration-200 ${
+                              messageReactions[message.id] === 'dislike'
+                                ? 'bg-red-100 text-red-600'
+                                : 'bg-gray-100 text-gray-500 hover:bg-red-50 hover:text-red-600'
+                            }`}
+                            title="Not helpful"
+                          >
+                            <FaThumbsDown className="text-xs" />
+                          </button>
+                        </div>
+                      )}
+                      
+                      {message.sender === 'bot' && (
+                        <p className="text-xs mt-2 text-gray-400">
+                          {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
               </div>
             ))}
             
+            {/* Typing Animation Display */}
+            {isTyping && typingText && (
+              <div className="flex justify-start animate-in fade-in duration-200">
+                <div className="bg-white rounded-2xl rounded-bl-md px-5 py-4 border border-gray-100 shadow-lg w-full overflow-x-hidden">
+                  <div className="flex items-start space-x-3">
+                    <div className="mt-0.5 flex-shrink-0">
+                      <div className="w-6 h-6 sm:w-7 sm:h-7 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-md">
+                        <FaRobot className="text-xs text-white" />
+                      </div>
+                    </div>
+                    <div className="flex-1 min-w-0 overflow-x-hidden">
+                      <p className="text-sm sm:text-base whitespace-pre-wrap break-words leading-relaxed font-medium text-gray-800 overflow-x-hidden">
+                        {typingText}
+                        <span className="inline-block w-2 h-4 bg-blue-500 ml-1 animate-pulse"></span>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+            
             {/* Modern Typing Indicator - Responsive */}
-            {isLoading && (
+            {isLoading && !isTyping && (
               <div className="flex justify-start animate-in fade-in duration-200">
                 <div className="bg-white rounded-2xl rounded-bl-md px-5 py-4 border border-gray-100 shadow-lg">
                   <div className="flex items-center space-x-2">
@@ -1395,7 +1550,28 @@ Just ask me anything about your ATS system! I'm here to help! 🚀`;
           )}
 
           {/* Modern Input Area - Responsive */}
-          <form onSubmit={handleSend} className="p-4 sm:p-6 border-t border-gray-100 bg-gradient-to-b from-white to-slate-50">
+          <form onSubmit={handleSend} className="p-4 sm:p-6 border-t border-gray-100 bg-gradient-to-b from-white to-slate-50 relative">
+            {/* Auto-complete Dropdown */}
+            {showAutoComplete && autoCompleteSuggestions.length > 0 && (
+              <div className="absolute bottom-full left-4 right-4 mb-2 bg-white border border-gray-200 rounded-xl shadow-xl max-h-48 overflow-y-auto z-50 scrollbar-hide">
+                {autoCompleteSuggestions.map((suggestion, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => {
+                      setInput(suggestion);
+                      setShowAutoComplete(false);
+                      inputRef.current?.focus();
+                    }}
+                    className="w-full px-4 py-2.5 text-left hover:bg-blue-50 transition-colors flex items-center space-x-2 border-b border-gray-100 last:border-b-0"
+                  >
+                    <FaSearch className="text-xs text-gray-400" />
+                    <span className="text-sm text-gray-700">{suggestion}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            
             <div className="flex items-end space-x-3">
               <div className="flex-1 relative">
                 <input
@@ -1403,6 +1579,12 @@ Just ask me anything about your ATS system! I'm here to help! 🚀`;
                   type="text"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
+                  onFocus={() => {
+                    if (autoCompleteSuggestions.length > 0) setShowAutoComplete(true);
+                  }}
+                  onBlur={() => {
+                    setTimeout(() => setShowAutoComplete(false), 200);
+                  }}
                   placeholder="Type your message..."
                   className="w-full px-4 sm:px-5 py-3 sm:py-4 pr-12 sm:pr-14 border-2 border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900 text-sm sm:text-base transition-all duration-300 placeholder:text-gray-400 shadow-sm hover:shadow-md focus:shadow-lg"
                   disabled={isLoading}

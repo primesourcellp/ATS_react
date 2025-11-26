@@ -117,3 +117,59 @@
 .prose h3 {
   font-size: 1.125em;
 }
+
+/* Hide scrollbar but keep scrolling functionality */
+.scrollbar-hide {
+  -ms-overflow-style: none !important;  /* IE and Edge */
+  scrollbar-width: none !important;  /* Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none !important;  /* Chrome, Safari and Opera */
+  width: 0 !important;
+  height: 0 !important;
+}
+
+/* Hide scrollbar for all chatbot containers */
+.chatbot-container * {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+
+.chatbot-container *::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+/* Remove text selection marks from chatbot messages */
+.chatbot-message {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+.chatbot-message p,
+.chatbot-message span,
+.chatbot-message div {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+}
+
+.chatbot-message:focus,
+.chatbot-message:active {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Remove selection highlight */
+.chatbot-message::selection {
+  background: transparent;
+}
+
+.chatbot-message ::selection {
+  background: rgba(59, 130, 246, 0.2);
+}
