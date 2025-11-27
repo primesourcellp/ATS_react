@@ -6,11 +6,12 @@ import { jobAPI, candidateAPI, applicationAPI, interviewAPI, clientAPI, candidat
 
 const Chatbot = () => {
   const navigate = useNavigate();
+  const username = localStorage.getItem('username') || 'Recruiter';
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([
     {
       id: 1,
-      text: "Hello! I'm your AI assistant for the ATS dashboard.\n\nI provide quick insights on:\n• Candidate data summaries\n• Pending actions and follow-ups\n• Interview schedules\n• New applications\n• Missing documents\n\nHow can I assist you today?",
+      text: `Welcome ${username}! How can I assist you today?`,
       sender: 'bot',
       timestamp: new Date()
     }
@@ -2275,7 +2276,8 @@ Type any menu item name (jobs, candidates, applications, interviews) to navigate
     }
 
     if (lowerMessage.includes('hello') || lowerMessage.includes('hi') || lowerMessage.includes('hey')) {
-      return "Hello. I'm your AI assistant for the ATS dashboard.\n\nI provide quick insights on candidate data, pending actions, interview schedules, new applications, and missing documents.\n\nHow can I assist you?";
+      const username = localStorage.getItem('username') || 'Recruiter';
+      return `Hello ${username}! How can I assist you today?`;
     }
 
     // Enhanced question understanding for other queries
@@ -2546,7 +2548,7 @@ Type any menu item name (jobs, candidates, applications, interviews) to navigate
                       )}
                       
                       {/* Reaction Buttons for Bot Messages */}
-                      {message.sender === 'bot' && !message.navigate && !message.applications && (
+                      {message.sender === 'bot' && !message.navigate && !message.applications && message.id !== 1 && (
                         <div className="flex items-center space-x-2 mt-3 pt-2 border-t border-gray-100">
                           <button
                             onClick={() => {
