@@ -34,14 +34,15 @@ public class JobApplicationService {
     private final JobApplicationRepository jobApplicationRepository;
     private final CandidateRepository candidateRepository;
     private final JobRepository jobRepository;
-    private final S3FileStorageService fileStorageService;
+    // private final S3FileStorageService fileStorageService; // AWS S3 - COMMENTED OUT
+    private final FileStorageService fileStorageService; // Using local file storage instead
     private final UserRepository userRepository;
     private final ApplicationStatusHistoryRepository statusHistoryRepository;
 
     public JobApplicationService(JobApplicationRepository jobApplicationRepository,
                                  CandidateRepository candidateRepository,
                                  JobRepository jobRepository,
-                                 S3FileStorageService fileStorageService,
+                                 FileStorageService fileStorageService,
                                  UserRepository userRepository,
                                  ApplicationStatusHistoryRepository statusHistoryRepository) {
         this.jobApplicationRepository = jobApplicationRepository;

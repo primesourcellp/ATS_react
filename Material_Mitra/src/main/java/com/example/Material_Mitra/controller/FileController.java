@@ -1,6 +1,7 @@
 package com.example.Material_Mitra.controller;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -11,9 +12,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.multipart.MultipartFile; // Using local file storage instead
 
-import com.example.Material_Mitra.service.S3FileStorageService;
+import com.example.Material_Mitra.service.FileStorageService;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -23,7 +24,7 @@ import jakarta.servlet.http.HttpServletRequest;
 public class FileController {
 
     @Autowired
-    private S3FileStorageService fileStorageService;
+    private FileStorageService fileStorageService;
 
     @PostMapping("/upload")
     public ResponseEntity<?> uploadFile(
@@ -31,11 +32,12 @@ public class FileController {
             @RequestParam(value = "subDirectory", required = false) String subDirectory) {
         
         try {
-            String s3Key = fileStorageService.storeFile(file, subDirectory);
-            String fileUrl = fileStorageService.getFileUrl(s3Key);
+            // Store file locally (AWS S3 code commented out)
+            String fileName = fileStorageService.storeFile(file, subDirectory);
+            String fileUrl = fileStorageService.getFileUrl(fileName);
             
             return ResponseEntity.ok().body(new FileUploadResponse(
-                s3Key, 
+                fileName, 
                 fileUrl, 
                 file.getOriginalFilename(),
                 file.getSize(),
@@ -46,21 +48,44 @@ public class FileController {
         }
     }
 
-    @GetMapping("/{fileName:.+}")
-    public ResponseEntity<?> downloadFile(
-            @PathVariable String fileName, 
-            HttpServletRequest request) {
+    @GetMapping("/**")
+    public ResponseEntity<?> downloadFile(HttpServletRequest request) {
         
         try {
-            // Redirect to S3 presigned URL
-            String presignedUrl = fileStorageService.getFileUrl(fileName);
+            // Get the full path including any subdirectories
+            String requestUri = request.getRequestURI();
+            String fullPath = requestUri.replace("/api/files/", "");
             
-            return ResponseEntity.status(302)
-                    .header(HttpHeaders.LOCATION, presignedUrl)
-                    .build();
+            // Decode URL encoding if present
+            try {
+                if (fullPath.contains("%")) {
+                    fullPath = java.net.URLDecoder.decode(fullPath, "UTF-8");
+                }
+            } catch (Exception decodeEx) {
+                // If decoding fails, use original path
+            }
+            
+            // Load file from local storage
+            Resource resource = fileStorageService.loadFileAsResource(fullPath);
+            String contentType = fileStorageService.getContentType(fullPath);
+            
+            // Get filename from path for display
+            String displayFileName = fullPath;
+            if (fullPath.contains("/")) {
+                displayFileName = fullPath.substring(fullPath.lastIndexOf('/') + 1);
+            }
+            
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + displayFileName + "\"")
+                    .header(HttpHeaders.CONTENT_TYPE, contentType != null ? contentType : "application/pdf")
+                    .header(HttpHeaders.CACHE_CONTROL, "no-cache, no-store, must-revalidate")
+                    .header(HttpHeaders.PRAGMA, "no-cache")
+                    .header(HttpHeaders.EXPIRES, "0")
+                    .body(resource);
                     
         } catch (Exception e) {
-            return ResponseEntity.notFound().build();
+            e.printStackTrace(); // Log the error for debugging
+            return ResponseEntity.status(404).body("File not found: " + e.getMessage());
         }
     }
 

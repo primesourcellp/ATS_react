@@ -31,10 +31,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     	
     	// Skip JWT authentication for public endpoints
     	String requestPath = request.getRequestURI();
-    	if (requestPath.startsWith("/api/files/") || 
+    	if (requestPath.startsWith("/api/files") || 
     	    requestPath.startsWith("/api/forms/apply/") ||
     	    requestPath.equals("/api/forms") ||
-    	    requestPath.startsWith("/api/forms/") && requestPath.contains("/resume/")) {
+    	    (requestPath.startsWith("/api/forms/") && requestPath.contains("/resume/"))) {
     		filterChain.doFilter(request, response);
     		return;
     	}

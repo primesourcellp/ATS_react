@@ -21,17 +21,17 @@ import com.example.Material_Mitra.dto.DTOMapper;
 import com.example.Material_Mitra.dto.JobApplicationDTO;
 import com.example.Material_Mitra.entity.JobApplication;
 import com.example.Material_Mitra.enums.ResultStatus;
-import com.example.Material_Mitra.service.JobApplicationService;
-import com.example.Material_Mitra.service.S3FileStorageService;
+import com.example.Material_Mitra.service.FileStorageService;
+import com.example.Material_Mitra.service.JobApplicationService; // Using local file storage instead
 
 @RestController
 @RequestMapping("/api/applications")
 public class JobApplicationController {
 
     private final JobApplicationService jobApplicationService;
-    private final S3FileStorageService fileStorageService;
+    private final FileStorageService fileStorageService;
 
-    public JobApplicationController(JobApplicationService jobApplicationService, S3FileStorageService fileStorageService) {
+    public JobApplicationController(JobApplicationService jobApplicationService, FileStorageService fileStorageService) {
         this.jobApplicationService = jobApplicationService;
         this.fileStorageService = fileStorageService;
     }
@@ -239,7 +239,7 @@ public class JobApplicationController {
                 return ResponseEntity.notFound().build();
             }
             
-            // Return S3 presigned URL as JSON
+            // Return local file URL
             String presignedUrl = fileStorageService.getFileUrl(resumePath);
             
             return ResponseEntity.ok()

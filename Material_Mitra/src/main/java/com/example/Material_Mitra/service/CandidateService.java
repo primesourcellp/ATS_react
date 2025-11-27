@@ -57,8 +57,10 @@ public class CandidateService {
     @Autowired
     private ApplicationStatusHistoryRepository statusHistoryRepository;
     
+    // @Autowired
+    // private S3FileStorageService fileStorageService; // AWS S3 - COMMENTED OUT
     @Autowired
-    private S3FileStorageService fileStorageService;
+    private FileStorageService fileStorageService; // Using local file storage instead
     
     @Autowired
     private UserRepository userRepository;

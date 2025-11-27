@@ -23,8 +23,8 @@ import com.example.Material_Mitra.entity.WebsiteApplicationForm;
 import com.example.Material_Mitra.enums.WebsiteReviewed;
 import com.example.Material_Mitra.enums.WorkingStatus;
 import com.example.Material_Mitra.repository.JobRepository;
-import com.example.Material_Mitra.service.NotificationService;
-import com.example.Material_Mitra.service.S3FileStorageService;
+import com.example.Material_Mitra.service.FileStorageService;
+import com.example.Material_Mitra.service.NotificationService; // Using local file storage instead
 import com.example.Material_Mitra.service.WebsiteFormService;
 
 @RestController
@@ -34,11 +34,11 @@ public class WebsiteFormController {
     private final WebsiteFormService formService;
     private final JobRepository jobRepository;
     private final NotificationService notificationService;
-    private final S3FileStorageService fileStorageService;
+    private final FileStorageService fileStorageService;
 
     @Autowired
     public WebsiteFormController(WebsiteFormService formService, JobRepository jobRepository, 
-                                 NotificationService notificationService, S3FileStorageService fileStorageService) {
+                                 NotificationService notificationService, FileStorageService fileStorageService) {
         this.formService = formService;
         this.jobRepository = jobRepository;
         this.notificationService = notificationService;
@@ -65,7 +65,7 @@ public class WebsiteFormController {
         Job job = jobRepository.findById(jobId)
                 .orElseThrow(() -> new RuntimeException("Job not found"));
 
-        // Save resume to S3
+        // Save resume to local storage
         String resumePath = fileStorageService.storeFile(resumeFile, "resumes/website-applications");
 
         // Parse experience string to double
@@ -101,7 +101,7 @@ public class WebsiteFormController {
             application.setWorkRole("Unemployed");
         }
 
-        application.setResumePath(resumePath);  // Store the S3 key
+        application.setResumePath(resumePath);  // Store the file path (previously S3 key, now local path)
         application.setJob(job);
 
         WebsiteApplicationForm saved = formService.save(application);
@@ -200,7 +200,7 @@ public class WebsiteFormController {
         return updated != null ? ResponseEntity.ok(updated) : ResponseEntity.notFound().build();
     }
 
-    // View resume for website application - Redirect to S3
+    // View resume for website application - Local storage (previously S3)
     @GetMapping("/{id}/resume/view")
     public ResponseEntity<?> viewResume(@PathVariable Long id) {
         try {
@@ -214,10 +214,10 @@ public class WebsiteFormController {
                         .body("Resume not found for application: " + application.getApplierName());
             }
 
-            // Generate S3 presigned URL
+            // Get local file URL
             String presignedUrl = fileStorageService.getFileUrl(application.getResumePath());
             
-            // Redirect to S3 presigned URL
+            // Redirect to local file URL
             return ResponseEntity.status(302)
                     .header(HttpHeaders.LOCATION, presignedUrl)
                     .build();
@@ -228,7 +228,7 @@ public class WebsiteFormController {
         }
     }
 
-    // Download resume for website application - Redirect to S3
+    // Download resume for website application - Local storage
     @GetMapping("/{id}/resume/download")
     public ResponseEntity<?> downloadResume(@PathVariable Long id) {
         try {
@@ -242,10 +242,10 @@ public class WebsiteFormController {
                         .body("Resume not found for application: " + application.getApplierName());
             }
 
-            // Generate S3 presigned URL
+            // Get local file URL
             String presignedUrl = fileStorageService.getFileUrl(application.getResumePath());
             
-            // Redirect to S3 presigned URL
+            // Redirect to local file URL
             return ResponseEntity.status(302)
                     .header(HttpHeaders.LOCATION, presignedUrl)
                     .build();
@@ -256,7 +256,7 @@ public class WebsiteFormController {
         }
     }
 
-    // Get resume URL for website application - Return S3 presigned URL
+    // Get resume URL for website application - Return local file URL
     @GetMapping("/{id}/resume/url")
     public ResponseEntity<?> getResumeUrl(@PathVariable Long id) {
         try {
@@ -270,7 +270,7 @@ public class WebsiteFormController {
                         .body("Resume not found for application: " + application.getApplierName());
             }
 
-            // Generate S3 presigned URL (valid for 1 hour)
+            // Get local file URL
             String resumeUrl = fileStorageService.getFileUrl(application.getResumePath());
             return ResponseEntity.ok().body(java.util.Map.of("resumeUrl", resumeUrl));
 

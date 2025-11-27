@@ -26,7 +26,7 @@ import com.example.Material_Mitra.dto.DTOMapper;
 import com.example.Material_Mitra.entity.Candidate;
 import com.example.Material_Mitra.enums.ResultStatus;
 import com.example.Material_Mitra.service.CandidateService;
-import com.example.Material_Mitra.service.S3FileStorageService;
+import com.example.Material_Mitra.service.FileStorageService; // Using local file storage instead
 import com.fasterxml.jackson.databind.ObjectMapper;
 @RestController
 @RequestMapping("/api/candidates")
@@ -36,7 +36,7 @@ public class CandidateController {
     private CandidateService candidateService;
     
     @Autowired
-    private S3FileStorageService fileStorageService;
+    private FileStorageService fileStorageService;
     
     
  // Change your controller method to:
@@ -183,7 +183,7 @@ public class CandidateController {
                 return ResponseEntity.notFound().build();
             }
             
-            // Return S3 presigned URL as JSON
+            // Return local file URL
             String presignedUrl = fileStorageService.getFileUrl(candidate.getResumePath());
             
             return ResponseEntity.ok()

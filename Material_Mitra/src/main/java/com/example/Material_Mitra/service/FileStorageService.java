@@ -1,6 +1,7 @@
 package com.example.Material_Mitra.service;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -72,16 +73,39 @@ public class FileStorageService {
 
     public Resource loadFileAsResource(String fileName) {
         try {
+            // Normalize and validate path to prevent directory traversal attacks
             Path filePath = getFileStorageLocation().resolve(fileName).normalize();
+            
+            // Security check: Ensure the resolved path is still within the upload directory
+            Path storageLocation = getFileStorageLocation().normalize();
+            if (!filePath.startsWith(storageLocation)) {
+                throw new RuntimeException("Access denied: Path outside upload directory");
+            }
+            
             Resource resource = new UrlResource(filePath.toUri());
-            if (resource.exists()) {
+            if (resource.exists() && resource.isReadable()) {
                 return resource;
             } else {
-                throw new RuntimeException("File not found " + fileName);
+                throw new RuntimeException("File not found or not readable: " + fileName);
             }
         } catch (MalformedURLException ex) {
             throw new RuntimeException("File not found " + fileName, ex);
         }
+    }
+
+    // Load file as InputStream (for compatibility with S3FileStorageService interface)
+    public InputStream loadFileAsStream(String fileName) {
+        try {
+            Resource resource = loadFileAsResource(fileName);
+            return resource.getInputStream();
+        } catch (IOException ex) {
+            throw new RuntimeException("File not found " + fileName, ex);
+        }
+    }
+
+    // Get public file URL (same as getFileUrl for local storage)
+    public String getPublicFileUrl(String fileName) {
+        return getFileUrl(fileName);
     }
 
     public boolean deleteFile(String fileName) {

@@ -1,5 +1,12 @@
 package com.example.Material_Mitra.service;
 
+// ============================================
+// AWS S3 FILE STORAGE - COMMENTED OUT
+// Now using LocalFileStorageService instead
+// Files are stored locally in the 'uploads' directory
+// ============================================
+
+/*
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.Duration;
@@ -203,4 +210,12 @@ public class S3FileStorageService {
         }
     }
 }
+*/
+
+// ============================================
+// END OF COMMENTED AWS S3 CODE
+// ============================================
+
+// This class is now replaced by FileStorageService.java
+// which uses local file storage instead of AWS S3
 
