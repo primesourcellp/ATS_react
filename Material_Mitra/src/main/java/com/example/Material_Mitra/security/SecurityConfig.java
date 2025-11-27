@@ -200,7 +200,11 @@ public class SecurityConfig {
             "https://atsapi.primesourcellp.com",
             "https://primesourcellp.com",
             "http://primesourcellp.com",
-             "https://www.primesourcellp.com"
+             "https://www.primesourcellp.com",
+             "http://talentprime.primesourcellp.com",
+             "https://talentapi.primesourcellp.com/"
+
+
         ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
