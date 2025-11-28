@@ -201,8 +201,7 @@ public class SecurityConfig {
             "https://primesourcellp.com",
             "http://primesourcellp.com",
              "https://www.primesourcellp.com",
-             "http://talentprime.primesourcellp.com",
-             "https://talentapi.primesourcellp.com/"
+           "http://talentprime.primesourcellp.com"
 
 
         ));
