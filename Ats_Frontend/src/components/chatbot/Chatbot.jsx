@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FaRobot, FaTimes, FaPaperPlane, FaUser, FaBriefcase, FaUserTie, FaFileAlt, FaCalendarAlt, FaThumbsUp, FaThumbsDown, FaSearch } from 'react-icons/fa';
+import { FaRobot, FaTimes, FaPaperPlane, FaUser, FaBriefcase, FaUserTie, FaFileAlt, FaCalendarAlt, FaThumbsUp, FaThumbsDown, FaSearch, FaHistory, FaClock } from 'react-icons/fa';
 import { chatbotAPI } from '../../api/chatbotApi';
 import { jobAPI, candidateAPI, applicationAPI, interviewAPI, clientAPI, candidateEmailAPI, notificationAPI } from '../../api/api';
 
@@ -23,6 +23,9 @@ const Chatbot = () => {
   const [autoCompleteSuggestions, setAutoCompleteSuggestions] = useState([]);
   const [showAutoComplete, setShowAutoComplete] = useState(false);
   const [messageReactions, setMessageReactions] = useState({});
+  const [hasUserInteracted, setHasUserInteracted] = useState(false);
+  const [searchHistory, setSearchHistory] = useState([]);
+  const [showSearchHistory, setShowSearchHistory] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const typingIntervalRef = useRef(null);
@@ -61,13 +64,67 @@ const Chatbot = () => {
   }, [input]);
 
 
+  // Load search history from localStorage on mount
+  useEffect(() => {
+    const savedHistory = localStorage.getItem('chatbotSearchHistory');
+    if (savedHistory) {
+      try {
+        const history = JSON.parse(savedHistory);
+        setSearchHistory(Array.isArray(history) ? history : []);
+      } catch (error) {
+        console.error('Error loading search history:', error);
+        setSearchHistory([]);
+      }
+    }
+  }, []);
+
   useEffect(() => {
     if (isOpen && inputRef.current) {
       setTimeout(() => {
         inputRef.current?.focus();
       }, 100);
     }
-  }, [isOpen]);
+    
+    // Reset welcome message when chatbot opens
+    if (isOpen) {
+      setHasUserInteracted(false);
+      setMessages([
+        {
+          id: 1,
+          text: `Welcome ${username}! How can I assist you today?`,
+          sender: 'bot',
+          timestamp: new Date()
+        }
+      ]);
+    }
+  }, [isOpen, username]);
+
+  // Save search to history
+  const saveToSearchHistory = (searchQuery) => {
+    if (!searchQuery || !searchQuery.trim()) return;
+    
+    const trimmedQuery = searchQuery.trim();
+    const newHistoryItem = {
+      id: Date.now(),
+      query: trimmedQuery,
+      timestamp: new Date().toISOString()
+    };
+    
+    setSearchHistory(prev => {
+      // Remove duplicates and keep only last 20 items
+      const filtered = prev.filter(item => item.query.toLowerCase() !== trimmedQuery.toLowerCase());
+      const updated = [newHistoryItem, ...filtered].slice(0, 20);
+      
+      // Save to localStorage
+      try {
+        localStorage.setItem('chatbotSearchHistory', JSON.stringify(updated));
+      } catch (error) {
+        console.error('Error saving search history:', error);
+      }
+      
+      return updated;
+    });
+  };
 
   // Helper function to handle network errors
   const handleNetworkError = (error, resourceName = 'data') => {
@@ -103,15 +160,25 @@ const Chatbot = () => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
 
+    // Mark user as interacted and remove welcome message
+    if (!hasUserInteracted) {
+      setHasUserInteracted(true);
+      setMessages(prev => prev.filter(msg => msg.id !== 1));
+    }
+
+    const messageText = input.trim();
+    
+    // Save to search history
+    saveToSearchHistory(messageText);
+
     const userMessage = {
       id: Date.now(),
-      text: input.trim(),
+      text: messageText,
       sender: 'user',
       timestamp: new Date()
     };
 
     setMessages(prev => [...prev, userMessage]);
-    const messageText = input.trim();
     setInput('');
     setIsLoading(true);
 
@@ -251,6 +318,112 @@ const Chatbot = () => {
           message: `Click the button below to navigate to ${keyword}.`,
           menuItem: keyword
         };
+      }
+    }
+
+    // Date detection and candidate filtering by date
+    // Check if message contains date patterns and mentions candidates
+    if (lowerMessage.includes('candidate') || lowerMessage.includes('candidates')) {
+      // Date patterns: DD-MM-YYYY, DD/MM/YYYY, MM-DD-YYYY, MM/DD/YYYY, YYYY-MM-DD, DD MMM YYYY, etc.
+      const datePatterns = [
+        /(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})/,  // DD-MM-YYYY or DD/MM/YYYY
+        /(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/,  // YYYY-MM-DD or YYYY/MM/DD
+        /(\d{1,2})\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(\d{4})/i,  // DD MMM YYYY
+        /(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(\d{1,2}),?\s+(\d{4})/i,  // MMM DD, YYYY
+      ];
+
+      let parsedDate = null;
+      let dateString = null;
+
+      for (const pattern of datePatterns) {
+        const match = message.match(pattern);
+        if (match) {
+          try {
+            // Try to parse the date
+            if (pattern === datePatterns[0]) {
+              // DD-MM-YYYY or DD/MM/YYYY
+              const day = parseInt(match[1]);
+              const month = parseInt(match[2]);
+              const year = parseInt(match[3]);
+              parsedDate = new Date(year, month - 1, day);
+              dateString = `${day}-${month}-${year}`;
+            } else if (pattern === datePatterns[1]) {
+              // YYYY-MM-DD or YYYY/MM/DD
+              const year = parseInt(match[1]);
+              const month = parseInt(match[2]);
+              const day = parseInt(match[3]);
+              parsedDate = new Date(year, month - 1, day);
+              dateString = `${day}-${month}-${year}`;
+            } else if (pattern === datePatterns[2]) {
+              // DD MMM YYYY
+              const day = parseInt(match[1]);
+              const monthNames = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+              const month = monthNames.indexOf(match[2].toLowerCase().substring(0, 3));
+              const year = parseInt(match[3]);
+              parsedDate = new Date(year, month, day);
+              dateString = `${day}-${month + 1}-${year}`;
+            } else if (pattern === datePatterns[3]) {
+              // MMM DD, YYYY
+              const monthNames = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+              const month = monthNames.indexOf(match[1].toLowerCase().substring(0, 3));
+              const day = parseInt(match[2]);
+              const year = parseInt(match[3]);
+              parsedDate = new Date(year, month, day);
+              dateString = `${day}-${month + 1}-${year}`;
+            }
+
+            // Validate the date
+            if (parsedDate && !isNaN(parsedDate.getTime())) {
+              // Filter candidates by date
+              try {
+                const candidates = await candidateAPI.getAll();
+                const candidatesArray = Array.isArray(candidates) ? candidates : [];
+                
+                // Set time to start of day for comparison
+                parsedDate.setHours(0, 0, 0, 0);
+                
+                const filteredCandidates = candidatesArray.filter(candidate => {
+                  if (!candidate.createdAt) return false;
+                  const candidateDate = new Date(candidate.createdAt);
+                  candidateDate.setHours(0, 0, 0, 0);
+                  return candidateDate.getTime() === parsedDate.getTime();
+                });
+
+                if (filteredCandidates.length === 0) {
+                  return `📅 No candidates found for date ${dateString}.\n\nPlease check the date format or try a different date.`;
+                }
+
+                let response = `📅 CANDIDATES ON ${dateString}\n\n`;
+                response += `Total Candidates: ${filteredCandidates.length}\n\n`;
+                response += `Candidates List:\n`;
+                
+                filteredCandidates.slice(0, 10).forEach((candidate, index) => {
+                  response += `${index + 1}. ${candidate.name || 'Unknown'}`;
+                  if (candidate.email) response += ` (${candidate.email})`;
+                  if (candidate.phone) response += ` - ${candidate.phone}`;
+                  response += `\n`;
+                });
+
+                if (filteredCandidates.length > 10) {
+                  response += `\n... and ${filteredCandidates.length - 10} more candidates.\n`;
+                }
+
+                response += `\n🔗 Click below to view all candidates for this date.`;
+
+                return {
+                  message: response,
+                  navigate: '/candidates',
+                  candidates: filteredCandidates
+                };
+              } catch (error) {
+                console.error('Error fetching candidates by date:', error);
+                return `❌ Error fetching candidates for date ${dateString}. Please try again.`;
+              }
+            }
+          } catch (error) {
+            console.error('Error parsing date:', error);
+          }
+        }
       }
     }
 
@@ -2321,7 +2494,29 @@ Type any menu item name (jobs, candidates, applications, interviews) to navigate
   };
 
   const handleQuickAction = async (action) => {
+    // Mark user as interacted to hide welcome message
+    if (!hasUserInteracted) {
+      setHasUserInteracted(true);
+      setMessages(prev => prev.filter(msg => msg.id !== 1));
+    }
+    
     setIsLoading(true);
+    
+    // Route mapping for navigation
+    const routeMap = {
+      'jobs': '/jobs',
+      'candidates': '/candidates',
+      'applications': '/applications',
+      'interviews': '/Interviews'
+    };
+    
+    // Action labels for button text
+    const actionLabels = {
+      'jobs': 'Jobs',
+      'candidates': 'Candidates',
+      'applications': 'Applications',
+      'interviews': 'Interviews'
+    };
     
     try {
       let response = '';
@@ -2329,11 +2524,11 @@ Type any menu item name (jobs, candidates, applications, interviews) to navigate
       if (action === 'candidates') {
         try {
           const count = await candidateAPI.getCount();
-          response = `📊 CANDIDATES OVERVIEW\n\nTotal Candidates: ${count}\n🔗 Would you like to see the full list? Type "list candidates" or I can navigate you to the Candidates page.`;
+          response = `📊 CANDIDATES OVERVIEW\n\nTotal Candidates: ${count}`;
         } catch {
           const candidates = await candidateAPI.getAll();
           const count = Array.isArray(candidates) ? candidates.length : 0;
-          response = `📊CANDIDATES OVERVIEW\n\nTotal Candidates: ${count}\n🔗 Would you like to see the full list? Type "list candidates" or I can navigate you to the Candidates page.`;
+          response = `📊 CANDIDATES OVERVIEW\n\nTotal Candidates: ${count}`;
         }
       } else if (action === 'jobs') {
         const jobs = await jobAPI.getAll();
@@ -2342,20 +2537,20 @@ Type any menu item name (jobs, candidates, applications, interviews) to navigate
           const status = job?.status?.toUpperCase();
           return status === 'ACTIVE' || status === 'OPEN';
         });
-      response = `📊JOBS OVERVIEW\n\nTotal Jobs: ${jobsArray.length}\nActive Jobs: ${activeJobs.length}\n🔗 Would you like to see the full list? Type "list jobs" or I can navigate you to the Jobs page.`;
+        response = `📊 JOBS OVERVIEW\n\nTotal Jobs: ${jobsArray.length}\nActive Jobs: ${activeJobs.length}`;
       } else if (action === 'applications') {
         try {
           const count = await applicationAPI.getCount();
-          response = `📊APPLICATIONS OVERVIEW\n\nTotal Applications: ${count}\n🔗 Would you like to see the full list? Type "list applications" or I can navigate you to the Applications page.`;
+          response = `📊 APPLICATIONS OVERVIEW\n\nTotal Applications: ${count}`;
         } catch {
           const applications = await applicationAPI.getAll();
           const count = Array.isArray(applications) ? applications.length : 0;
-          response = `📊APPLICATIONS OVERVIEW\n\nTotal Applications: ${count}\n🔗 Would you like to see the full list? Type "list applications" or I can navigate you to the Applications page.`;
+          response = `📊 APPLICATIONS OVERVIEW\n\nTotal Applications: ${count}`;
         }
       } else if (action === 'interviews') {
         try {
           const count = await interviewAPI.getCount();
-          response = `📊INTERVIEWS OVERVIEW\n\nTotal Interviews: ${count}\n🔗 Would you like to see today's interviews? Type "show interviews today" or I can navigate you to the Interviews page.`;
+          response = `📊 INTERVIEWS OVERVIEW\n\nTotal Interviews: ${count}`;
         } catch {
           const interviews = await interviewAPI.getAll();
           const interviewsArray = Array.isArray(interviews) ? interviews : [];
@@ -2366,15 +2561,20 @@ Type any menu item name (jobs, candidates, applications, interviews) to navigate
             interviewDate.setHours(0, 0, 0, 0);
             return interviewDate.getTime() === today.getTime();
           });
-          response = `📊INTERVIEWS OVERVIEW\n\nTotal Interviews: ${interviewsArray.length}\nToday's Interviews: ${todayInterviews.length}\n🔗 Would you like to see today's interviews? Type "show interviews today" or I can navigate you to the Interviews page.`;
+          response = `📊 INTERVIEWS OVERVIEW\n\nTotal Interviews: ${interviewsArray.length}\nToday's Interviews: ${todayInterviews.length}`;
         }
       }
+      
+      const route = routeMap[action];
+      const actionLabel = actionLabels[action] || action;
       
       const botMessage = {
         id: Date.now() + 1,
         text: response,
         sender: 'bot',
-        timestamp: new Date()
+        timestamp: new Date(),
+        navigate: route, // Add navigate property to show button
+        entityName: actionLabel
       };
       
       setMessages(prev => [...prev, botMessage]);
@@ -2485,8 +2685,31 @@ Type any menu item name (jobs, candidates, applications, interviews) to navigate
           </div>
 
           {/* Modern Messages Container - Responsive */}
-          <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 space-y-4 bg-gradient-to-b from-slate-50 via-white to-slate-50 scrollbar-hide">
-            {messages.map((message, index) => (
+          <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 space-y-4 bg-gradient-to-b from-slate-50 via-white to-slate-50 scrollbar-hide relative">
+            {/* Centered Welcome Message - Only show when no user interaction */}
+            {!hasUserInteracted && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="text-center px-4 max-w-md">
+                  <div className="mb-6 flex justify-center">
+                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#3A9188] to-[#4CAF9F] flex items-center justify-center shadow-2xl transform hover:scale-105 transition-transform">
+                      <span className="text-4xl">👋</span>
+                    </div>
+                  </div>
+                  <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-3">
+                    Welcome {username}!
+                  </h2>
+                  <p className="text-lg text-gray-600 mb-2">
+                    How can I help you today?
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    Ask me anything about jobs, candidates, applications, or interviews
+                  </p>
+                </div>
+              </div>
+            )}
+            
+            {/* Chat Messages - Only show when user has interacted */}
+            {hasUserInteracted && messages.map((message, index) => (
               <div
                 key={message.id}
                 className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-300`}
@@ -2540,10 +2763,10 @@ Type any menu item name (jobs, candidates, applications, interviews) to navigate
                             navigate(message.navigate);
                             setIsOpen(false);
                           }}
-                          className="mt-3 w-full px-4 py-2.5 text-white rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 shadow-md hover:shadow-lg transform hover:scale-105 font-semibold text-sm hover:opacity-90"
+                          className="mt-3 w-full px-4 py-2.5 text-white rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 shadow-md hover:shadow-lg transform hover:scale-105 active:scale-95 font-semibold text-sm hover:opacity-90 cursor-pointer"
                           style={{ backgroundColor: '#3A9188' }}
                         >
-                          <span>🔗 View Details</span>
+                          <span>🔗 Go to {message.entityName || 'Page'}</span>
                         </button>
                       )}
                       
@@ -2596,8 +2819,8 @@ Type any menu item name (jobs, candidates, applications, interviews) to navigate
               </div>
             ))}
             
-            {/* Typing Animation Display */}
-            {isTyping && typingText && (
+            {/* Typing Animation Display - Only show when user has interacted */}
+            {hasUserInteracted && isTyping && typingText && (
               <div className="flex justify-start animate-in fade-in duration-200">
                 <div className="bg-white rounded-2xl rounded-bl-md px-5 py-4 border border-gray-100 shadow-lg w-full overflow-x-hidden">
                   <div className="flex items-start space-x-3">
@@ -2617,8 +2840,8 @@ Type any menu item name (jobs, candidates, applications, interviews) to navigate
               </div>
             )}
             
-            {/* Modern Typing Indicator - Responsive */}
-            {isLoading && !isTyping && (
+            {/* Modern Typing Indicator - Responsive - Only show when user has interacted */}
+            {hasUserInteracted && isLoading && !isTyping && (
               <div className="flex justify-start animate-in fade-in duration-200">
                 <div className="bg-white rounded-2xl rounded-bl-md px-5 py-4 border border-gray-100 shadow-lg">
                     <div className="flex items-center space-x-2">
@@ -2633,32 +2856,112 @@ Type any menu item name (jobs, candidates, applications, interviews) to navigate
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Modern Quick Actions - Responsive */}
-          {messages.length === 1 && (
-            <div className="px-4 sm:px-6 py-4 border-t border-gray-100" style={{ backgroundColor: '#F0FDFA' }}>
-              <p className="text-xs font-bold text-gray-700 mb-3 flex items-center uppercase tracking-wide">
-                <span className="w-2 h-2 rounded-full mr-2 animate-pulse shadow-sm" style={{ backgroundColor: '#3A9188' }}></span>
-                Quick Actions
-              </p>
-              <div className="grid grid-cols-2 gap-2 sm:gap-3">
-                {Object.entries(quickActionIcons).map(([action, IconComponent]) => (
-                  <button
-                    key={action}
-                    onClick={() => handleQuickAction(action)}
-                      className="group flex items-center justify-center sm:justify-start space-x-2 px-3 sm:px-4 py-3 sm:py-3.5 bg-white text-gray-700 rounded-xl hover:text-white transition-all duration-300 shadow-md hover:shadow-xl transform hover:scale-105 border border-gray-100 hover:border-transparent backdrop-blur-sm"
-                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#3A9188'}
-                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
-                  >
-                    {React.createElement(IconComponent, { className: "text-sm sm:text-base group-hover:scale-110 transition-transform drop-shadow-sm" })}
-                    <span className="text-xs sm:text-sm font-semibold capitalize hidden sm:inline">{action}</span>
-                  </button>
-                ))}
-              </div>
+          {/* Modern Quick Actions - Responsive - Always at Bottom */}
+          <div className="px-4 sm:px-6 py-4 border-t border-gray-100 flex-shrink-0" style={{ backgroundColor: '#F0FDFA' }}>
+            <p className="text-xs font-bold text-gray-700 mb-3 flex items-center uppercase tracking-wide">
+              <span className="w-2 h-2 rounded-full mr-2 animate-pulse shadow-sm" style={{ backgroundColor: '#3A9188' }}></span>
+              Quick Actions
+            </p>
+            <div className="grid grid-cols-2 gap-2 sm:gap-3">
+              {Object.entries(quickActionIcons).map(([action, IconComponent]) => (
+                <button
+                  key={action}
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (!isLoading) {
+                      handleQuickAction(action);
+                    }
+                  }}
+                  disabled={isLoading}
+                  className="group flex items-center justify-center sm:justify-start space-x-2 px-3 sm:px-4 py-3 sm:py-3.5 bg-white text-gray-700 rounded-xl hover:text-white transition-all duration-300 shadow-md hover:shadow-xl transform hover:scale-105 active:scale-95 border border-gray-100 hover:border-transparent backdrop-blur-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-md"
+                  style={{ 
+                    pointerEvents: isLoading ? 'none' : 'auto',
+                    zIndex: 10
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isLoading) {
+                      e.currentTarget.style.backgroundColor = '#3A9188';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isLoading) {
+                      e.currentTarget.style.backgroundColor = 'white';
+                    }
+                  }}
+                >
+                  {React.createElement(IconComponent, { className: "text-sm sm:text-base group-hover:scale-110 transition-transform drop-shadow-sm pointer-events-none" })}
+                  <span className="text-xs sm:text-sm font-semibold capitalize hidden sm:inline pointer-events-none">{action}</span>
+                </button>
+              ))}
             </div>
-          )}
+          </div>
 
           {/* Modern Input Area - Responsive */}
           <form onSubmit={handleSend} className="p-4 sm:p-6 border-t border-gray-100 bg-gradient-to-b from-white to-slate-50 relative">
+            {/* Search History Dropdown */}
+            {showSearchHistory && searchHistory.length > 0 && (
+              <div className="absolute bottom-full left-4 right-4 mb-2 bg-white border border-gray-200 rounded-xl shadow-xl max-h-64 overflow-y-auto z-50 scrollbar-hide">
+                <div className="p-3 border-b border-gray-100 flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <FaHistory className="text-sm text-gray-500" />
+                    <h3 className="text-sm font-semibold text-gray-700">Search History</h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowSearchHistory(false)}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <FaTimes className="text-xs" />
+                  </button>
+                </div>
+                <div className="py-2">
+                  {searchHistory.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => {
+                        setInput(item.query);
+                        setShowSearchHistory(false);
+                        inputRef.current?.focus();
+                        // Trigger form submit to send the message
+                        setTimeout(() => {
+                          const form = inputRef.current?.closest('form');
+                          if (form && !isLoading) {
+                            const submitEvent = new Event('submit', { bubbles: true, cancelable: true });
+                            form.dispatchEvent(submitEvent);
+                          }
+                        }, 100);
+                      }}
+                      className="w-full px-4 py-2.5 text-left transition-colors flex items-center space-x-2 border-b border-gray-100 last:border-b-0 hover:bg-gray-50"
+                    >
+                      <FaClock className="text-xs text-gray-400 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-gray-700 truncate">{item.query}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {new Date(item.timestamp).toLocaleString()}
+                        </p>
+                      </div>
+                      <FaSearch className="text-xs text-gray-400 flex-shrink-0" />
+                    </button>
+                  ))}
+                </div>
+                <div className="p-2 border-t border-gray-100">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchHistory([]);
+                      localStorage.removeItem('chatbotSearchHistory');
+                    }}
+                    className="w-full px-3 py-2 text-xs text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  >
+                    Clear History
+                  </button>
+                </div>
+              </div>
+            )}
+            
             {/* Auto-complete Dropdown */}
             {showAutoComplete && autoCompleteSuggestions.length > 0 && (
               <div className="absolute bottom-full left-4 right-4 mb-2 bg-white border border-gray-200 rounded-xl shadow-xl max-h-48 overflow-y-auto z-50 scrollbar-hide">
@@ -2700,9 +3003,25 @@ Type any menu item name (jobs, candidates, applications, interviews) to navigate
                     e.currentTarget.style.boxShadow = '';
                   }}
                   placeholder="Type your message..."
-                  className="w-full px-4 sm:px-5 py-3 sm:py-4 pr-12 sm:pr-14 border-2 border-gray-200 rounded-2xl focus:outline-none focus:ring-2 bg-white text-gray-900 text-sm sm:text-base transition-all duration-300 placeholder:text-gray-400 shadow-sm hover:shadow-md focus:shadow-lg"
+                  className="w-full px-4 sm:px-5 py-3 sm:py-4 pr-20 sm:pr-24 border-2 border-gray-200 rounded-2xl focus:outline-none focus:ring-2 bg-white text-gray-900 text-sm sm:text-base transition-all duration-300 placeholder:text-gray-400 shadow-sm hover:shadow-md focus:shadow-lg"
                   disabled={isLoading}
                 />
+                {/* History Button */}
+                {searchHistory.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setShowSearchHistory(!showSearchHistory);
+                      setShowAutoComplete(false);
+                    }}
+                    className="absolute right-12 sm:right-14 top-1/2 -translate-y-1/2 p-2 text-gray-400 hover:text-[#3A9188] transition-colors rounded-lg hover:bg-gray-100"
+                    title="Search History"
+                  >
+                    <FaHistory className="text-sm" />
+                  </button>
+                )}
                 {input.trim() && (
                   <div className="absolute right-4 sm:right-5 top-1/2 -translate-y-1/2">
                     <div className="w-2.5 h-2.5 rounded-full animate-pulse shadow-lg" style={{ backgroundColor: '#3A9188' }}></div>
