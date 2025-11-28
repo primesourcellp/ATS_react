@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FaRobot, FaTimes, FaPaperPlane, FaUser, FaBriefcase, FaUserTie, FaFileAlt, FaCalendarAlt, FaThumbsUp, FaThumbsDown, FaSearch, FaHistory, FaClock } from 'react-icons/fa';
+import { FaRobot, FaTimes, FaPaperPlane, FaUser, FaBriefcase, FaUserTie, FaFileAlt, FaCalendarAlt, FaThumbsUp, FaThumbsDown, FaSearch, FaHistory, FaClock, FaPlus, FaBars, FaTrash } from 'react-icons/fa';
 import { chatbotAPI } from '../../api/chatbotApi';
 import { jobAPI, candidateAPI, applicationAPI, interviewAPI, clientAPI, candidateEmailAPI, notificationAPI } from '../../api/api';
 
@@ -26,6 +26,9 @@ const Chatbot = () => {
   const [hasUserInteracted, setHasUserInteracted] = useState(false);
   const [searchHistory, setSearchHistory] = useState([]);
   const [showSearchHistory, setShowSearchHistory] = useState(false);
+  const [chatHistory, setChatHistory] = useState([]);
+  const [currentChatId, setCurrentChatId] = useState(null);
+  const [showChatSidebar, setShowChatSidebar] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const typingIntervalRef = useRef(null);
@@ -78,6 +81,147 @@ const Chatbot = () => {
     }
   }, []);
 
+  // Load chat history from localStorage on mount
+  useEffect(() => {
+    const savedChats = localStorage.getItem('chatbotChatHistory');
+    if (savedChats) {
+      try {
+        const chats = JSON.parse(savedChats);
+        setChatHistory(Array.isArray(chats) ? chats : []);
+      } catch (error) {
+        console.error('Error loading chat history:', error);
+        setChatHistory([]);
+      }
+    }
+  }, []);
+
+  // Save current chat to history when messages change
+  useEffect(() => {
+    if (currentChatId && messages.length > 1) {
+      const chatData = {
+        id: currentChatId,
+        messages: messages,
+        hasUserInteracted: hasUserInteracted,
+        timestamp: new Date().toISOString(),
+        title: messages.find(m => m.sender === 'user')?.text?.substring(0, 50) || 'New Chat'
+      };
+
+      setChatHistory(prev => {
+        const updated = prev.filter(chat => chat.id !== currentChatId);
+        updated.unshift(chatData);
+        const limited = updated.slice(0, 50); // Keep last 50 chats
+        
+        try {
+          localStorage.setItem('chatbotChatHistory', JSON.stringify(limited));
+        } catch (error) {
+          console.error('Error saving chat history:', error);
+        }
+        
+        return limited;
+      });
+    }
+  }, [messages, currentChatId, hasUserInteracted]);
+
+  // Create new chat
+  const handleNewChat = () => {
+    // Save current chat if it has messages
+    if (currentChatId && messages.length > 1) {
+      const chatData = {
+        id: currentChatId,
+        messages: messages,
+        hasUserInteracted: hasUserInteracted,
+        timestamp: new Date().toISOString(),
+        title: messages.find(m => m.sender === 'user')?.text?.substring(0, 50) || 'New Chat'
+      };
+
+      setChatHistory(prev => {
+        const updated = prev.filter(chat => chat.id !== currentChatId);
+        updated.unshift(chatData);
+        const limited = updated.slice(0, 50);
+        
+        try {
+          localStorage.setItem('chatbotChatHistory', JSON.stringify(limited));
+        } catch (error) {
+          console.error('Error saving chat history:', error);
+        }
+        
+        return limited;
+      });
+    }
+
+    // Start fresh chat
+    const newChatId = Date.now().toString();
+    setCurrentChatId(newChatId);
+    setHasUserInteracted(false);
+    setMessages([
+      {
+        id: 1,
+        text: `Welcome ${username}! How can I assist you today?`,
+        sender: 'bot',
+        timestamp: new Date()
+      }
+    ]);
+    setInput('');
+    setIsLoading(false);
+    setIsTyping(false);
+    setTypingText('');
+  };
+
+  // Load a chat from history
+  const handleLoadChat = (chatId) => {
+    const chat = chatHistory.find(c => c.id === chatId);
+    if (chat) {
+      setCurrentChatId(chat.id);
+      setMessages(chat.messages.map(msg => ({
+        ...msg,
+        timestamp: new Date(msg.timestamp)
+      })));
+      setHasUserInteracted(chat.hasUserInteracted || false);
+      setInput('');
+      setIsLoading(false);
+      setIsTyping(false);
+      setTypingText('');
+      setShowChatSidebar(false);
+    }
+  };
+
+  // Delete a chat from history
+  const handleDeleteChat = (chatId, e) => {
+    e.stopPropagation();
+    const updated = chatHistory.filter(chat => chat.id !== chatId);
+    setChatHistory(updated);
+    
+    try {
+      localStorage.setItem('chatbotChatHistory', JSON.stringify(updated));
+    } catch (error) {
+      console.error('Error deleting chat:', error);
+    }
+
+    // If deleting current chat, start new one
+    if (currentChatId === chatId) {
+      handleNewChat();
+    }
+  };
+
+  // Function to reset chat when closing
+  const handleCloseChatbot = () => {
+    setIsOpen(false);
+    // Reset chat data only when explicitly closed
+    setHasUserInteracted(false);
+    setMessages([
+      {
+        id: 1,
+        text: `Welcome ${username}! How can I assist you today?`,
+        sender: 'bot',
+        timestamp: new Date()
+      }
+    ]);
+    setInput('');
+    setIsLoading(false);
+    setIsTyping(false);
+    setTypingText('');
+  };
+
   useEffect(() => {
     if (isOpen && inputRef.current) {
       setTimeout(() => {
@@ -85,19 +229,12 @@ const Chatbot = () => {
       }, 100);
     }
     
-    // Reset welcome message when chatbot opens
-    if (isOpen) {
-      setHasUserInteracted(false);
-      setMessages([
-        {
-          id: 1,
-          text: `Welcome ${username}! How can I assist you today?`,
-          sender: 'bot',
-          timestamp: new Date()
-        }
-      ]);
+    // Initialize current chat if not set
+    if (isOpen && !currentChatId) {
+      const newChatId = Date.now().toString();
+      setCurrentChatId(newChatId);
     }
-  }, [isOpen, username]);
+  }, [isOpen, currentChatId]);
 
   // Save search to history
   const saveToSearchHistory = (searchQuery) => {
@@ -2634,7 +2771,7 @@ Type any menu item name (jobs, candidates, applications, interviews) to navigate
       {isOpen && (
         <div 
           className="fixed inset-0 z-40"
-          onClick={() => setIsOpen(false)}
+          onClick={handleCloseChatbot}
           aria-hidden="true"
         />
       )}
@@ -2642,14 +2779,90 @@ Type any menu item name (jobs, candidates, applications, interviews) to navigate
       {/* Modern Chat Window - Responsive */}
       {isOpen && (
         <div 
-          className="fixed inset-4 sm:inset-auto sm:bottom-6 sm:right-6 sm:w-[420px] sm:h-[700px] h-[calc(100vh-2rem)] bg-white rounded-3xl shadow-2xl flex flex-col z-50 border border-gray-100 overflow-hidden backdrop-blur-xl bg-white/95 chatbot-container"
+          className="fixed inset-4 sm:inset-auto sm:bottom-6 sm:right-6 sm:w-[420px] sm:h-[700px] h-[calc(100vh-2rem)] bg-white rounded-3xl shadow-2xl flex z-50 border border-gray-100 overflow-hidden backdrop-blur-xl bg-white/95 chatbot-container"
           onClick={(e) => e.stopPropagation()}
         >
+          {/* Chat History Sidebar */}
+          <div className={`${showChatSidebar ? 'w-64' : 'w-0'} transition-all duration-300 overflow-hidden border-r border-gray-200 bg-gray-50 flex flex-col`}>
+            <div className="p-4 border-b border-gray-200">
+              <button
+                onClick={handleNewChat}
+                className="w-full px-4 py-2.5 bg-[#3A9188] text-white rounded-lg hover:bg-[#2E7D6E] transition-colors flex items-center justify-center space-x-2 font-semibold text-sm"
+              >
+                <FaPlus className="text-sm" />
+                <span>New Chat</span>
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-2">
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide px-2 mb-2">Chat History</h3>
+              {chatHistory.length === 0 ? (
+                <div className="text-center py-8 text-gray-400 text-sm">
+                  <FaHistory className="text-2xl mx-auto mb-2 opacity-50" />
+                  <p>No chat history</p>
+                  <p className="text-xs mt-1">Start a conversation to see it here</p>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  {chatHistory.map((chat) => (
+                    <div
+                      key={chat.id}
+                      onClick={() => handleLoadChat(chat.id)}
+                      className={`group relative p-3 rounded-lg cursor-pointer transition-all ${
+                        currentChatId === chat.id
+                          ? 'bg-[#3A9188] text-white'
+                          : 'bg-white hover:bg-gray-100 text-gray-700'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm font-medium truncate ${currentChatId === chat.id ? 'text-white' : 'text-gray-800'}`}>
+                            {chat.title}
+                          </p>
+                          <p className={`text-xs mt-1 ${currentChatId === chat.id ? 'text-white/80' : 'text-gray-500'}`}>
+                            {new Date(chat.timestamp).toLocaleDateString()} {new Date(chat.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                          <p className={`text-xs mt-1 ${currentChatId === chat.id ? 'text-white/70' : 'text-gray-400'}`}>
+                            {chat.messages.filter(m => m.sender === 'user').length} messages
+                          </p>
+                        </div>
+                        <button
+                          onClick={(e) => handleDeleteChat(chat.id, e)}
+                          className={`opacity-0 group-hover:opacity-100 p-1 rounded transition-all ${
+                            currentChatId === chat.id
+                              ? 'hover:bg-white/20 text-white'
+                              : 'hover:bg-red-100 text-red-600'
+                          }`}
+                          title="Delete chat"
+                        >
+                          <FaTrash className="text-xs" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Main Chat Area */}
+          <div className="flex-1 flex flex-col min-w-0">
           {/* Modern Header - Responsive */}
           <div className="text-white p-3 sm:p-4 rounded-t-3xl flex items-center justify-between relative overflow-hidden" style={{ backgroundColor: '#3A9188' }}>
             {/* Animated background pattern */}
             <div className="absolute inset-0 opacity-10">
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.3),transparent_50%)]"></div>
+            </div>
+            
+            {/* Sidebar Toggle */}
+            <div className="flex items-center space-x-2 relative z-10">
+              <button
+                onClick={() => setShowChatSidebar(!showChatSidebar)}
+                className="text-white hover:bg-white/20 rounded-xl p-2 transition-all duration-200 hover:scale-110 relative z-10 backdrop-blur-sm border border-white/20"
+                aria-label="Toggle chat history"
+                title="Chat History"
+              >
+                <FaBars className="text-lg sm:text-xl" />
+              </button>
             </div>
             
             <div className="flex items-center space-x-3 sm:space-x-4 relative z-10 flex-1">
@@ -2676,7 +2889,7 @@ Type any menu item name (jobs, candidates, applications, interviews) to navigate
             
             {/* Close button */}
             <button
-              onClick={() => setIsOpen(false)}
+              onClick={handleCloseChatbot}
               className="text-white hover:bg-white/20 rounded-xl p-2 transition-all duration-200 hover:rotate-90 hover:scale-110 relative z-10 backdrop-blur-sm border border-white/20"
               aria-label="Close chatbot"
             >
@@ -2743,7 +2956,7 @@ Type any menu item name (jobs, candidates, applications, interviews) to navigate
                               key={idx}
                               onClick={() => {
                                 navigate(item.navigate);
-                                setIsOpen(false);
+                                // Don't close chatbot - keep chat data visible
                               }}
                               className="w-full px-4 py-2.5 text-white rounded-xl transition-all duration-300 flex items-center justify-between shadow-md hover:shadow-lg transform hover:scale-105 font-semibold text-sm hover:opacity-90"
                               style={{ backgroundColor: '#3A9188' }}
@@ -2761,7 +2974,7 @@ Type any menu item name (jobs, candidates, applications, interviews) to navigate
                         <button
                           onClick={() => {
                             navigate(message.navigate);
-                            setIsOpen(false);
+                            // Don't close chatbot - keep chat data visible
                           }}
                           className="mt-3 w-full px-4 py-2.5 text-white rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 shadow-md hover:shadow-lg transform hover:scale-105 active:scale-95 font-semibold text-sm hover:opacity-90 cursor-pointer"
                           style={{ backgroundColor: '#3A9188' }}
@@ -3043,6 +3256,7 @@ Type any menu item name (jobs, candidates, applications, interviews) to navigate
               </p>
             )}
           </form>
+          </div>
         </div>
       )}
     </>
