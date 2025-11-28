@@ -3,8 +3,7 @@
 
 // const BASE_URL = "https://atsapi.primesourcellp.com";
 const BASE_URL = "http://localhost:8080";
-// const BASE_URL = "https://talentapi.primesourcellp.com";
-
+// const BASE_URL = "https://braeden-nonobligatory-groundedly.ngrok-free.dev";
 // ===================== Helper Functions =====================
 const getAuthHeaders = (contentType = "application/json") => {
   const token = localStorage.getItem("jwtToken");
@@ -15,6 +14,8 @@ const getAuthHeaders = (contentType = "application/json") => {
   if (contentType) {
     headers["Content-Type"] = contentType;
   }
+  // Bypass ngrok browser warning for free tier
+  headers["ngrok-skip-browser-warning"] = "true";
   return headers;
 };
 
@@ -26,6 +27,14 @@ const handleResponse = async (response, skipLogoutOn403 = false) => {
 
   const contentType = response.headers.get("content-type");
   const isJson = contentType && contentType.includes("application/json");
+
+  // Check if response is ngrok warning page (HTML instead of JSON)
+  if (!isJson && contentType && contentType.includes("text/html")) {
+    const text = await response.text();
+    if (text.includes("ngrok") || text.includes("ERR_NGROK")) {
+      throw new Error("ngrok warning page detected. Please check your ngrok tunnel configuration or use ngrok-skip-browser-warning header.");
+    }
+  }
 
   if (!response.ok) {
     if (response.status === 401) {
@@ -85,7 +94,10 @@ export const authAPI = {
   login: async (username, password) => {
     const response = await fetch(`${BASE_URL}/api/auth/login`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { 
+        "Content-Type": "application/json",
+        "ngrok-skip-browser-warning": "true"
+      },
       body: JSON.stringify({ username, password }),
     });
     return handleResponse(response);
@@ -95,7 +107,10 @@ export const authAPI = {
     const token = localStorage.getItem("jwtToken");
     const response = await fetch(`${BASE_URL}/auth/logout`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { 
+        Authorization: `Bearer ${token}`,
+        "ngrok-skip-browser-warning": "true"
+      },
     });
     return handleResponse(response);
   },
@@ -103,7 +118,10 @@ export const authAPI = {
   forgotPassword: async (email) => {
     const response = await fetch(`${BASE_URL}/api/auth/forgot-password`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { 
+        "Content-Type": "application/json",
+        "ngrok-skip-browser-warning": "true"
+      },
       body: JSON.stringify({ email }),
     });
     return handleResponse(response);
@@ -112,7 +130,10 @@ export const authAPI = {
   verifyOTP: async (email, otp) => {
     const response = await fetch(`${BASE_URL}/api/auth/verify-otp`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { 
+        "Content-Type": "application/json",
+        "ngrok-skip-browser-warning": "true"
+      },
       body: JSON.stringify({ email, otpCode: otp }),
     });
     return handleResponse(response);
@@ -121,7 +142,10 @@ export const authAPI = {
   resetPassword: async (email, otp, newPassword) => {
     const response = await fetch(`${BASE_URL}/api/auth/reset-password`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { 
+        "Content-Type": "application/json",
+        "ngrok-skip-browser-warning": "true"
+      },
       body: JSON.stringify({ email, otpCode: otp, newPassword }),
     });
     return handleResponse(response);
@@ -175,7 +199,10 @@ export const userAPI = {
     // It's allowed from the login/register page but blocked from user management UI
     const response = await fetch(`${BASE_URL}/api/users/create-admin`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" }, // No auth required for first admin
+      headers: { 
+        "Content-Type": "application/json",
+        "ngrok-skip-browser-warning": "true"
+      }, // No auth required for first admin
       body: JSON.stringify(userData),
     });
     // Use custom error handling to prevent logout on 403
@@ -330,7 +357,10 @@ export const candidateAPI = {
     const token = localStorage.getItem("jwtToken");
     const response = await fetch(`${BASE_URL}/api/candidates`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { 
+        Authorization: `Bearer ${token}`,
+        "ngrok-skip-browser-warning": "true"
+      },
       body: formData,
     });
     return handleResponse(response);
@@ -350,7 +380,10 @@ export const candidateAPI = {
     const token = localStorage.getItem("jwtToken");
     const response = await fetch(`${BASE_URL}/api/candidates/${id}`, {
       method: "PATCH",
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { 
+        Authorization: `Bearer ${token}`,
+        "ngrok-skip-browser-warning": "true"
+      },
       body: formData,
     });
     return handleResponse(response);
@@ -371,7 +404,10 @@ export const candidateAPI = {
     const token = localStorage.getItem("jwtToken");
     const response = await fetch(`${BASE_URL}/api/candidates/parse-only`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { 
+        Authorization: `Bearer ${token}`,
+        "ngrok-skip-browser-warning": "true"
+      },
       body: formData,
     });
     return handleResponse(response);
@@ -381,7 +417,10 @@ export const candidateAPI = {
     const token = localStorage.getItem("jwtToken");
     const response = await fetch(`${BASE_URL}/api/candidates/resume/${id}`, {
       method: "GET",
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { 
+        Authorization: `Bearer ${token}`,
+        "ngrok-skip-browser-warning": "true"
+      },
     });
     
     if (!response.ok) {
@@ -396,7 +435,10 @@ export const candidateAPI = {
     const token = localStorage.getItem("jwtToken");
     const response = await fetch(`${BASE_URL}/api/candidates/download/${id}`, {
       method: "GET",
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { 
+        Authorization: `Bearer ${token}`,
+        "ngrok-skip-browser-warning": "true"
+      },
     });
     
     if (!response.ok) {
@@ -436,7 +478,9 @@ export const jobAPI = {
   getActive: async () => {
     const response = await fetch(`${BASE_URL}/jobs/active`, {
       method: "GET",
-      headers: {},
+      headers: {
+        "ngrok-skip-browser-warning": "true"
+      },
     });
     return handleResponse(response);
   },
@@ -574,7 +618,10 @@ export const applicationAPI = {
 
     const options = {
       method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { 
+        Authorization: `Bearer ${token}`,
+        "ngrok-skip-browser-warning": "true"
+      },
       body: fd,
     };
 
@@ -597,7 +644,10 @@ export const applicationAPI = {
       
       const response = await fetch(`${BASE_URL}/api/applications/${id}`, {
         method: "PUT",
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          "ngrok-skip-browser-warning": "true"
+        },
         body: fd,
       });
       return handleResponse(response);
@@ -608,7 +658,10 @@ export const applicationAPI = {
       
       const response = await fetch(`${BASE_URL}/api/applications/${id}`, {
         method: "PUT",
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          "ngrok-skip-browser-warning": "true"
+        },
         body: fd,
       });
       return handleResponse(response);
@@ -627,7 +680,10 @@ export const applicationAPI = {
     const token = localStorage.getItem("jwtToken");
     const response = await fetch(`${BASE_URL}/api/applications/${id}/resume/file`, {
       method: "GET",
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { 
+        Authorization: `Bearer ${token}`,
+        "ngrok-skip-browser-warning": "true"
+      },
     });
     
     if (response.status === 404) {
@@ -650,7 +706,10 @@ export const applicationAPI = {
     const token = localStorage.getItem("jwtToken");
     const response = await fetch(`${BASE_URL}/api/applications/${id}/resume/download`, {
       method: "GET",
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { 
+        Authorization: `Bearer ${token}`,
+        "ngrok-skip-browser-warning": "true"
+      },
     });
     
     if (!response.ok) {
