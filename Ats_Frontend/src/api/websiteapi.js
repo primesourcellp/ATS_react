@@ -1,4 +1,7 @@
-const BASE_URL = "https://atsapi.primesourcellp.com";
+// Use the same BASE_URL as api.js - update this to match your backend URL
+// const BASE_URL = "https://atsapi.primesourcellp.com";
+// const BASE_URL = "http://localhost:8080";
+const BASE_URL = "https://braeden-nonobligatory-groundedly.ngrok-free.dev";
 
 // Helper function to get auth headers
 const getAuthHeaders = () => {
@@ -63,7 +66,13 @@ export const websiteApplicationAPI = {
       headers: getAuthHeaders()
     });
     const data = await handleResponse(response);
-    return data.resumeUrl;
+    const resumeUrl = data.resumeUrl;
+    
+    // Rewrite localhost:8080 URLs to match current BASE_URL
+    if (resumeUrl) {
+      return resumeUrl.replace(/http:\/\/localhost:8080/g, BASE_URL);
+    }
+    return resumeUrl;
   },
 
   // Download resume for website application
