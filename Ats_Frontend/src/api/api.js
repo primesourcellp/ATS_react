@@ -5,6 +5,14 @@
 // const BASE_URL = "http://localhost:8080";
 const BASE_URL = "https://braeden-nonobligatory-groundedly.ngrok-free.dev";
 // ===================== Helper Functions =====================
+
+// Helper function to rewrite localhost:8080 URLs to current BASE_URL
+// This ensures file URLs work correctly when backend returns hardcoded localhost URLs
+export const rewriteFileUrl = (url) => {
+  if (!url) return url;
+  // Replace localhost:8080 with current BASE_URL
+  return url.replace(/http:\/\/localhost:8080/g, BASE_URL);
+};
 const getAuthHeaders = (contentType = "application/json") => {
   const token = localStorage.getItem("jwtToken");
   const headers = {};

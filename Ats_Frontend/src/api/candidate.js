@@ -153,8 +153,11 @@ export const candidateAPI = {
       throw new Error("No resume available for this candidate");
     }
     
+    // Rewrite localhost:8080 URLs to match current BASE_URL
+    const resumeUrl = data.resumeUrl.replace(/http:\/\/localhost:8080/g, BASE_URL);
+    
     // Return the resume URL for direct access
-    return data.resumeUrl;
+    return resumeUrl;
   },
 
   // Download resume

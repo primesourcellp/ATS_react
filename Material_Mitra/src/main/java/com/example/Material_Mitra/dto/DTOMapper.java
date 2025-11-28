@@ -9,6 +9,20 @@ import com.example.Material_Mitra.entity.Job;
 import com.example.Material_Mitra.entity.JobApplication;
 
 public class DTOMapper {
+    
+    // Static base URL for file URLs - set by configuration class
+    private static String baseUrl = "http://localhost:8080";
+    
+    public static void setBaseUrl(String url) {
+        baseUrl = url;
+    }
+    
+    private static String getFileUrl(String filePath) {
+        if (filePath == null || filePath.isEmpty()) {
+            return null;
+        }
+        return baseUrl + "/api/files/" + filePath;
+    }
 
 //    public static JobDTO toJobDTO(Job job) {
 //        if (job == null) return null;
@@ -68,9 +82,7 @@ public class DTOMapper {
 	                appDTO.setAppliedAt(app.getAppliedAt());
 	                appDTO.setCandidateName(app.getCandidateName());
 	                appDTO.setApplicationResumePath(app.getApplicationResumePath());
-	                appDTO.setApplicationResumeUrl(app.getApplicationResumePath() != null && !app.getApplicationResumePath().isEmpty()
-	                        ? "http://localhost:8080/api/files/" + app.getApplicationResumePath()
-	                        : null);
+	                appDTO.setApplicationResumeUrl(getFileUrl(app.getApplicationResumePath()));
 	                if (app.getCreatedBy() != null) {
 	                    appDTO.setCreatedById(app.getCreatedBy().getId());
 	                    appDTO.setCreatedByUsername(app.getCreatedBy().getUsername());
@@ -161,7 +173,7 @@ public class DTOMapper {
         dto.setUpdatedAt(candidate.getUpdatedAt());
         dto.setAbout(candidate.getAbout());
         dto.setResumePath(candidate.getResumePath());
-        dto.setResumeUrl(candidate.getResumePath() != null ? "http://localhost:8080/api/files/" + candidate.getResumePath() : null);
+        dto.setResumeUrl(getFileUrl(candidate.getResumePath()));
         dto.setHasResume(candidate.getResumePath() != null);
         dto.setCreatedAt(candidate.getCreatedAt());
         if (candidate.getCreatedBy() != null) {
@@ -244,9 +256,7 @@ public class DTOMapper {
         dto.setAppliedAt(app.getAppliedAt());
         dto.setCandidateName(app.getCandidateName());
         dto.setApplicationResumePath(app.getApplicationResumePath());
-        dto.setApplicationResumeUrl(app.getApplicationResumePath() != null && !app.getApplicationResumePath().isEmpty()
-                ? "http://localhost:8080/api/files/" + app.getApplicationResumePath()
-                : null);
+        dto.setApplicationResumeUrl(getFileUrl(app.getApplicationResumePath()));
         if (app.getCreatedBy() != null) {
             dto.setCreatedById(app.getCreatedBy().getId());
             dto.setCreatedByUsername(app.getCreatedBy().getUsername());

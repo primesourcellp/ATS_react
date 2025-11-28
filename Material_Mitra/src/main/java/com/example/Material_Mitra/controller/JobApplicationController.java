@@ -149,7 +149,7 @@ public class JobApplicationController {
             if (resumePath == null) {
                 return ResponseEntity.notFound().build();
             }
-            return ResponseEntity.ok().body(Map.of("resumePath", resumePath, "resumeUrl", "http://localhost:8080/api/files/" + resumePath));
+            return ResponseEntity.ok().body(Map.of("resumePath", resumePath, "resumeUrl", fileStorageService.getFileUrl(resumePath)));
         } catch (RuntimeException e) {
             return ResponseEntity.status(404).body(e.getMessage());
         }
@@ -169,7 +169,7 @@ public class JobApplicationController {
             return ResponseEntity.ok()
                     .body(Map.of(
                         "resumePath", resumePath,
-                        "resumeUrl", "http://localhost:8080/api/files/" + resumePath,
+                        "resumeUrl", fileStorageService.getFileUrl(resumePath),
                         "applicationId", id
                     ));
         } catch (RuntimeException e) {

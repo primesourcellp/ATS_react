@@ -22,6 +22,9 @@ public class FileStorageService {
     @Value("${file.upload-dir:uploads}")
     private String uploadDir;
 
+    @Value("${app.base-url:http://localhost:8080}")
+    private String baseUrl;
+
     private Path getFileStorageLocation() {
         Path fileStorageLocation = Paths.get(uploadDir).toAbsolutePath().normalize();
         try {
@@ -122,7 +125,8 @@ public class FileStorageService {
             return null;
         }
         // Return full URL with backend host and port for React frontend
-        return "http://localhost:8080/api/files/" + fileName;
+        // Uses configurable base URL from application.properties
+        return baseUrl + "/api/files/" + fileName;
     }
 
     private boolean isValidFileType(String contentType) {

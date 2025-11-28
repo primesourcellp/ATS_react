@@ -149,7 +149,7 @@ public class CandidateController {
         return ResponseEntity.ok()
                 .body(Map.of(
                     "resumePath", candidate.getResumePath(),
-                    "resumeUrl", "http://localhost:8080/api/files/" + candidate.getResumePath(),
+                    "resumeUrl", fileStorageService.getFileUrl(candidate.getResumePath()),
                     "candidateName", candidate.getName()
                 ));
     }
@@ -168,7 +168,7 @@ public class CandidateController {
         return ResponseEntity.ok()
                 .body(Map.of(
                     "resumePath", doc.getResumePath(),
-                    "resumeUrl", "http://localhost:8080/api/files/" + doc.getResumePath(),
+                    "resumeUrl", fileStorageService.getFileUrl(doc.getResumePath()),
                     "candidateName", doc.getName()
                 ));
     }
