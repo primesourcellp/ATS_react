@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Navbar from "../../layout/navbar";
-import { candidateAPI, applicationAPI } from "../../api/api";
+import { candidateAPI } from "../../api/api";
 
 const statusClassMap = {
   NEW_CANDIDATE: "bg-emerald-100 text-emerald-800",
@@ -177,14 +177,6 @@ const CandidateDetailsPage = () => {
     }
   };
 
-  const handleViewApplicationResume = async (applicationId) => {
-    try {
-      const url = await applicationAPI.viewResume(applicationId);
-      window.open(url, "_blank");
-    } catch (err) {
-      alert(err.message || "Failed to open resume");
-    }
-  };
 
   const renderHeader = () => (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
@@ -331,16 +323,13 @@ const CandidateDetailsPage = () => {
                 <Th>Status</Th>
                 <Th>Assigned By</Th>
                 <Th>Applied On</Th>
-                <Th>Resume</Th>
+                <Th>Status History</Th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
               {filteredApplications.map((application) => (
                 <React.Fragment key={application.id}>
-                  <tr 
-                    className="hover:bg-gray-50 cursor-pointer"
-                    onClick={() => setExpandedApplicationId(expandedApplicationId === application.id ? null : application.id)}
-                  >
+                  <tr className="hover:bg-gray-50">
                     <Td>
                       <button
                         onClick={(e) => {
@@ -375,19 +364,16 @@ const CandidateDetailsPage = () => {
                     </Td>
                     <Td>{application.appliedAt ? formatDate(application.appliedAt) : "N/A"}</Td>
                     <Td>
-                      {application.resumeAvailable ? (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleViewApplicationResume(application.id);
-                          }}
-                          className="text-blue-600 hover:text-blue-700 text-sm font-medium"
-                        >
-                          View
-                        </button>
-                      ) : (
-                        <span className="text-xs text-gray-500">Not Uploaded</span>
-                      )}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setExpandedApplicationId(expandedApplicationId === application.id ? null : application.id);
+                        }}
+                        className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center gap-1"
+                      >
+                        <i className={`fas fa-${expandedApplicationId === application.id ? 'chevron-up' : 'chevron-down'} text-xs`}></i>
+                        {expandedApplicationId === application.id ? 'Hide' : 'View'} History
+                      </button>
                     </Td>
                   </tr>
                   {expandedApplicationId === application.id && (

@@ -1,8 +1,8 @@
 // api/candidate.js
 // Use the same BASE_URL as api.js - update this to match your backend URL
 // const BASE_URL = "https://atsapi.primesourcellp.com";
-// const BASE_URL = "http://localhost:8080";
-const BASE_URL = "https://braeden-nonobligatory-groundedly.ngrok-free.dev";
+const BASE_URL = "http://localhost:8080";
+// const BASE_URL = "https://braeden-nonobligatory-groundedly.ngrok-free.dev";
 
 // Helper function to get auth headers
 const getAuthHeaders = () => {

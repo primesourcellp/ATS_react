@@ -8,6 +8,7 @@ import EditJobModal from './EditJobModal';
 import JobDetailsModal from './JobDetailsModal';
 import JobsTable from './JobsTable';
 import JobForm from './jobForm';
+import DeleteConfirmationModal from '../client/DeleteConfirmationModal';
 
 const JobManagement = () => {
   const [jobs, setJobs] = useState([]);
@@ -18,6 +19,8 @@ const JobManagement = () => {
   const [showJobDetails, setShowJobDetails] = useState(false);
   const [showCandidateList, setShowCandidateList] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [jobToDelete, setJobToDelete] = useState(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [toasts, setToasts] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [idSearchTerm, setIdSearchTerm] = useState('');
@@ -177,17 +180,26 @@ const JobManagement = () => {
     setShowEditModal(true);
   };
 
-  const handleDeleteJob = async (jobId) => {
-    if (!window.confirm("Are you sure you want to delete this job?")) return;
+  const handleDeleteJob = (jobId) => {
+    setJobToDelete(jobId);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDeleteJob = async () => {
+    if (!jobToDelete) return;
 
     try {
-      const response = await jobAPI.delete(jobId);
+      const response = await jobAPI.delete(jobToDelete);
 
       if (response.success) {
         showToast("Success", "Job deleted successfully!", "success");
+        setShowDeleteModal(false);
+        setJobToDelete(null);
         loadJobs();
       } else {
         showToast("Warning", response.message || "Job cannot be deleted", "warning");
+        setShowDeleteModal(false);
+        setJobToDelete(null);
       }
     } catch (error) {
       console.error("Error deleting job:", error);
@@ -201,6 +213,8 @@ const JobManagement = () => {
           "error"
         );
       }
+      setShowDeleteModal(false);
+      setJobToDelete(null);
     }
   };
 
@@ -608,6 +622,19 @@ const JobManagement = () => {
               showToast('Success', 'Job updated successfully');
             }}
             showToast={showToast}
+          />
+        )}
+
+        {/* Delete Confirmation Modal */}
+        {showDeleteModal && (
+          <DeleteConfirmationModal
+            title="Delete Job"
+            message="Are you sure you want to delete this job? This action cannot be undone."
+            onConfirm={confirmDeleteJob}
+            onClose={() => {
+              setShowDeleteModal(false);
+              setJobToDelete(null);
+            }}
           />
         )}
 

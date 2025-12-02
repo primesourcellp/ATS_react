@@ -3,6 +3,7 @@ import Navbar from '../../layout/navbar';
 import Toast from '../toast/Toast';
 import InterviewsTable from './InterviewsTable';
 import InterviewModal from './InterviewModal';
+import DeleteConfirmationModal from '../client/DeleteConfirmationModal';
 import { interviewAPI } from '../../api/api';
 
 const InterviewManagement = () => {
@@ -10,6 +11,8 @@ const InterviewManagement = () => {
   const [filteredInterviews, setFilteredInterviews] = useState([]);
   const [selectedInterview, setSelectedInterview] = useState(null);
   const [showInterviewModal, setShowInterviewModal] = useState(false);
+  const [interviewToDelete, setInterviewToDelete] = useState(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [toasts, setToasts] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [idSearchTerm, setIdSearchTerm] = useState('');
@@ -134,14 +137,23 @@ const InterviewManagement = () => {
     setShowInterviewModal(true);
   };
 
-  const handleDeleteInterview = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this interview?')) return;
+  const handleDeleteInterview = (id) => {
+    setInterviewToDelete(id);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDeleteInterview = async () => {
+    if (!interviewToDelete) return;
     try {
-      await interviewAPI.delete(id);
+      await interviewAPI.delete(interviewToDelete);
       showToast('Success', 'Interview deleted successfully', 'success');
+      setShowDeleteModal(false);
+      setInterviewToDelete(null);
       loadInterviews();
     } catch (error) {
       showToast('Error', error.message || 'Failed to delete interview', 'error');
+      setShowDeleteModal(false);
+      setInterviewToDelete(null);
     }
   };
 
@@ -308,6 +320,19 @@ const InterviewManagement = () => {
               setSelectedInterview(null);
             }}
             showToast={showToast}
+          />
+        )}
+
+        {/* Delete Confirmation Modal */}
+        {showDeleteModal && (
+          <DeleteConfirmationModal
+            title="Delete Interview"
+            message="Are you sure you want to delete this interview? This action cannot be undone."
+            onConfirm={confirmDeleteInterview}
+            onClose={() => {
+              setShowDeleteModal(false);
+              setInterviewToDelete(null);
+            }}
           />
         )}
 

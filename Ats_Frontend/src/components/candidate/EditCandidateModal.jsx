@@ -295,7 +295,7 @@ const EditCandidateModal = ({ candidate, onClose, onCandidateUpdated, showToast 
               className="w-full p-2 border border-gray-300 rounded-lg"
             />
             <p className="text-sm text-gray-500 mt-1">
-              {candidate.hasResume
+              {(candidate.hasResume || candidate.resumePath)
                 ? "A resume is already uploaded. Select a new file to replace it."
                 : "No resume uploaded yet."}
             </p>

@@ -6,6 +6,7 @@ import Toast from '../toast/Toast';
 import ApplicationModal from './ApplicationModal';
 import ApplicationsTable from './ApplicationsTable';
 import InterviewModal from './InterviewModal';
+import DeleteConfirmationModal from '../client/DeleteConfirmationModal';
 
 const applicationStatusOptions = [
   { value: 'NEW_CANDIDATE', label: 'New Candidate' },
@@ -48,6 +49,8 @@ const ApplicationTracker = () => {
   const [loading, setLoading] = useState(true);
   const [showApplicationModal, setShowApplicationModal] = useState(false);
   const [showInterviewModal, setShowInterviewModal] = useState(false);
+  const [applicationToDelete, setApplicationToDelete] = useState(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedApplication, setSelectedApplication] = useState(null);
   const [toasts, setToasts] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -269,11 +272,18 @@ const ApplicationTracker = () => {
 
   const handleNewApplication = () => { setSelectedApplication(null); setShowApplicationModal(true); };
   const handleEditApplication = (app) => { setSelectedApplication(app); setShowApplicationModal(true); };
-  const handleDeleteApplication = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this application?')) return;
+  const handleDeleteApplication = (id) => {
+    setApplicationToDelete(id);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDeleteApplication = async () => {
+    if (!applicationToDelete) return;
     try {
-      await applicationAPI.delete(id);
+      await applicationAPI.delete(applicationToDelete);
       showToast('Success', 'Application deleted successfully', 'success');
+      setShowDeleteModal(false);
+      setApplicationToDelete(null);
       loadApplications();
     } catch (error) {
       // Show specific error message for applications with interviews
@@ -282,6 +292,8 @@ const ApplicationTracker = () => {
       } else {
         showToast('Error', error.message || 'Failed to delete application', 'error');
       }
+      setShowDeleteModal(false);
+      setApplicationToDelete(null);
     }
   };
   const handleScheduleInterview = (app) => { setSelectedApplication(app); setShowInterviewModal(true); };
@@ -673,7 +685,7 @@ const ApplicationTracker = () => {
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
               </svg>
-              New Application
+              New Pipeline
             </button>
           </div>
         </div>
@@ -755,6 +767,19 @@ const ApplicationTracker = () => {
             application={selectedApplication}
             onSubmit={handleScheduleInterviewSubmit}
             onClose={() => setShowInterviewModal(false)}
+          />
+        )}
+
+        {/* Delete Confirmation Modal */}
+        {showDeleteModal && (
+          <DeleteConfirmationModal
+            title="Delete Application"
+            message="Are you sure you want to delete this application? This action cannot be undone."
+            onConfirm={confirmDeleteApplication}
+            onClose={() => {
+              setShowDeleteModal(false);
+              setApplicationToDelete(null);
+            }}
           />
         )}
 

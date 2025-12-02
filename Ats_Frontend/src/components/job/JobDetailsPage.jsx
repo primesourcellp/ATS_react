@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Navbar from "../../layout/navbar";
-import { jobAPI, applicationAPI } from "../../api/api";
+import { jobAPI, applicationAPI, candidateAPI } from "../../api/api";
 
 const statusClassMap = {
   NEW_CANDIDATE: "bg-emerald-100 text-emerald-800",
@@ -186,6 +186,57 @@ const JobDetailsPage = () => {
     }
   };
 
+  // Check if any application has a resume available
+  const hasAnyResume = useMemo(() => {
+    if (!job?.applications || job.applications.length === 0) return false;
+    
+    return job.applications.some((application) => {
+      // Check if application has its own resume
+      if (application.resumeAvailable || application.applicationResumePath) {
+        return true;
+      }
+      // Check if candidate has a resume
+      if (application.candidate?.resumePath || application.candidate?.resumeUrl) {
+        return true;
+      }
+      return false;
+    });
+  }, [job?.applications]);
+
+  // Get the first available resume URL
+  const handleViewFirstResume = async () => {
+    if (!job?.applications || job.applications.length === 0) {
+      alert("No applications found");
+      return;
+    }
+
+    // Find the first application with a resume
+    for (const application of job.applications) {
+      try {
+        // Try application resume first (if available)
+        if (application.resumeAvailable || application.applicationResumePath) {
+          const url = await applicationAPI.viewResume(application.id);
+          window.open(url, "_blank");
+          return;
+        }
+        // Try candidate resume if application resume not available
+        else if (application.candidate?.id) {
+          const candidateId = application.candidate.id;
+          const url = await candidateAPI.viewResume(candidateId);
+          window.open(url, "_blank");
+          return;
+        }
+      } catch (err) {
+        // Continue to next application if this one fails
+        console.error(`Failed to view resume for application ${application.id}:`, err);
+        continue;
+      }
+    }
+    
+    // If we get here, no resume was found
+    alert("No resume found for any application");
+  };
+
   const handleViewCandidate = (candidateId) => {
     if (candidateId) {
       navigate(`/candidates/${candidateId}`);
@@ -256,6 +307,16 @@ const JobDetailsPage = () => {
         </div>
 
         <div className="flex flex-wrap gap-3">
+          {hasAnyResume && (
+            <button
+              onClick={handleViewFirstResume}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+              title="View first available resume from applications"
+            >
+              <i className="fas fa-file-pdf"></i>
+              View Resume
+            </button>
+          )}
           <button
             onClick={() => handleUpdateStatus("ACTIVE")}
             disabled={updatingStatus || job?.status === "ACTIVE"}

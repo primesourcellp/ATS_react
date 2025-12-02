@@ -4,6 +4,7 @@ import Navbar from "../../layout/navbar";
 import { applicationAPI, candidateAPI, interviewAPI, jobAPI } from "../../api/api";
 import InterviewModal from "./InterviewModal";
 import ApplicationModal from "./ApplicationModal";
+import DeleteConfirmationModal from "../client/DeleteConfirmationModal";
 
 const statusClassMap = {
   NEW_CANDIDATE: "bg-emerald-100 text-emerald-800",
@@ -105,6 +106,7 @@ const ApplicationDetailsPage = () => {
   const [showInterviewModal, setShowInterviewModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [candidates, setCandidates] = useState([]);
   const [jobs, setJobs] = useState([]);
 
@@ -257,19 +259,22 @@ const ApplicationDetailsPage = () => {
     }
   };
 
-  const handleDeleteApplication = async () => {
-    if (!window.confirm("Are you sure you want to delete this application? This action cannot be undone.")) {
-      return;
-    }
+  const handleDeleteApplication = () => {
+    setShowDeleteModal(true);
+  };
+
+  const confirmDeleteApplication = async () => {
+    if (!application?.id) return;
 
     try {
       setDeleting(true);
       await applicationAPI.delete(application.id);
-      alert("Application deleted successfully");
+      setShowDeleteModal(false);
       navigate("/applications");
     } catch (err) {
       alert(err.message || "Failed to delete application");
       console.error("Error deleting application:", err);
+      setShowDeleteModal(false);
     } finally {
       setDeleting(false);
     }
@@ -277,25 +282,25 @@ const ApplicationDetailsPage = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="flex min-h-screen bg-gray-50 mt-16">
         <Navbar />
-        <div className="container mx-auto px-4 py-8">
+        <main className="flex-1 p-6">
           <div className="flex items-center justify-center h-64">
             <div className="text-center">
               <i className="fas fa-spinner fa-spin text-4xl text-blue-600 mb-4"></i>
               <p className="text-gray-600">Loading application details...</p>
             </div>
           </div>
-        </div>
+        </main>
       </div>
     );
   }
 
   if (error || !application) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="flex min-h-screen bg-gray-50 mt-16">
         <Navbar />
-        <div className="container mx-auto px-4 py-8">
+        <main className="flex-1 p-6">
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
             <div className="text-center">
               <i className="fas fa-exclamation-circle text-4xl text-red-500 mb-4"></i>
@@ -309,7 +314,7 @@ const ApplicationDetailsPage = () => {
               </button>
             </div>
           </div>
-        </div>
+        </main>
       </div>
     );
   }
@@ -323,20 +328,27 @@ const ApplicationDetailsPage = () => {
     : [];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-gray-50 mt-16">
       <Navbar />
-      <div className="container mx-auto px-4 py-8">
-        {/* Back Button */}
-        <button
-          onClick={handleBack}
-          className="mb-6 flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
-        >
-          <i className="fas fa-arrow-left"></i>
-          <span>Back to Applications</span>
-        </button>
+      <main className="flex-1 p-6 space-y-6">
+        {/* Header Bar */}
+        <div className="flex items-center justify-between">
+          <button
+            onClick={handleBack}
+            className="inline-flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+          >
+            <i className="fas fa-arrow-left text-gray-400"></i>
+            Back to Applications
+          </button>
+          {application?.id && (
+            <span className="text-xs font-medium text-gray-500">
+              Application ID: <span className="text-gray-700">{application.id}</span>
+            </span>
+          )}
+        </div>
 
         {/* Header Section */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-start justify-between mb-4">
             <div>
               <h1 className="text-2xl font-bold text-gray-900 mb-2">
@@ -529,7 +541,7 @@ const ApplicationDetailsPage = () => {
         </div>
 
         {/* Candidate Information */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Candidate Information</h2>
           {application.candidate ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -606,7 +618,7 @@ const ApplicationDetailsPage = () => {
         </div>
 
         {/* Job Information */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Job Information</h2>
           {application.job ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -646,7 +658,7 @@ const ApplicationDetailsPage = () => {
         </div>
 
         {/* Application Details */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Application Details</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <InfoItem label="Application ID" value={application.id} />
@@ -670,7 +682,7 @@ const ApplicationDetailsPage = () => {
 
         {/* Interview Details */}
         {application.interviews && application.interviews.length > 0 && (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Interview Details</h2>
             <div className="space-y-4">
               {application.interviews.map((interview) => (
@@ -748,7 +760,7 @@ const ApplicationDetailsPage = () => {
             </div>
           )}
         </div>
-      </div>
+      </main>
 
       {/* Modals */}
       {showInterviewModal && application && (
@@ -772,6 +784,18 @@ const ApplicationDetailsPage = () => {
             } else {
               alert(message);
             }
+          }}
+        />
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <DeleteConfirmationModal
+          title="Delete Application"
+          message="Are you sure you want to delete this application? This action cannot be undone."
+          onConfirm={confirmDeleteApplication}
+          onClose={() => {
+            setShowDeleteModal(false);
           }}
         />
       )}

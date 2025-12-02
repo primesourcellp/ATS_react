@@ -177,6 +177,7 @@ public class SecurityConfig {
                 // Authenticated users
                 .requestMatchers("/api/applications/**").authenticated()
                 .requestMatchers("/api/notifications/**").authenticated()
+                .requestMatchers("/api/chatbot/**").authenticated()
                 .requestMatchers("/jobs/**").authenticated()
 
                 .anyRequest().authenticated()

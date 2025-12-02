@@ -154,25 +154,25 @@ const InterviewDetailsPage = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="flex min-h-screen bg-gray-50 mt-16">
         <Navbar />
-        <div className="container mx-auto px-4 py-8">
+        <main className="flex-1 p-6">
           <div className="flex items-center justify-center h-64">
             <div className="text-center">
               <i className="fas fa-spinner fa-spin text-4xl text-blue-600 mb-4"></i>
               <p className="text-gray-600">Loading interview details...</p>
             </div>
           </div>
-        </div>
+        </main>
       </div>
     );
   }
 
   if (error || !interview) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="flex min-h-screen bg-gray-50 mt-16">
         <Navbar />
-        <div className="container mx-auto px-4 py-8">
+        <main className="flex-1 p-6">
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
             <div className="text-center">
               <i className="fas fa-exclamation-circle text-4xl text-red-500 mb-4"></i>
@@ -186,7 +186,7 @@ const InterviewDetailsPage = () => {
               </button>
             </div>
           </div>
-        </div>
+        </main>
       </div>
     );
   }
@@ -195,20 +195,27 @@ const InterviewDetailsPage = () => {
   const applicationStatus = interview.applicationStatus || "";
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-gray-50 mt-16">
       <Navbar />
-      <div className="container mx-auto px-4 py-8">
+      <main className="flex-1 p-6 space-y-6">
         {/* Back Button */}
-        <button
-          onClick={handleBack}
-          className="mb-6 flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
-        >
-          <i className="fas fa-arrow-left"></i>
-          <span>Back to Interviews</span>
-        </button>
+        <div className="flex items-center justify-between">
+          <button
+            onClick={handleBack}
+            className="inline-flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+          >
+            <i className="fas fa-arrow-left text-gray-400"></i>
+            Back to Interviews
+          </button>
+          {interview?.id && (
+            <span className="text-xs font-medium text-gray-500">
+              Interview ID: <span className="text-gray-700">{interview.id}</span>
+            </span>
+          )}
+        </div>
 
         {/* Header Section */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-start justify-between">
             <div>
               <h1 className="text-2xl font-bold text-gray-900 mb-2">
@@ -383,7 +390,7 @@ const InterviewDetailsPage = () => {
             </div>
           </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 };

@@ -5,6 +5,7 @@ import Toast from '../toast/Toast';
 import CandidateTable from './CandidateTable';
 import CreateCandidateModal from './CreateCandidateModal';
 import EditCandidateModal from './EditCandidateModal';
+import DeleteConfirmationModal from '../client/DeleteConfirmationModal';
 import { candidateAPI } from '../../api/api';
 
 const candidateStatusOptions = [
@@ -46,6 +47,8 @@ const CandidateManagement = () => {
   const [selectedCandidate, setSelectedCandidate] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [candidateToDelete, setCandidateToDelete] = useState(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [toasts, setToasts] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [candidateIdSearch, setCandidateIdSearch] = useState('');
@@ -104,11 +107,23 @@ const CandidateManagement = () => {
       setLoading(true);
       const candidatesData = await candidateAPI.getAll();
       
-      // Ensure applications array exists
-      setCandidates(candidatesData.map(c => ({ 
+      // Ensure applications array exists and hasResume is properly set
+      const updatedCandidates = candidatesData.map(c => ({ 
         ...c, 
-        applications: Array.isArray(c.applications) ? c.applications : [] 
-      })));
+        applications: Array.isArray(c.applications) ? c.applications : [],
+        // Ensure hasResume is set correctly based on resumePath
+        hasResume: c.hasResume !== undefined ? c.hasResume : (c.resumePath != null && c.resumePath !== '')
+      }));
+      
+      setCandidates(updatedCandidates);
+      
+      // Update selectedCandidate if it exists to reflect the latest data
+      if (selectedCandidate) {
+        const updatedSelected = updatedCandidates.find(c => c.id === selectedCandidate.id);
+        if (updatedSelected) {
+          setSelectedCandidate(updatedSelected);
+        }
+      }
     } catch (error) {
       showToast('Error', error.message || 'Failed to load candidates', 'error');
     } finally {
@@ -132,15 +147,23 @@ const CandidateManagement = () => {
       );
     }
     
-    // Filter by candidate ID (dedicated search - exact match)
+    // Filter by candidate ID (dedicated search - exact match only)
     if (candidateIdSearch) {
       const idToSearch = candidateIdSearch.trim();
-      result = result.filter(c => {
-        if (c.id) {
-          return c.id.toString() === idToSearch;
-        }
-        return false;
-      });
+      // Only filter if the search term is numeric and matches exactly
+      if (idToSearch && /^\d+$/.test(idToSearch)) {
+        const searchId = parseInt(idToSearch, 10);
+        result = result.filter(c => {
+          if (c.id) {
+            // Exact numeric match only
+            return c.id === searchId;
+          }
+          return false;
+        });
+      } else {
+        // If non-numeric input, show no results
+        result = [];
+      }
     }
     
     // Filter by status
@@ -268,13 +291,20 @@ const CandidateManagement = () => {
     setShowEditModal(true);
   };
 
-  const handleDeleteCandidate = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this candidate?")) return;
+  const handleDeleteCandidate = (id) => {
+    setCandidateToDelete(id);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDeleteCandidate = async () => {
+    if (!candidateToDelete) return;
     try {
-      await candidateAPI.delete(id);
+      await candidateAPI.delete(candidateToDelete);
       showToast('Success', 'Candidate deleted successfully');
+      setShowDeleteModal(false);
+      setCandidateToDelete(null);
       loadCandidates();
-      if (selectedCandidate?.id === id) setShowCandidateDetails(false);
+      if (selectedCandidate?.id === candidateToDelete) setShowCandidateDetails(false);
     } catch (error) {
       // Show specific error message for candidates with applications
       if (error.message && error.message.includes('applications')) {
@@ -282,6 +312,8 @@ const CandidateManagement = () => {
       } else {
         showToast('Error', error.message || 'Failed to delete candidate', 'error');
       }
+      setShowDeleteModal(false);
+      setCandidateToDelete(null);
     }
   };
 
@@ -374,11 +406,21 @@ const CandidateManagement = () => {
                 </div>
                 <input
                   type="text"
-                  placeholder="Candidate ID..."
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  placeholder="Candidate ID (exact match)..."
                   className="w-full pl-10 pr-10 py-3.5 text-base border-2 border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm transition-all duration-200"
                   value={candidateIdSearch}
-                  onChange={(e) => setCandidateIdSearch(e.target.value)}
+                  onChange={(e) => {
+                    // Only allow numeric input
+                    const value = e.target.value.replace(/[^0-9]/g, '');
+                    setCandidateIdSearch(value);
+                  }}
                   onKeyPress={(e) => {
+                    // Only allow numeric keys
+                    if (!/[0-9]/.test(e.key) && e.key !== 'Enter' && e.key !== 'Backspace' && e.key !== 'Delete') {
+                      e.preventDefault();
+                    }
                     if (e.key === 'Enter') {
                       e.preventDefault();
                       filterCandidates();
@@ -676,6 +718,19 @@ const CandidateManagement = () => {
               showToast('Success', 'Candidate updated successfully'); 
             }}
             showToast={showToast}
+          />
+        )}
+
+        {/* Delete Confirmation Modal */}
+        {showDeleteModal && (
+          <DeleteConfirmationModal
+            title="Delete Candidate"
+            message="Are you sure you want to delete this candidate? This action cannot be undone."
+            onConfirm={confirmDeleteCandidate}
+            onClose={() => {
+              setShowDeleteModal(false);
+              setCandidateToDelete(null);
+            }}
           />
         )}
 

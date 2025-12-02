@@ -116,25 +116,25 @@ const ClientDetailsPage = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="flex min-h-screen bg-gray-50 mt-16">
         <Navbar />
-        <div className="container mx-auto px-4 py-8">
+        <main className="flex-1 p-6">
           <div className="flex items-center justify-center h-64">
             <div className="text-center">
               <i className="fas fa-spinner fa-spin text-4xl text-blue-600 mb-4"></i>
               <p className="text-gray-600">Loading client details...</p>
             </div>
           </div>
-        </div>
+        </main>
       </div>
     );
   }
 
   if (error || !client) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="flex min-h-screen bg-gray-50 mt-16">
         <Navbar />
-        <div className="container mx-auto px-4 py-8">
+        <main className="flex-1 p-6">
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
             <div className="text-center">
               <i className="fas fa-exclamation-circle text-4xl text-red-500 mb-4"></i>
@@ -148,7 +148,7 @@ const ClientDetailsPage = () => {
               </button>
             </div>
           </div>
-        </div>
+        </main>
       </div>
     );
   }
@@ -158,20 +158,27 @@ const ClientDetailsPage = () => {
   const address = client.address || "Not specified";
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-gray-50 mt-16">
       <Navbar />
-      <div className="container mx-auto px-4 py-8">
+      <main className="flex-1 p-6 space-y-6">
         {/* Back Button */}
-        <button
-          onClick={handleBack}
-          className="mb-6 flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
-        >
-          <i className="fas fa-arrow-left"></i>
-          <span>Back to Clients</span>
-        </button>
+        <div className="flex items-center justify-between">
+          <button
+            onClick={handleBack}
+            className="inline-flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+          >
+            <i className="fas fa-arrow-left text-gray-400"></i>
+            Back to Clients
+          </button>
+          {client?.id && (
+            <span className="text-xs font-medium text-gray-500">
+              Client ID: <span className="text-gray-700">{client.id}</span>
+            </span>
+          )}
+        </div>
 
         {/* Header Section */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-4">
               <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center">
@@ -188,7 +195,7 @@ const ClientDetailsPage = () => {
         </div>
 
         {/* Client Information */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Client Information</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">
@@ -364,7 +371,7 @@ const ClientDetailsPage = () => {
             </div>
           )}
         </div>
-      </div>
+      </main>
     </div>
   );
 };

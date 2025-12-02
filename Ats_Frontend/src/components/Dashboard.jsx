@@ -17,6 +17,7 @@ import {
   FaBell,
   FaArrowUp,
   FaArrowDown,
+  FaArrowRight,
   FaGlobe,
   FaChartBar,
   FaEnvelope
@@ -573,6 +574,8 @@ const Dashboard = () => {
   const [currentPath, setCurrentPath] = useState(window.location.pathname);
   const [currentDate, setCurrentDate] = useState("");
   const [loading, setLoading] = useState(true);
+  const [todayInterviews, setTodayInterviews] = useState([]);
+  const [loadingInterviews, setLoadingInterviews] = useState(true);
 
   // Function to calculate percentage change
   const calculatePercentageChange = (current, previous) => {
@@ -655,6 +658,45 @@ const Dashboard = () => {
     return () => clearInterval(intervalId);
   }, []);
 
+  // Fetch today's interviews
+  useEffect(() => {
+    const fetchTodayInterviews = async () => {
+      try {
+        setLoadingInterviews(true);
+        const allInterviews = await interviewAPI.getAll();
+        
+        // Get today's date in YYYY-MM-DD format
+        const todayDate = new Date().toISOString().split('T')[0];
+        
+        // Filter interviews for today
+        const today = allInterviews.filter(interview => {
+          return interview.interviewDate === todayDate;
+        });
+        
+        // Sort by interview time (earliest first)
+        today.sort((a, b) => {
+          if (a.interviewTime && b.interviewTime) {
+            return a.interviewTime.localeCompare(b.interviewTime);
+          }
+          return 0;
+        });
+        
+        setTodayInterviews(today);
+        setLoadingInterviews(false);
+      } catch (err) {
+        console.error("Error fetching today's interviews:", err);
+        setTodayInterviews([]);
+        setLoadingInterviews(false);
+      }
+    };
+
+    fetchTodayInterviews();
+    
+    // Refresh every 5 minutes
+    const intervalId = setInterval(fetchTodayInterviews, 300000);
+    return () => clearInterval(intervalId);
+  }, []);
+
   const handleLogout = async () => {
     const token = localStorage.getItem("jwtToken");
     localStorage.clear();
@@ -707,49 +749,88 @@ const Dashboard = () => {
 
             {/* Quick Stats */}
             <div className="mb-8">
-              <h2 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                <FaChartLine className="text-indigo-500" /> Key Metrics
-                <span className="text-xs text-indigo-500 bg-indigo-100 px-2 py-1 rounded-full">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-base font-semibold text-gray-800 flex items-center gap-2">
+                  <FaChartLine className="text-indigo-500 text-sm" /> Key Metrics
+                </h2>
+                <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full font-medium flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
                   Live Updates
                 </span>
-              </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-                <StatCard 
-                  icon={<FaBriefcase />} 
-                  value={stats.jobs} 
-                  label="Active Jobs" 
-                  change={trends.jobs}
-                  color="blue" 
-                  loading={loading}
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div 
                   onClick={() => navigate('/jobs')}
-                />
-                <StatCard 
-                  icon={<FaUsers />} 
-                  value={stats.candidates} 
-                  label="Total Candidates" 
-                  change={trends.candidates}
-                  color="green" 
-                  loading={loading}
+                  className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md hover:border-indigo-300 transition-all cursor-pointer group"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center group-hover:bg-blue-200 transition-colors">
+                      <FaBriefcase className="text-blue-600 text-sm" />
+                    </div>
+                    {trends.jobs !== undefined && (
+                      <div className={`flex items-center text-xs font-medium ${trends.jobs >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                        {trends.jobs >= 0 ? <FaArrowUp className="text-xs mr-0.5" /> : <FaArrowDown className="text-xs mr-0.5" />}
+                        {Math.abs(trends.jobs).toFixed(0)}%
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-xl font-bold text-gray-900 mb-0.5">{loading ? "--" : stats.jobs}</div>
+                  <div className="text-xs text-gray-500 font-medium">Active Jobs</div>
+                </div>
+                <div 
                   onClick={() => navigate('/candidates')}
-                />
-                <StatCard 
-                  icon={<FaFileAlt />} 
-                  value={stats.applications} 
-                  label="Applications" 
-                  change={trends.applications}
-                  color="yellow" 
-                  loading={loading}
+                  className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md hover:border-green-300 transition-all cursor-pointer group"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center group-hover:bg-green-200 transition-colors">
+                      <FaUsers className="text-green-600 text-sm" />
+                    </div>
+                    {trends.candidates !== undefined && (
+                      <div className={`flex items-center text-xs font-medium ${trends.candidates >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                        {trends.candidates >= 0 ? <FaArrowUp className="text-xs mr-0.5" /> : <FaArrowDown className="text-xs mr-0.5" />}
+                        {Math.abs(trends.candidates).toFixed(0)}%
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-xl font-bold text-gray-900 mb-0.5">{loading ? "--" : stats.candidates}</div>
+                  <div className="text-xs text-gray-500 font-medium">Total Candidates</div>
+                </div>
+                <div 
                   onClick={() => navigate('/applications')}
-                />
-                <StatCard 
-                  icon={<FaCalendarCheck />} 
-                  value={stats.interviews} 
-                  label="Interviews Today" 
-                  change={trends.interviews}
-                  color="indigo" 
-                  loading={loading}
+                  className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md hover:border-yellow-300 transition-all cursor-pointer group"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="w-10 h-10 rounded-lg bg-yellow-100 flex items-center justify-center group-hover:bg-yellow-200 transition-colors">
+                      <FaFileAlt className="text-yellow-600 text-sm" />
+                    </div>
+                    {trends.applications !== undefined && (
+                      <div className={`flex items-center text-xs font-medium ${trends.applications >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                        {trends.applications >= 0 ? <FaArrowUp className="text-xs mr-0.5" /> : <FaArrowDown className="text-xs mr-0.5" />}
+                        {Math.abs(trends.applications).toFixed(0)}%
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-xl font-bold text-gray-900 mb-0.5">{loading ? "--" : stats.applications}</div>
+                  <div className="text-xs text-gray-500 font-medium">Applications</div>
+                </div>
+                <div 
                   onClick={() => navigate('/Interviews')}
-                />
+                  className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md hover:border-indigo-300 transition-all cursor-pointer group"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center group-hover:bg-indigo-200 transition-colors">
+                      <FaCalendarCheck className="text-indigo-600 text-sm" />
+                    </div>
+                    {trends.interviews !== undefined && (
+                      <div className={`flex items-center text-xs font-medium ${trends.interviews >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                        {trends.interviews >= 0 ? <FaArrowUp className="text-xs mr-0.5" /> : <FaArrowDown className="text-xs mr-0.5" />}
+                        {Math.abs(trends.interviews).toFixed(0)}%
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-xl font-bold text-gray-900 mb-0.5">{loading ? "--" : stats.interviews}</div>
+                  <div className="text-xs text-gray-500 font-medium">Interviews Today</div>
+                </div>
               </div>
             </div>
 
@@ -758,75 +839,147 @@ const Dashboard = () => {
               <h2 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
                 <FaCubes className="text-indigo-500" /> Quick Actions
               </h2>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                <QuickActionButton
-                  icon={<FaBriefcase />}
-                  label="Jobs"
-                  path="/jobs"
-                  color="blue"
-                />
-                <QuickActionButton
-                  icon={<FaUsers />}
-                  label="Candidates"
-                  path="/Candidates"
-                  color="green"
-                />
-                <QuickActionButton
-                  icon={<FaFileAlt />}
-                  label="Applications"
-                  path="/applications"
-                  color="yellow"
-                />
-                <QuickActionButton
-                  icon={<FaCalendarCheck />}
-                  label="Interviews"
-                  path="/Interviews"
-                  color="indigo"
-                />
-                <QuickActionButton
-                  icon={<FaUser />}
-                  label="Clients"
-                  path="/clients"
-                  color="teal"
-                />
-                <QuickActionButton
-                  icon={<FaGlobe />}
-                  label="Website Apps"
-                  path="/wesiteapplication"
-                  color="purple"
-                />
-                {role && ["ADMIN", "SECONDARY_ADMIN", "RECRUITER"].includes(role.toUpperCase()) && (
-                  <QuickActionButton
-                    icon={<FaChartBar />}
-                    label="Reports"
-                    path="/reports"
-                    color="indigo"
-                  />
-                )}
-                {role && role.toUpperCase().includes("ADMIN") && (
-                  <>
+              <div className={`grid grid-cols-1 gap-4 ${!loadingInterviews && todayInterviews.length > 0 ? 'lg:grid-cols-3' : ''}`}>
+                {/* Quick Action Buttons */}
+                <div className={!loadingInterviews && todayInterviews.length > 0 ? 'lg:col-span-2' : ''}>
+                  <div className={`grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 ${!loadingInterviews && todayInterviews.length > 0 ? 'lg:grid-cols-3' : 'lg:grid-cols-6'}`}>
                     <QuickActionButton
-                      icon={<FaUserCog />}
-                      label="Users"
-                      path="/Users"
-                      color="purple"
+                      icon={<FaBriefcase />}
+                      label="Jobs"
+                      path="/jobs"
+                      color="blue"
                     />
                     <QuickActionButton
-                      icon={<FaUserCog />}
-                      label="Account Manager"
-                      path="/account-manager"
+                      icon={<FaUsers />}
+                      label="Candidates"
+                      path="/Candidates"
+                      color="green"
+                    />
+                    <QuickActionButton
+                      icon={<FaFileAlt />}
+                      label="Applications"
+                      path="/applications"
+                      color="yellow"
+                    />
+                    <QuickActionButton
+                      icon={<FaCalendarCheck />}
+                      label="Interviews"
+                      path="/Interviews"
+                      color="indigo"
+                    />
+                    <QuickActionButton
+                      icon={<FaUser />}
+                      label="Clients"
+                      path="/clients"
                       color="teal"
                     />
                     <QuickActionButton
-                      icon={<FaEnvelope />}
-                      label="Candidate Emails"
-                      path="/candidate-emails"
-                      color="orange"
+                      icon={<FaGlobe />}
+                      label="Website Apps"
+                      path="/wesiteapplication"
+                      color="purple"
                     />
-                  </>
+                    {role && ["ADMIN", "SECONDARY_ADMIN", "RECRUITER"].includes(role.toUpperCase()) && (
+                      <QuickActionButton
+                        icon={<FaChartBar />}
+                        label="Reports"
+                        path="/reports"
+                        color="indigo"
+                      />
+                    )}
+                    {role && role.toUpperCase().includes("ADMIN") && (
+                      <>
+                        <QuickActionButton
+                          icon={<FaUserCog />}
+                          label="Users"
+                          path="/Users"
+                          color="purple"
+                        />
+                        <QuickActionButton
+                          icon={<FaUserCog />}
+                          label="Account Manager"
+                          path="/account-manager"
+                          color="teal"
+                        />
+                        <QuickActionButton
+                          icon={<FaEnvelope />}
+                          label="Candidate Emails"
+                          path="/candidate-emails"
+                          color="orange"
+                        />
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Today's Interviews */}
+                {!loadingInterviews && todayInterviews.length > 0 && (
+                  <div className="bg-white rounded-lg border border-gray-200 p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
+                        <FaCalendarCheck className="text-indigo-500 text-xs" />
+                        Today's Interviews
+                      </h3>
+                      <span className="text-xs text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full font-medium">
+                        {todayInterviews.length}
+                      </span>
+                    </div>
+                    <div className="space-y-2 max-h-64 overflow-y-auto">
+                      {todayInterviews.slice(0, 5).map((interview) => {
+                        const getJobTitle = (interview) => {
+                          if (interview.jobTitle) return interview.jobTitle;
+                          if (interview.application?.job?.jobTitle) return interview.application.job.jobTitle;
+                          if (interview.job?.jobTitle) return interview.job.jobTitle;
+                          return 'N/A';
+                        };
+                        
+                        const getClientName = (interview) => {
+                          if (interview.clientName) return interview.clientName;
+                          if (interview.application?.job?.client?.clientName) return interview.application.job.client.clientName;
+                          return '';
+                        };
+                        
+                        const formatTime = (time) => {
+                          if (!time) return '';
+                          const [hours, minutes] = time.split(':');
+                          const hour12 = parseInt(hours) % 12 || 12;
+                          const ampm = parseInt(hours) >= 12 ? 'pm' : 'am';
+                          return `${hour12}:${minutes} ${ampm}`;
+                        };
+                        
+                        const jobTitle = getJobTitle(interview);
+                        const clientName = getClientName(interview);
+                        const startTime = formatTime(interview.interviewTime);
+                        const endTime = interview.endTime ? formatTime(interview.endTime) : '';
+                        const jobDisplay = clientName ? `${jobTitle} - ${clientName}` : jobTitle;
+                        const displayText = endTime ? `${startTime} ${jobDisplay} - ${endTime}` : `${startTime} ${jobDisplay}`;
+                        
+                        return (
+                          <div
+                            key={interview.id}
+                            onClick={() => navigate(`/interviews/${interview.id}`)}
+                            className="flex items-center p-2 rounded-md hover:bg-blue-50 cursor-pointer transition-colors group border border-transparent hover:border-indigo-200"
+                          >
+                            <div className="text-xs font-medium text-gray-900 group-hover:text-indigo-600 transition-colors whitespace-nowrap overflow-hidden text-ellipsis">
+                              {displayText}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {todayInterviews.length > 5 && (
+                      <button
+                        onClick={() => navigate('/Interviews')}
+                        className="mt-2 w-full text-xs text-indigo-600 hover:text-indigo-700 font-medium text-center"
+                      >
+                        View all {todayInterviews.length} interviews
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
+
           </div>
         </main>
       </div>
