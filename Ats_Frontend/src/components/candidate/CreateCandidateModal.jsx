@@ -176,7 +176,6 @@ const CreateCandidateModal = ({ onClose, onCandidateCreated, showToast }) => {
   return (
     <div
       className="fixed inset-0 flex items-center justify-center z-50 p-4"
-      onClick={onClose}
     >
       <div
         className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[85vh] overflow-hidden flex flex-col"

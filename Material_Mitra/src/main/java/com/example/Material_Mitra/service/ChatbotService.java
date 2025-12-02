@@ -100,9 +100,20 @@ public class ChatbotService {
             // Check for specific error types in the message
             String errorMessage = e.getMessage() != null ? e.getMessage().toLowerCase() : "";
             
-            if (errorMessage.contains("401") || errorMessage.contains("unauthorized") || errorMessage.contains("authentication")) {
+            // Check for API key errors (401, unauthorized, incorrect key)
+            if (errorMessage.contains("401") || errorMessage.contains("unauthorized") || 
+                errorMessage.contains("authentication") || 
+                errorMessage.contains("incorrect api key") ||
+                errorMessage.contains("incorrect api key provided")) {
                 System.err.println("OpenAI Authentication Error: " + e.getMessage());
-                return "Authentication failed. Please check if your OpenAI API key is valid and active.";
+                return "❌ Invalid OpenAI API Key\n\n" +
+                       "The API key in your application.properties is incorrect or expired.\n\n" +
+                       "To fix this:\n" +
+                       "1. Go to https://platform.openai.com/api-keys\n" +
+                       "2. Sign in to your OpenAI account\n" +
+                       "3. Create a new API key or use an existing valid one\n" +
+                       "4. Update 'openai.api-key' in application.properties\n" +
+                       "5. Restart the Spring Boot application";
             } else if (errorMessage.contains("429") || errorMessage.contains("rate limit")) {
                 System.err.println("OpenAI Rate Limit Error: " + e.getMessage());
                 return "Rate limit exceeded. Please wait a moment and try again.";
