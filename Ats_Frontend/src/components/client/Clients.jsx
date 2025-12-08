@@ -362,6 +362,9 @@ const ClientManagement = () => {
               setSelectedClient(null);
             }}
             onDeleteJob={handleDeleteJob}
+            onJobAssigned={() => {
+              loadClients(); // Reload clients to refresh job list
+            }}
           />
         )}
 

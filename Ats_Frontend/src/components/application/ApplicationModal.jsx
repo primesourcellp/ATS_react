@@ -165,8 +165,27 @@ const ApplicationModal = ({ application, candidates, jobs, onSave, onClose, show
         return;
       }
       
+      // Validate required fields for new applications
+      if (!application) {
+        if (!formData.candidateId || formData.candidateId === '') {
+          showToast("Error", "Please select a candidate", "error");
+          return;
+        }
+        if (!formData.jobId || formData.jobId === '') {
+          showToast("Error", "Please select a job", "error");
+          return;
+        }
+      }
+      
+      // Convert string IDs to numbers if needed
+      const validatedFormData = {
+        ...formData,
+        candidateId: formData.candidateId ? Number(formData.candidateId) : formData.candidateId,
+        jobId: formData.jobId ? Number(formData.jobId) : formData.jobId
+      };
+      
       // Let the parent component handle the API calls
-      onSave(formData);
+      onSave(validatedFormData);
       onClose();
     } catch (error) {
       console.error("Error submitting application:", error);

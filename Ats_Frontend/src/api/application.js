@@ -76,6 +76,14 @@ export const applicationAPI = {
       throw new Error("Form data is required");
     }
     
+    if (!formData.candidateId) {
+      throw new Error("Candidate ID is required");
+    }
+    
+    if (!formData.jobId) {
+      throw new Error("Job ID is required");
+    }
+    
     const token = localStorage.getItem("jwtToken");
     const url = `${BASE_URL}/api/applications/apply/${formData.candidateId}/job/${formData.jobId}`;
 

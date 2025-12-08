@@ -3,6 +3,7 @@
 
 // const BASE_URL = "https://atsapi.primesourcellp.com";
 const BASE_URL = "http://localhost:8080";
+// const BASE_URL = "http://192.168.1.34:8080";
 // const BASE_URL = "https://braeden-nonobligatory-groundedly.ngrok-free.dev";
 // ===================== Helper Functions =====================
 
@@ -897,6 +898,39 @@ export const clientAPI = {
     });
     return handleResponse(response);
   },
+
+  addJobToClient: async (clientId, jobId) => {
+    // First get the job details
+    const jobResponse = await fetch(`${BASE_URL}/jobs/${jobId}`, {
+      method: "GET",
+      headers: getAuthHeaders(),
+    });
+    const jobData = await handleResponse(jobResponse);
+    
+    // Get the client to include in the job object
+    const clientResponse = await fetch(`${BASE_URL}/api/clients/${clientId}`, {
+      method: "GET",
+      headers: getAuthHeaders(),
+    });
+    const client = await handleResponse(clientResponse);
+    
+    // Create job object with client reference for the backend
+    const jobToAssign = {
+      ...jobData,
+      client: {
+        id: client.id,
+        clientName: client.clientName || client.client_name
+      }
+    };
+    
+    // Assign it to the client using the client endpoint
+    const response = await fetch(`${BASE_URL}/api/clients/${clientId}/jobs`, {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify(jobToAssign),
+    });
+    return handleResponse(response);
+  },
 };
 
 // ===================== WEBSITE APPLICATION API =====================
@@ -1073,6 +1107,40 @@ export const candidateEmailAPI = {
       method: "POST",
       headers: getAuthHeaders(),
       body: JSON.stringify({ companyUrl, customMessage }),
+    });
+    return handleResponse(response);
+  },
+};
+
+// Resume Matching API
+export const resumeMatchingAPI = {
+  matchResume: async (resumeFile) => {
+    const formData = new FormData();
+    formData.append("resume", resumeFile);
+
+    const response = await fetch(`${BASE_URL}/api/resume-matching/match`, {
+      method: "POST",
+      headers: {
+        ...getAuthHeaders(null), // Don't set Content-Type for FormData
+        "ngrok-skip-browser-warning": "true",
+      },
+      body: formData,
+    });
+    return handleResponse(response);
+  },
+
+  matchResumeWithJob: async (resumeFile, jobId) => {
+    const formData = new FormData();
+    formData.append("resume", resumeFile);
+    formData.append("jobId", jobId);
+
+    const response = await fetch(`${BASE_URL}/api/resume-matching/match-job`, {
+      method: "POST",
+      headers: {
+        ...getAuthHeaders(null), // Don't set Content-Type for FormData
+        "ngrok-skip-browser-warning": "true",
+      },
+      body: formData,
     });
     return handleResponse(response);
   },

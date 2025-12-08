@@ -695,8 +695,8 @@ const ApplicationsTable = ({
                               <h4 className="text-sm font-medium text-gray-700 mb-3">Interview Details</h4>
                               <div className="space-y-3">
                                 {app.interviews.map((interview) => (
-                                  <div key={interview.id} className="border-l-4 border-blue-500 pl-4 py-2 bg-gray-50 rounded-r">
-                                    <div className="grid grid-cols-2 gap-2 text-sm">
+                                  <div key={interview.id} className="border-l-4 border-blue-500 pl-4 py-3 bg-gray-50 rounded-r">
+                                    <div className="grid grid-cols-2 gap-2 text-sm mb-3">
                                       <div className="text-gray-600">Interview Date:</div>
                                       <div className="text-gray-900 font-medium">
                                         {interview.interviewDate ? new Date(interview.interviewDate).toLocaleDateString() : 'N/A'}
@@ -715,6 +715,20 @@ const ApplicationsTable = ({
                                       <div className="text-gray-600">Client:</div>
                                       <div className="text-gray-900 font-medium">{interview.clientName || 'N/A'}</div>
                                     </div>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        navigate(`/interviews/${interview.id}`);
+                                      }}
+                                      className="flex items-center gap-2 px-3 py-1.5 bg-[#3A9188] text-white rounded-md hover:bg-[#2E7D6E] transition-colors text-xs font-medium"
+                                      title="View Interview Details"
+                                    >
+                                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                      </svg>
+                                      View Interview Details
+                                    </button>
                                   </div>
                                 ))}
                               </div>

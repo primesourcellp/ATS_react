@@ -23,6 +23,8 @@ import NotificationCenter from "./components/notifications/NotificationCenter";
 import Reports from "./components/reports/Reports";
 import CandidateEmailManagement from "./components/admin/CandidateEmailManagement";
 import Chatbot from "./components/chatbot/Chatbot";
+import ResumeJobMatching from "./components/resume/ResumeJobMatching";
+import JobSpecificMatching from "./components/resume/JobSpecificMatching";
 
 const RequireAuth = ({ children }) => {
   const token = localStorage.getItem("jwtToken");
@@ -214,6 +216,22 @@ function App() {
           element={
             <RequireAuth>
               <CandidateEmailManagement />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/resume-matching"
+          element={
+            <RequireAuth>
+              <ResumeJobMatching />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/job-matching"
+          element={
+            <RequireAuth>
+              <JobSpecificMatching />
             </RequireAuth>
           }
         />
