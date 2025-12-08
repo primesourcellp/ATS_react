@@ -3,8 +3,7 @@
 
 // const BASE_URL = "https://atsapi.primesourcellp.com";
 const BASE_URL = "http://localhost:8080";
-// const BASE_URL = "http://192.168.1.34:8080";
-// const BASE_URL = "https://braeden-nonobligatory-groundedly.ngrok-free.dev";
+
 // ===================== Helper Functions =====================
 
 // Helper function to rewrite localhost:8080 URLs to current BASE_URL
