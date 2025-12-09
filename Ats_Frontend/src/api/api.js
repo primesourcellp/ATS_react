@@ -4,10 +4,13 @@
 
 // Using direct IP address until DNS is fixed
 // const BASE_URL = "http://112.133.204.15:9090";
-const BASE_URL = "https://talentprimeapi.primesourcellp.com";
-// const BASE_URL = "http://talentprime.primesourcellp.com:9090";
-
-// const BASE_URL = "https://112.133.204.15:9090";
+// API domain - if using reverse proxy on port 443, remove :9090
+// If backend is directly accessible on port 9090, include it
+const BASE_URL = "https://talentprimeapi.primesourcellp.com:9090";
+// Alternative without port (if behind reverse proxy):
+// const BASE_URL = "https://talentprimeapi.primesourcellp.com";
+// HTTP version:
+// const BASE_URL = "http://talentprimeapi.primesourcellp.com:9090";
 
 
 

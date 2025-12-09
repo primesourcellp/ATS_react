@@ -212,7 +212,11 @@ public class SecurityConfig {
             "https://www.primesourcellp.com",
             "http://talentprime.primesourcellp.com",
             "https://talentprime.primesourcellp.com",
-            "https://talentprimeapi.primesourcellp.com"
+            // API subdomain (with and without port)
+            "http://talentprimeapi.primesourcellp.com",
+            "https://talentprimeapi.primesourcellp.com",
+            "http://talentprimeapi.primesourcellp.com:9090",
+            "https://talentprimeapi.primesourcellp.com:9090"
         ));
         // Allow all headers including ngrok-skip-browser-warning
         config.setAllowedHeaders(List.of("*"));
