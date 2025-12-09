@@ -199,7 +199,7 @@ public class SecurityConfig {
             // Private IP (local network)
             "http://192.168.1.38:9090",
             "https://192.168.1.38:9090",
-            // Public IP (internet access)
+            // Public IP (internet access) - both HTTP and HTTPS
             "http://112.133.204.15:9090",
             "https://112.133.204.15:9090",
             // Production domains
@@ -211,8 +211,12 @@ public class SecurityConfig {
             "http://primesourcellp.com",
             "https://www.primesourcellp.com",
             "http://talentprime.primesourcellp.com",
-            "https://talentprime.primesourcellp.com"
+            "https://talentprime.primesourcellp.com",
+            "https://talentprimeapi.primesourcellp.com"
         ));
+        // Allow all headers including ngrok-skip-browser-warning
+        config.setAllowedHeaders(List.of("*"));
+        config.setExposedHeaders(List.of("*"));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);

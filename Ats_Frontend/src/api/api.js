@@ -1,12 +1,13 @@
-// ===================== UNIFIED API FILE =====================
-// All frontend API calls consolidated into one file
 
 // const BASE_URL = "https://atsapi.primesourcellp.com";
 // const BASE_URL = "http://localhost:8080";
-// Use public IP for internet access
-const BASE_URL = "http://112.133.204.15:9090";
-// Alternative: Use domain (after DNS is configured)
+
+// Using direct IP address until DNS is fixed
+// const BASE_URL = "http://112.133.204.15:9090";
+const BASE_URL = "https://talentprimeapi.primesourcellp.com";
 // const BASE_URL = "http://talentprime.primesourcellp.com:9090";
+
+// const BASE_URL = "https://112.133.204.15:9090";
 
 
 
