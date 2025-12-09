@@ -3,7 +3,10 @@
 
 // const BASE_URL = "https://atsapi.primesourcellp.com";
 // const BASE_URL = "http://localhost:8080";
-const BASE_URL = "http://192.168.1.38:9090";
+// Use public IP for internet access
+const BASE_URL = "http://112.133.204.15:9090";
+// Alternative: Use domain (after DNS is configured)
+// const BASE_URL = "http://talentprime.primesourcellp.com:9090";
 
 
 

@@ -191,24 +191,27 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(List.of(
+            // Local development
             "http://127.0.0.1:5501", 
             "http://localhost:5173", 
             "http://localhost:5174",
             "http://localhost:5175",
+            // Private IP (local network)
+            "http://192.168.1.38:9090",
+            "https://192.168.1.38:9090",
+            // Public IP (internet access)
+            "http://112.133.204.15:9090",
+            "https://112.133.204.15:9090",
+            // Production domains
             "https://ats.primesourcellp.com",
             "http://ats.primesourcellp.com",
             "http://atsapi.primesourcellp.com",
             "https://atsapi.primesourcellp.com",
             "https://primesourcellp.com",
             "http://primesourcellp.com",
-             "https://www.primesourcellp.com",
-           "http://talentprime.primesourcellp.com",
-           "https://talentprime.primesourcellp.com",
-           "http://192.168.1.38:9090",
-           "https://192.168.1.38:9090"
-
-
-
+            "https://www.primesourcellp.com",
+            "http://talentprime.primesourcellp.com",
+            "https://talentprime.primesourcellp.com"
         ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
