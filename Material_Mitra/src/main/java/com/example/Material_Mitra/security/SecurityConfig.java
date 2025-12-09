@@ -204,7 +204,8 @@ public class SecurityConfig {
              "https://www.primesourcellp.com",
            "http://talentprime.primesourcellp.com",
            "https://talentprime.primesourcellp.com",
-           "http://192.168.1.38:9090"
+           "http://192.168.1.38:9090",
+           "https://192.168.1.38:9090"
 
 
 
