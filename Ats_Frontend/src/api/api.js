@@ -2,8 +2,10 @@
 // const BASE_URL = "https://atsapi.primesourcellp.com";
 // const BASE_URL = "http://localhost:8080";
 
-// Using direct IP address until DNS is fixed
-const BASE_URL = "http://talentprimeapi.primesourcellp.com:9090";
+
+const BASE_URL = "https://talentprimeapi.primesourcellp.com";
+
+// const BASE_URL = "http://talentprimeapi.primesourcellp.com:9090";
 
 
 // const BASE_URL = "https://talentprimeapi.primesourcellp.com:9090";

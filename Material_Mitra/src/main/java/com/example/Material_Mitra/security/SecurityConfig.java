@@ -1,7 +1,3 @@
-
-
-
-
 package com.example.Material_Mitra.security;
 
 import java.util.List;
@@ -71,7 +67,6 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/users/create-user").hasAnyAuthority("ADMIN", "SECONDARY_ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/users/create-secondary-admin").hasAuthority("ADMIN")
                 .requestMatchers("/api/clients/**").hasAnyAuthority("ADMIN", "SECONDARY_ADMIN", "RECRUITER")
-                .requestMatchers("/api/reports/recruiters").hasAnyAuthority("ADMIN", "SECONDARY_ADMIN")
                 .requestMatchers("/api/reports/recruiters/**").hasAnyAuthority("ADMIN", "SECONDARY_ADMIN", "RECRUITER")
 
                 // Authenticated users
@@ -90,39 +85,16 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
+
+        // Allowed origins: local dev + production
         config.setAllowedOrigins(List.of(
-            // Local development
-            "http://127.0.0.1:5501", 
-            "http://localhost:5173", 
-            "http://localhost:5174",
-            "http://localhost:5175",
-            // Private IP (local network)
-            "http://192.168.1.38:9090",
-            "https://192.168.1.38:9090",
-            // Public IP (internet access) - both HTTP and HTTPS
-            "http://112.133.204.15:9090",
-            "https://112.133.204.15:9090",
-            // Production domains
-            "https://ats.primesourcellp.com",
-            "http://ats.primesourcellp.com",
-            "http://atsapi.primesourcellp.com",
-            "https://atsapi.primesourcellp.com",
-            "https://primesourcellp.com",
-            "http://primesourcellp.com",
-            "https://www.primesourcellp.com",
-            "http://talentprime.primesourcellp.com",
-            "https://talentprime.primesourcellp.com",
-            // API subdomain (with and without port)
-            "http://talentprimeapi.primesourcellp.com",
-            "https://talentprimeapi.primesourcellp.com",
-            "http://talentprimeapi.primesourcellp.com:9090",
-            "https://talentprimeapi.primesourcellp.com:9090"
+            "http://localhost:5173",
+            "https://talentprimeapi.primesourcellp.com" // production frontend
         ));
-        // Allow all headers including ngrok-skip-browser-warning
-        config.setAllowedHeaders(List.of("*"));
-        config.setExposedHeaders(List.of("*"));
+
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
+        config.setExposedHeaders(List.of("*"));
         config.setAllowCredentials(true);
         config.setMaxAge(3600L);
 
