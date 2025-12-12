@@ -17,7 +17,6 @@ import org.springframework.transaction.annotation.Transactional;
 import com.example.Material_Mitra.dto.TimeTrackingDTO;
 import com.example.Material_Mitra.entity.TimeTracking;
 import com.example.Material_Mitra.entity.User;
-import com.example.Material_Mitra.entity.UserActivity;
 import com.example.Material_Mitra.repository.TimeTrackingRepository;
 import com.example.Material_Mitra.repository.UserRepository;
 import com.example.Material_Mitra.repository.UserActivityRepository;
@@ -52,32 +51,52 @@ public class TimeTrackingService {
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new RuntimeException("User not found"));
 
+        LocalDate today = LocalDate.now();
+        
         // Check if user already has an active session
         Optional<TimeTracking> existingActive = timeTrackingRepository.findByUserAndIsActiveTrue(user);
         if (existingActive.isPresent()) {
             TimeTracking existing = existingActive.get();
-            // Check if the existing session is stale (older than 24 hours)
-            LocalDateTime twentyFourHoursAgo = LocalDateTime.now().minusHours(24);
-            if (existing.getLoginTime() != null && existing.getLoginTime().isBefore(twentyFourHoursAgo)) {
-                // Close stale session
-                existing.setLogoutTime(LocalDateTime.now());
+            
+            // Daily reset: If login was NOT today, auto-logout previous day and require new login
+            if (existing.getLoginTime() != null && !existing.getLoginTime().toLocalDate().equals(today)) {
+                // Previous day's session - auto-logout
+                existing.setLogoutTime(existing.getLoginTime().toLocalDate().atTime(23, 59, 59)); // End of previous day
                 existing.setActive(false);
-                if (existing.getLoginTime() != null) {
+                if (existing.getLoginTime() != null && existing.getLogoutTime() != null) {
                     Duration duration = Duration.between(existing.getLoginTime(), existing.getLogoutTime());
                     existing.setWorkingMinutes(duration.toMinutes());
                 }
                 timeTrackingRepository.save(existing);
-                System.out.println("Closed stale session for user: " + user.getUsername() + " before creating new login");
+                System.out.println("Auto-logged out previous day session for user: " + user.getUsername());
+                // Continue to create new session for today
             } else {
-                // User already has a valid active session, return it
-                return convertToDTO(existing);
+                // Check if the existing session is stale (older than 24 hours)
+                LocalDateTime twentyFourHoursAgo = LocalDateTime.now().minusHours(24);
+                if (existing.getLoginTime() != null && existing.getLoginTime().isBefore(twentyFourHoursAgo)) {
+                    // Close stale session
+                    existing.setLogoutTime(LocalDateTime.now());
+                    existing.setActive(false);
+                    if (existing.getLoginTime() != null) {
+                        Duration duration = Duration.between(existing.getLoginTime(), existing.getLogoutTime());
+                        existing.setWorkingMinutes(duration.toMinutes());
+                    }
+                    timeTrackingRepository.save(existing);
+                    System.out.println("Closed stale session for user: " + user.getUsername() + " before creating new login");
+                } else {
+                    // User already has a valid active session for today, return it
+                    return convertToDTO(existing);
+                }
             }
         }
 
         // Create new login session
         TimeTracking tracking = new TimeTracking();
         tracking.setUser(user);
-        tracking.setLoginTime(LocalDateTime.now());
+        LocalDateTime now = LocalDateTime.now();
+        tracking.setLoginTime(now);
+        tracking.setLastOnlineTime(now); // Start tracking ONLINE time from login
+        tracking.setOnlineMinutes(0L); // Initialize online minutes
         tracking.setActive(true);
         tracking = timeTrackingRepository.save(tracking);
         System.out.println("New login session created for user: " + user.getUsername());
@@ -108,17 +127,42 @@ public class TimeTrackingService {
             // If no active session, try to find the most recent session without logout time
             List<TimeTracking> recentSessions = timeTrackingRepository.findByUserOrderByLoginTimeDesc(user);
             if (!recentSessions.isEmpty()) {
-                TimeTracking latestSession = recentSessions.get(0);
+                final TimeTracking latestSession = recentSessions.get(0);
                 // Only update if it doesn't have a logout time yet
                 if (latestSession.getLogoutTime() == null) {
-                    latestSession.setLogoutTime(LocalDateTime.now());
+                    final LocalDateTime now = LocalDateTime.now();
+                    
+                    // Final accumulation of ONLINE time if user was ONLINE
+                    if (userActivityRepository != null) {
+                        try {
+                            userActivityRepository.findByUser(user).ifPresent(activity -> {
+                                if ("ONLINE".equals(activity.getStatus()) && latestSession.getLastOnlineTime() != null) {
+                                    // Calculate final ONLINE period
+                                    Duration onlineDuration = Duration.between(latestSession.getLastOnlineTime(), now);
+                                    long onlineMinutesToAdd = onlineDuration.toMinutes();
+                                    Long currentOnlineMinutes = latestSession.getOnlineMinutes();
+                                    long currentMinutes = currentOnlineMinutes != null ? currentOnlineMinutes : 0L;
+                                    latestSession.setOnlineMinutes(currentMinutes + onlineMinutesToAdd);
+                                }
+                            });
+                        } catch (Exception e) {
+                            // Ignore
+                        }
+                    }
+                    
+                    latestSession.setLogoutTime(now);
                     latestSession.setActive(false);
-                    if (latestSession.getLoginTime() != null) {
-                        Duration duration = Duration.between(latestSession.getLoginTime(), latestSession.getLogoutTime());
+                    // Use onlineMinutes as workingMinutes (only ONLINE time counts)
+                    Long onlineMins = latestSession.getOnlineMinutes();
+                    if (onlineMins != null) {
+                        latestSession.setWorkingMinutes(onlineMins);
+                    } else if (latestSession.getLoginTime() != null) {
+                        // Fallback: if no onlineMinutes tracked, use total time
+                        Duration duration = Duration.between(latestSession.getLoginTime(), now);
                         latestSession.setWorkingMinutes(duration.toMinutes());
                     }
-                    latestSession = timeTrackingRepository.save(latestSession);
-                    return convertToDTO(latestSession);
+                    TimeTracking savedSession = timeTrackingRepository.save(latestSession);
+                    return convertToDTO(savedSession);
                 }
             }
             // If still no session to update, log warning but don't throw exception
@@ -127,18 +171,41 @@ public class TimeTrackingService {
         }
 
         TimeTracking tracking = activeSession.get();
-        LocalDateTime logoutTime = LocalDateTime.now();
+        final LocalDateTime logoutTime = LocalDateTime.now();
+        
+        // Final accumulation of ONLINE time if user was ONLINE
+        if (userActivityRepository != null) {
+            try {
+                userActivityRepository.findByUser(user).ifPresent(activity -> {
+                    if ("ONLINE".equals(activity.getStatus()) && tracking.getLastOnlineTime() != null) {
+                        // Calculate final ONLINE period
+                        Duration onlineDuration = Duration.between(tracking.getLastOnlineTime(), logoutTime);
+                        long onlineMinutesToAdd = onlineDuration.toMinutes();
+                        Long currentOnlineMinutes = tracking.getOnlineMinutes();
+                        long currentMinutes = currentOnlineMinutes != null ? currentOnlineMinutes : 0L;
+                        tracking.setOnlineMinutes(currentMinutes + onlineMinutesToAdd);
+                    }
+                });
+            } catch (Exception e) {
+                // Ignore
+            }
+        }
+        
         tracking.setLogoutTime(logoutTime);
         tracking.setActive(false);
         
-        // Calculate working minutes
-        if (tracking.getLoginTime() != null) {
+        // Use onlineMinutes as workingMinutes (only ONLINE time counts)
+        Long onlineMins = tracking.getOnlineMinutes();
+        if (onlineMins != null) {
+            tracking.setWorkingMinutes(onlineMins);
+        } else if (tracking.getLoginTime() != null) {
+            // Fallback: if no onlineMinutes tracked, use total time
             Duration duration = Duration.between(tracking.getLoginTime(), logoutTime);
             tracking.setWorkingMinutes(duration.toMinutes());
         }
 
-        tracking = timeTrackingRepository.save(tracking);
-        System.out.println("Logout recorded for user: " + user.getUsername() + ", working time: " + tracking.getWorkingMinutes() + " minutes");
+        TimeTracking savedTracking = timeTrackingRepository.save(tracking);
+        System.out.println("Logout recorded for user: " + user.getUsername() + ", ONLINE working time: " + savedTracking.getWorkingMinutes() + " minutes");
 
         // Force flush to ensure database is updated immediately
         timeTrackingRepository.flush();
@@ -248,20 +315,61 @@ public class TimeTrackingService {
             .orElseThrow(() -> new RuntimeException("User not found"));
         
         LocalDate today = LocalDate.now();
-        Long totalMinutes = timeTrackingRepository.getTotalWorkingMinutesByUserAndDate(user, today);
         
-        // Add current active session if exists
+        // Get all sessions for today
+        List<TimeTracking> todaySessions = timeTrackingRepository.findByUserAndDate(user, today);
+        
+        // Calculate total ONLINE minutes from completed sessions
+        long totalOnlineMinutes = 0L;
+        for (TimeTracking session : todaySessions) {
+            if (session.getOnlineMinutes() != null) {
+                totalOnlineMinutes += session.getOnlineMinutes();
+            }
+        }
+        
+        // Add current active session if exists - but ONLY count ONLINE time
         Optional<TimeTracking> activeSession = timeTrackingRepository.findByUserAndIsActiveTrue(user);
         if (activeSession.isPresent()) {
             TimeTracking session = activeSession.get();
             if (session.getLoginTime() != null && 
                 session.getLoginTime().toLocalDate().equals(today)) {
-                Duration duration = Duration.between(session.getLoginTime(), LocalDateTime.now());
-                totalMinutes = (totalMinutes != null ? totalMinutes : 0L) + duration.toMinutes();
+                
+                // Get accumulated ONLINE minutes from previous ONLINE periods
+                long accumulatedOnlineMinutes = session.getOnlineMinutes() != null ? session.getOnlineMinutes() : 0L;
+                
+                // Check user's current status
+                final String[] currentStatus = {"OFFLINE"};
+                if (userActivityRepository != null) {
+                    try {
+                        userActivityRepository.findByUser(user).ifPresent(activity -> {
+                            currentStatus[0] = activity.getStatus();
+                        });
+                    } catch (Exception e) {
+                        // Ignore
+                    }
+                }
+                
+                // Only count current ONLINE period if status is ONLINE
+                if ("ONLINE".equals(currentStatus[0])) {
+                    LocalDateTime lastOnlineTime = session.getLastOnlineTime();
+                    if (lastOnlineTime != null) {
+                        // Calculate ONLINE time from lastOnlineTime to now
+                        Duration onlineDuration = Duration.between(lastOnlineTime, LocalDateTime.now());
+                        long currentOnlineMinutes = onlineDuration.toMinutes();
+                        // Add accumulated ONLINE minutes + current ONLINE period
+                        totalOnlineMinutes += accumulatedOnlineMinutes + currentOnlineMinutes;
+                    } else {
+                        // If no lastOnlineTime, use accumulated minutes only
+                        totalOnlineMinutes += accumulatedOnlineMinutes;
+                    }
+                } else {
+                    // User is AWAY - only count accumulated ONLINE minutes (not current period)
+                    totalOnlineMinutes += accumulatedOnlineMinutes;
+                }
             }
         }
         
-        return totalMinutes != null ? totalMinutes : 0L;
+        return totalOnlineMinutes;
     }
 
     private TimeTrackingDTO convertToDTO(TimeTracking tracking) {
@@ -275,12 +383,43 @@ public class TimeTrackingService {
         dto.setLogoutTime(tracking.getLogoutTime());
         dto.setActive(tracking.isActive());
         
-        // Calculate working minutes
-        Long workingMinutes = tracking.getWorkingMinutes();
+        // Calculate working minutes - ONLY count ONLINE time
+        Long workingMinutes = 0L;
+        
         if (tracking.isActive() && tracking.getLoginTime() != null) {
-            Duration duration = Duration.between(tracking.getLoginTime(), LocalDateTime.now());
-            workingMinutes = duration.toMinutes();
+            // For active sessions, calculate based on ONLINE periods
+            long accumulatedOnlineMinutes = tracking.getOnlineMinutes() != null ? tracking.getOnlineMinutes() : 0L;
+            
+                // Check current status
+                final String[] currentStatus = {"OFFLINE"};
+                if (userActivityRepository != null) {
+                    try {
+                        userActivityRepository.findByUser(tracking.getUser()).ifPresent(activity -> {
+                            currentStatus[0] = activity.getStatus();
+                        });
+                    } catch (Exception e) {
+                        // Ignore
+                    }
+                }
+            
+            // If currently ONLINE, add current ONLINE period
+            if ("ONLINE".equals(currentStatus[0]) && tracking.getLastOnlineTime() != null) {
+                Duration currentOnlineDuration = Duration.between(tracking.getLastOnlineTime(), LocalDateTime.now());
+                long currentOnlineMinutes = currentOnlineDuration.toMinutes();
+                workingMinutes = accumulatedOnlineMinutes + currentOnlineMinutes;
+            } else {
+                // Currently AWAY - only count accumulated ONLINE minutes
+                workingMinutes = accumulatedOnlineMinutes;
+            }
+        } else {
+            // Completed session - use stored onlineMinutes or workingMinutes
+            if (tracking.getOnlineMinutes() != null) {
+                workingMinutes = tracking.getOnlineMinutes();
+            } else if (tracking.getWorkingMinutes() != null) {
+                workingMinutes = tracking.getWorkingMinutes();
+            }
         }
+        
         dto.setWorkingMinutes(workingMinutes);
         
         // Get user status (ONLINE, AWAY, OFFLINE) from activity repository

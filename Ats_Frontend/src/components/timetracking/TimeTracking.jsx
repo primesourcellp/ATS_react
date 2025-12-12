@@ -28,6 +28,8 @@ const TimeTracking = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [lastUpdate, setLastUpdate] = useState(new Date());
   const [previousActiveCount, setPreviousActiveCount] = useState(0);
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]); // Today's date
+  const [filteredSessions, setFilteredSessions] = useState([]);
 
   const currentUsername = localStorage.getItem("username");
 
@@ -64,54 +66,198 @@ const TimeTracking = () => {
     };
   }, [currentUsername]);
   
-  // Track user activity on ANY interaction (clicks, navigation, API calls)
-  // When user in AWAY status interacts, immediately change to ONLINE
+  // Comprehensive activity tracking - Track user as ACTIVE when ANY activity happens
+  // Track user as AWAY when NO activity
   useEffect(() => {
     let lastInteractionTime = Date.now();
-    const INTERACTION_THROTTLE = 10000; // Max once per 10 seconds (faster response)
+    let lastPingTime = Date.now();
+    let lastKnownTime = Date.now();
+    let inactivityTimer = null;
+    let isUserActive = true; // Track if user is actively interacting
+    const INTERACTION_THROTTLE = 30000; // Ping every 30 seconds max (reduced frequency)
+    const INACTIVITY_THRESHOLD = 120000; // 2 minutes of no activity = AWAY
+    const HEARTBEAT_INTERVAL = 60000; // Heartbeat every 60 seconds to detect sleep
+    const SLEEP_DETECTION_THRESHOLD = 120000; // If 2 minutes pass without heartbeat, system likely sleeping
     
-    const handleUserInteraction = () => {
+    // Function to mark user as ACTIVE/ONLINE (only on real user interactions)
+    const markUserActive = (isRealInteraction = true) => {
       const now = Date.now();
-      // Ping activity if enough time has passed since last interaction
-      if (now - lastInteractionTime >= INTERACTION_THROTTLE) {
-        lastInteractionTime = now;
-        // Immediately update activity to change AWAY to ONLINE
-        userActivityAPI.ping().catch(err => console.error("Activity ping failed:", err));
+      
+      // Only ping on real user interactions (not on mousemove or automatic events)
+      if (isRealInteraction) {
+        isUserActive = true;
+        // Ping activity if enough time has passed since last interaction
+        if (now - lastInteractionTime >= INTERACTION_THROTTLE) {
+          lastInteractionTime = now;
+          lastPingTime = now;
+          // Immediately update activity to change AWAY to ONLINE
+          userActivityAPI.ping().catch(err => console.error("Activity ping failed:", err));
+        }
       }
+      
+      // Reset inactivity timer
+      if (inactivityTimer) {
+        clearTimeout(inactivityTimer);
+      }
+      // Set new inactivity timer - if no activity for 2 minutes, user goes AWAY
+      inactivityTimer = setTimeout(() => {
+        isUserActive = false;
+        console.log("User inactive for 2 minutes - will be marked as AWAY");
+        // Don't ping - let backend scheduler mark as AWAY based on last activity time
+      }, INACTIVITY_THRESHOLD);
     };
     
-    // Track all real user interactions
-    document.addEventListener('click', handleUserInteraction);
-    document.addEventListener('keydown', handleUserInteraction);
-    document.addEventListener('mousedown', handleUserInteraction);
-    document.addEventListener('scroll', handleUserInteraction); // User scrolling = active
+    // Heartbeat mechanism to detect system sleep
+    const heartbeatInterval = setInterval(() => {
+      const now = Date.now();
+      const timeSinceLastPing = now - lastPingTime;
+      
+      // If too much time has passed, system likely went to sleep
+      // The backend will automatically mark as AWAY/OFFLINE based on last activity time
+      if (timeSinceLastPing > SLEEP_DETECTION_THRESHOLD) {
+        console.log("System may have been sleeping - time gap detected:", timeSinceLastPing, "ms");
+        // When system wakes up, immediately ping to update status
+        lastPingTime = now;
+        lastKnownTime = now;
+        markUserActive();
+      } else {
+        // Normal heartbeat - update last known time
+        lastKnownTime = now;
+      }
+    }, HEARTBEAT_INTERVAL);
     
-    // Track when tab becomes visible (user switched to this tab)
+    // Track REAL user interactions - mark as ACTIVE immediately
+    // Don't track mousemove - it's too frequent and prevents AWAY status
+    const handleClick = () => markUserActive(true);
+    const handleKeyPress = () => markUserActive(true);
+    const handleKeyDown = () => markUserActive(true);
+    const handleScroll = () => markUserActive(true);
+    const handleMouseDown = () => markUserActive(true);
+    
+    // Don't track mousemove - it prevents AWAY status detection
+    // Only track when mouse actually interacts (clicks, etc.)
+    
+    // Track window focus/blur (tab switching)
+    const handleFocus = () => {
+      const now = Date.now();
+      const timeGap = now - lastKnownTime;
+      
+      // If significant time gap, system likely was sleeping
+      if (timeGap > SLEEP_DETECTION_THRESHOLD) {
+        console.log("Window focused after sleep - time gap:", timeGap, "ms");
+      }
+      
+      // User switched to this tab/window - immediately mark as ACTIVE
+      lastInteractionTime = now;
+      lastPingTime = now;
+      lastKnownTime = now;
+      markUserActive(true);
+    };
+    
+    const handleBlur = () => {
+      // User switched away from tab - update last known time
+      // Don't immediately mark as AWAY, let inactivity timer handle it
+      lastKnownTime = Date.now();
+      console.log("Window blurred - user switched tab");
+    };
+    
+    // Track when mouse leaves the page
+    const handleMouseLeave = () => {
+      // When mouse leaves the page, don't ping (allows AWAY status)
+      // The backend scheduler will automatically mark as AWAY after 2 minutes
+      console.log("Mouse left the page - will mark as AWAY if inactive");
+    };
+    
+    // Track when tab becomes visible/hidden
     const handleVisibilityChange = () => {
       if (!document.hidden) {
-        // User switched to this tab - immediately update activity
-        lastInteractionTime = Date.now();
-        userActivityAPI.ping().catch(err => console.error("Activity ping failed:", err));
+        // User switched to this tab or system woke up - check for time gap
+        const now = Date.now();
+        const timeGap = now - lastKnownTime;
+        
+        // If significant time gap, system likely was sleeping
+        if (timeGap > SLEEP_DETECTION_THRESHOLD) {
+          console.log("System woke up - time gap:", timeGap, "ms");
+        }
+        
+        // Immediately mark as ACTIVE
+        lastInteractionTime = now;
+        lastPingTime = now;
+        lastKnownTime = now;
+        markUserActive(true);
+      } else {
+        // Tab hidden - update last known time
+        lastKnownTime = Date.now();
       }
     };
     
-    // Track when window gains focus
-    const handleFocus = () => {
-      // User clicked on window - immediately update activity
-      lastInteractionTime = Date.now();
-      userActivityAPI.ping().catch(err => console.error("Activity ping failed:", err));
+    // Track when page is being unloaded (system going to sleep or tab closing)
+    const handlePageHide = (event) => {
+      // Update last known time before page hides
+      lastKnownTime = Date.now();
+      // Try to send a final ping (may not complete if system is sleeping)
+      if (navigator.sendBeacon) {
+        try {
+          const url = `${window.location.origin}/api/user-activity/ping`;
+          navigator.sendBeacon(url, '');
+        } catch (e) {
+          // Fallback to regular ping
+          userActivityAPI.ping().catch(() => {});
+        }
+      }
     };
     
+    // Track when page becomes visible again (system woke up)
+    const handlePageShow = (event) => {
+      const now = Date.now();
+      const timeGap = now - lastKnownTime;
+      
+      // If significant time gap, system likely was sleeping
+      if (timeGap > SLEEP_DETECTION_THRESHOLD) {
+        console.log("Page shown after sleep - time gap:", timeGap, "ms");
+      }
+      
+      // Immediately mark as ACTIVE
+      lastInteractionTime = now;
+      lastPingTime = now;
+      lastKnownTime = now;
+      markUserActive(true);
+    };
+    
+    // Add all event listeners (excluding mousemove to allow AWAY detection)
+    document.addEventListener('click', handleClick);
+    document.addEventListener('keypress', handleKeyPress);
+    document.addEventListener('keydown', handleKeyDown);
+    // DON'T track mousemove - it prevents AWAY status
+    document.addEventListener('mousedown', handleMouseDown);
+    document.addEventListener('scroll', handleScroll);
+    document.addEventListener('mouseleave', handleMouseLeave);
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('focus', handleFocus);
+    window.addEventListener('blur', handleBlur);
+    window.addEventListener('pagehide', handlePageHide);
+    window.addEventListener('pageshow', handlePageShow);
+    
+    // Initialize inactivity timer
+    markUserActive(true);
     
     return () => {
-      document.removeEventListener('click', handleUserInteraction);
-      document.removeEventListener('keydown', handleUserInteraction);
-      document.removeEventListener('mousedown', handleUserInteraction);
-      document.removeEventListener('scroll', handleUserInteraction);
+      clearInterval(heartbeatInterval);
+      if (inactivityTimer) {
+        clearTimeout(inactivityTimer);
+      }
+      document.removeEventListener('click', handleClick);
+      document.removeEventListener('keypress', handleKeyPress);
+      document.removeEventListener('keydown', handleKeyDown);
+      // No mousemove listener to remove
+      document.removeEventListener('mousedown', handleMouseDown);
+      document.removeEventListener('scroll', handleScroll);
+      document.removeEventListener('mouseleave', handleMouseLeave);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('blur', handleBlur);
+      window.removeEventListener('pagehide', handlePageHide);
+      window.removeEventListener('pageshow', handlePageShow);
     };
   }, []);
 
@@ -202,6 +348,42 @@ const TimeTracking = () => {
       console.error("Error loading working hours:", error);
     }
   };
+
+  // Filter sessions by selected date
+  const filterSessionsByDate = async (date) => {
+    try {
+      if (!date) return;
+      
+      // Get all users
+      const users = await userAPI.getAll();
+      const usersArray = Array.isArray(users) ? users : [];
+      
+      // For each user, get sessions for the selected date
+      const sessionsPromises = usersArray.map(async (user) => {
+        try {
+          const sessions = await timeTrackingAPI.getUserSessionsByDate(user.id, date);
+          return Array.isArray(sessions) ? sessions : [];
+        } catch (error) {
+          console.error(`Error loading sessions for user ${user.id}:`, error);
+          return [];
+        }
+      });
+      
+      const allSessions = await Promise.all(sessionsPromises);
+      const flattenedSessions = allSessions.flat();
+      setFilteredSessions(flattenedSessions);
+    } catch (error) {
+      console.error("Error filtering sessions by date:", error);
+      setFilteredSessions([]);
+    }
+  };
+
+  // Load filtered sessions when date changes
+  useEffect(() => {
+    if (selectedDate) {
+      filterSessionsByDate(selectedDate);
+    }
+  }, [selectedDate]);
 
   const formatTime = (dateTime) => {
     if (!dateTime) return "N/A";
@@ -365,28 +547,58 @@ const TimeTracking = () => {
           </div>
         )}
 
-        {/* Action Bar */}
-        <div className="bg-white rounded-xl shadow-sm p-5 mb-6 border border-gray-100 flex justify-between items-center">
-          <h2 className="text-xl font-semibold text-gray-800">
-            Active Users
-          </h2>
-          <button
-            onClick={loadActiveSessions}
-            disabled={refreshing}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center disabled:opacity-50"
-          >
-            {refreshing ? (
-              <>
-                <FaSpinner className="animate-spin mr-2" />
-                Refreshing...
-              </>
-            ) : (
-              <>
-                <FaSync className="mr-2" />
-                Refresh
-              </>
-            )}
-          </button>
+        {/* Action Bar with Date Filter */}
+        <div className="bg-white rounded-xl shadow-sm p-5 mb-6 border border-gray-100">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold text-gray-800">
+              Active Users
+            </h2>
+            <button
+              onClick={loadActiveSessions}
+              disabled={refreshing}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center disabled:opacity-50"
+            >
+              {refreshing ? (
+                <>
+                  <FaSpinner className="animate-spin mr-2" />
+                  Refreshing...
+                </>
+              ) : (
+                <>
+                  <FaSync className="mr-2" />
+                  Refresh
+                </>
+              )}
+            </button>
+          </div>
+          
+          {/* Calendar Date Filter */}
+          <div className="flex items-center gap-3">
+            <label htmlFor="dateFilter" className="text-sm font-medium text-gray-700 flex items-center gap-2">
+              <FaCalendarAlt className="text-gray-500" />
+              Filter by Date:
+            </label>
+            <input
+              type="date"
+              id="dateFilter"
+              value={selectedDate}
+              onChange={(e) => {
+                setSelectedDate(e.target.value);
+                filterSessionsByDate(e.target.value);
+              }}
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            />
+            <button
+              onClick={() => {
+                const today = new Date().toISOString().split('T')[0];
+                setSelectedDate(today);
+                filterSessionsByDate(today);
+              }}
+              className="px-3 py-2 text-sm text-blue-600 hover:text-blue-800 font-medium"
+            >
+              Today
+            </button>
+          </div>
         </div>
 
         {/* Active Users Table */}
@@ -396,7 +608,7 @@ const TimeTracking = () => {
               <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-600 mb-4"></div>
               <p className="text-gray-600 font-medium">Loading active sessions...</p>
             </div>
-          ) : activeSessions.length === 0 ? (
+          ) : (selectedDate !== new Date().toISOString().split('T')[0] ? filteredSessions : activeSessions).length === 0 ? (
             <div className="text-center py-16 bg-gray-50 rounded-lg border border-gray-200">
               <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
                 <FaUser className="w-8 h-8 text-blue-600" />
@@ -407,6 +619,12 @@ const TimeTracking = () => {
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
+                {/* Show which data is being displayed */}
+                {selectedDate !== new Date().toISOString().split('T')[0] && filteredSessions.length > 0 && (
+                  <caption className="px-4 py-2 text-sm text-gray-600 bg-gray-50 border-b">
+                    Showing {filteredSessions.length} session(s) for {new Date(selectedDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                  </caption>
+                )}
                 <thead className="bg-gray-50">
                   <tr>
                     <th scope="col" className="py-3.5 px-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
@@ -427,8 +645,8 @@ const TimeTracking = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {activeSessions.map((session, index) => {
-                    const workingMinutes = calculateCurrentWorkingTime(session.loginTime);
+                  {(selectedDate !== new Date().toISOString().split('T')[0] ? filteredSessions : activeSessions).map((session, index) => {
+                    const workingMinutes = session.workingMinutes || (session.isActive ? calculateCurrentWorkingTime(session.loginTime) : 0);
                     return (
                       <tr 
                         key={session.id} 
@@ -462,7 +680,9 @@ const TimeTracking = () => {
                             <span className="font-semibold text-gray-900 tabular-nums">
                               {formatDuration(workingMinutes)}
                             </span>
-                            <span className="text-xs text-green-600 font-medium">● LIVE</span>
+                            {session.isActive && (
+                              <span className="text-xs text-green-600 font-medium">● LIVE</span>
+                            )}
                           </div>
                         </td>
                         <td className="py-4 px-4">

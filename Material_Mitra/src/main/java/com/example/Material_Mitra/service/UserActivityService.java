@@ -1,5 +1,6 @@
 package com.example.Material_Mitra.service;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -28,9 +29,7 @@ public class UserActivityService {
     @Autowired
     private UserRepository userRepository;
 
-    @Autowired(required = false)
-    @Lazy
-    private TimeTrackingService timeTrackingService;
+    // TimeTrackingService removed - using repository directly to avoid circular dependency
 
     @Autowired(required = false)
     @Lazy
@@ -43,6 +42,7 @@ public class UserActivityService {
 
     private static final int AWAY_THRESHOLD_MINUTES = 2; // 2 minutes of inactivity = AWAY (like Microsoft Teams)
     private static final int OFFLINE_THRESHOLD_MINUTES = 15; // 15 minutes of inactivity = OFFLINE
+    private static final boolean DEBUG_STATUS_CHANGES = true; // Debug: Log status changes for troubleshooting
 
     private Optional<User> getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -99,12 +99,34 @@ public class UserActivityService {
         LocalDateTime now = LocalDateTime.now();
         activity.setLastActivityTime(now);
 
+        // Track ONLINE/AWAY periods for accurate working time calculation
+        String previousStatus = activity.getStatus();
+        boolean statusChanged = !"ONLINE".equals(activity.getStatus());
+        
         // Immediately update status to ONLINE on any activity
         // This ensures AWAY status changes to ONLINE as soon as user interacts
         // Works across all browsers/tabs - if user is active in ANY tab, they show as ONLINE
-        if (!"ONLINE".equals(activity.getStatus())) {
+        if (statusChanged) {
+            if (DEBUG_STATUS_CHANGES && "AWAY".equals(previousStatus)) {
+                System.out.println("User " + user.getUsername() + " status changed: AWAY -> ONLINE (user activity detected)");
+            }
             activity.setStatus("ONLINE");
             activity.setLastStatusChange(now);
+            
+            // If user was AWAY and now ONLINE, update time tracking to accumulate ONLINE time
+            if ("AWAY".equals(previousStatus) && timeTrackingRepository != null) {
+                try {
+                    Optional<TimeTracking> activeSession = timeTrackingRepository.findByUserAndIsActiveTrue(user);
+                    if (activeSession.isPresent()) {
+                        TimeTracking session = activeSession.get();
+                        // Update lastOnlineTime to track new ONLINE period
+                        session.setLastOnlineTime(now);
+                        timeTrackingRepository.save(session);
+                    }
+                } catch (Exception e) {
+                    // Ignore
+                }
+            }
         }
 
         userActivityRepository.save(activity);
@@ -270,20 +292,91 @@ public class UserActivityService {
             }
 
             // User has active session
+            String previousStatus = activity.getStatus();
             if (minutesSinceActivity <= AWAY_THRESHOLD_MINUTES) {
                 if (!"ONLINE".equals(activity.getStatus())) {
+                    if (DEBUG_STATUS_CHANGES) {
+                        System.out.println("User " + activity.getUser().getUsername() + " status changed: " + previousStatus + " -> ONLINE (last activity: " + minutesSinceActivity + " minutes ago)");
+                    }
                     activity.setStatus("ONLINE");
+                    activity.setLastStatusChange(now);
                     userActivityRepository.save(activity);
+                    
+                    // If status changed from AWAY to ONLINE, update time tracking
+                    if ("AWAY".equals(previousStatus) && timeTrackingRepository != null) {
+                        try {
+                            Optional<TimeTracking> activeSessionOpt = timeTrackingRepository.findByUserAndIsActiveTrue(activity.getUser());
+                            if (activeSessionOpt.isPresent()) {
+                                TimeTracking session = activeSessionOpt.get();
+                                // Update lastOnlineTime to track new ONLINE period
+                                session.setLastOnlineTime(now);
+                                timeTrackingRepository.save(session);
+                            }
+                        } catch (Exception e) {
+                            // Ignore
+                        }
+                    }
                 }
             } else if (minutesSinceActivity <= OFFLINE_THRESHOLD_MINUTES) {
                 if (!"AWAY".equals(activity.getStatus())) {
+                    if (DEBUG_STATUS_CHANGES) {
+                        System.out.println("User " + activity.getUser().getUsername() + " status changed: " + previousStatus + " -> AWAY (last activity: " + minutesSinceActivity + " minutes ago)");
+                    }
                     activity.setStatus("AWAY");
+                    activity.setLastStatusChange(now);
                     userActivityRepository.save(activity);
+                    
+                    // If status changed from ONLINE to AWAY, accumulate ONLINE time
+                    if ("ONLINE".equals(previousStatus) && timeTrackingRepository != null) {
+                        try {
+                            Optional<TimeTracking> activeSessionOpt = timeTrackingRepository.findByUserAndIsActiveTrue(activity.getUser());
+                            if (activeSessionOpt.isPresent()) {
+                                final TimeTracking session = activeSessionOpt.get();
+                                final LocalDateTime lastOnline = session.getLastOnlineTime();
+                                if (lastOnline != null) {
+                                    // Calculate ONLINE time from lastOnlineTime to now (when going AWAY)
+                                    Duration onlineDuration = Duration.between(lastOnline, now);
+                                    long onlineMinutesToAdd = onlineDuration.toMinutes();
+                                    // Accumulate ONLINE minutes
+                                    Long currentOnlineMinutes = session.getOnlineMinutes();
+                                    long currentMinutes = currentOnlineMinutes != null ? currentOnlineMinutes : 0L;
+                                    session.setOnlineMinutes(currentMinutes + onlineMinutesToAdd);
+                                    timeTrackingRepository.save(session);
+                                }
+                            }
+                        } catch (Exception e) {
+                            // Ignore
+                        }
+                    }
                 }
             } else {
                 if (!"OFFLINE".equals(activity.getStatus())) {
                     activity.setStatus("OFFLINE");
+                    activity.setLastStatusChange(now);
                     userActivityRepository.save(activity);
+                    
+                    // If status changed from ONLINE to OFFLINE, accumulate ONLINE time
+                    if ("ONLINE".equals(previousStatus) && timeTrackingRepository != null) {
+                        try {
+                            Optional<TimeTracking> activeSessionOpt = timeTrackingRepository.findByUserAndIsActiveTrue(activity.getUser());
+                            if (activeSessionOpt.isPresent()) {
+                                final TimeTracking session = activeSessionOpt.get();
+                                final LocalDateTime lastOnline = session.getLastOnlineTime();
+                                if (lastOnline != null) {
+                                    // Calculate ONLINE time from lastOnlineTime to now
+                                    Duration onlineDuration = Duration.between(lastOnline, now);
+                                    long onlineMinutesToAdd = onlineDuration.toMinutes();
+                                    // Accumulate ONLINE minutes
+                                    Long currentOnlineMinutes = session.getOnlineMinutes();
+                                    long currentMinutes = currentOnlineMinutes != null ? currentOnlineMinutes : 0L;
+                                    session.setOnlineMinutes(currentMinutes + onlineMinutesToAdd);
+                                    timeTrackingRepository.save(session);
+                                }
+                            }
+                        } catch (Exception e) {
+                            // Ignore
+                        }
+                    }
                 }
             }
         }

@@ -34,7 +34,13 @@ public class TimeTracking {
     private LocalDateTime logoutTime;
 
     @Column
-    private Long workingMinutes; // Total working minutes for this session
+    private Long workingMinutes; // Total working minutes for this session (ONLINE time only)
+
+    @Column
+    private Long onlineMinutes; // Accumulated ONLINE minutes (excludes AWAY time)
+
+    @Column
+    private LocalDateTime lastOnlineTime; // Last time user was ONLINE (to track ONLINE periods)
 
     @Column
     private boolean isActive; // true if user is currently logged in
@@ -122,6 +128,22 @@ public class TimeTracking {
 
     public void setWorkingMinutes(Long workingMinutes) {
         this.workingMinutes = workingMinutes;
+    }
+
+    public Long getOnlineMinutes() {
+        return onlineMinutes;
+    }
+
+    public void setOnlineMinutes(Long onlineMinutes) {
+        this.onlineMinutes = onlineMinutes;
+    }
+
+    public LocalDateTime getLastOnlineTime() {
+        return lastOnlineTime;
+    }
+
+    public void setLastOnlineTime(LocalDateTime lastOnlineTime) {
+        this.lastOnlineTime = lastOnlineTime;
     }
 
     public boolean isActive() {

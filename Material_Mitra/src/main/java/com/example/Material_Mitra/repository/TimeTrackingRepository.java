@@ -47,8 +47,8 @@ public interface TimeTrackingRepository extends JpaRepository<TimeTracking, Long
            "ORDER BY t.loginTime DESC")
     List<TimeTracking> findAllActiveSessions();
 
-    // Get total working minutes for a user on a specific date
-    @Query("SELECT COALESCE(SUM(t.workingMinutes), 0) FROM TimeTracking t " +
+    // Get total working minutes for a user on a specific date (ONLINE time only)
+    @Query("SELECT COALESCE(SUM(t.onlineMinutes), 0) FROM TimeTracking t " +
            "WHERE t.user = :user AND DATE(t.loginTime) = :date")
     Long getTotalWorkingMinutesByUserAndDate(@Param("user") User user, @Param("date") LocalDate date);
 
