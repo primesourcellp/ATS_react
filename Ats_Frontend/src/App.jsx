@@ -25,6 +25,7 @@ import CandidateEmailManagement from "./components/admin/CandidateEmailManagemen
 import Chatbot from "./components/chatbot/Chatbot";
 import ResumeJobMatching from "./components/resume/ResumeJobMatching";
 import JobSpecificMatching from "./components/resume/JobSpecificMatching";
+import TimeTracking from "./components/timetracking/TimeTracking";
 
 const RequireAuth = ({ children }) => {
   const token = localStorage.getItem("jwtToken");
@@ -232,6 +233,14 @@ function App() {
           element={
             <RequireAuth>
               <JobSpecificMatching />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/time-tracking"
+          element={
+            <RequireAuth>
+              <TimeTracking />
             </RequireAuth>
           }
         />

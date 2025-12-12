@@ -34,11 +34,27 @@ const JobManagement = () => {
   const [itemsPerPage] = useState(10);
   const navigate = useNavigate();
 
+  // Save current page to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem("jobsCurrentPage", currentPage.toString());
+  }, [currentPage]);
+
   useEffect(() => {
     const role = localStorage.getItem("role")?.replace("ROLE_", "") || "";
     setUserRole(role);
     loadJobs();
     loadClients();
+    
+    // Restore page from URL params or localStorage when component mounts
+    const urlParams = new URLSearchParams(window.location.search);
+    const pageFromUrl = urlParams.get('page');
+    const savedPage = pageFromUrl || localStorage.getItem("jobsCurrentPage");
+    if (savedPage) {
+      const page = parseInt(savedPage, 10);
+      if (page > 0) {
+        setCurrentPage(page);
+      }
+    }
   }, []);
 
   useEffect(() => {
@@ -230,7 +246,11 @@ const JobManagement = () => {
   const currentItems = filteredJobs.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(filteredJobs.length / itemsPerPage);
 
-  const paginate = (pageNumber) => setCurrentPage(pageNumber);
+  const paginate = (pageNumber) => {
+    setCurrentPage(pageNumber);
+    // Save current page to localStorage
+    localStorage.setItem("jobsCurrentPage", pageNumber.toString());
+  };
 
   // Get status counts for stats
   const getStatusCounts = () => {
@@ -536,6 +556,7 @@ const JobManagement = () => {
               handleEditJob(job);
             }}
             onDeleteJob={handleDeleteJob}
+            currentPage={currentPage}
           />
           
           {/* Pagination */}

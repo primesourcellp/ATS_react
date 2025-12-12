@@ -2,7 +2,7 @@ import { BASE_URL } from './api';
 
 // Helper function to get auth headers
 const getAuthHeaders = (contentType = "application/json") => {
-  const token = localStorage.getItem("jwtToken");
+  const token = sessionStorage.getItem("jwtToken");
   const headers = {};
   if (token) {
     headers.Authorization = `Bearer ${token}`;
@@ -17,7 +17,7 @@ export const chatbotAPI = {
   sendMessage: async (message) => {
     try {
       // Try to use OpenAI-powered backend endpoint
-      const token = localStorage.getItem("jwtToken");
+      const token = sessionStorage.getItem("jwtToken");
       if (token) {
         try {
           const response = await fetch(`${BASE_URL}/api/chatbot/message`, {

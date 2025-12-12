@@ -7,7 +7,7 @@ const statusStyles = {
   NOT_SELECTED: "bg-yellow-100 text-yellow-800",
 };
 
-const JobsTable = ({ jobs, loading, onSelectJob, onEditJob, onDeleteJob }) => {
+const JobsTable = ({ jobs, loading, onSelectJob, onEditJob, onDeleteJob, currentPage = 1 }) => {
   const navigate = useNavigate();
   const [expandedJobId, setExpandedJobId] = useState(null);
 
@@ -83,6 +83,8 @@ const JobsTable = ({ jobs, loading, onSelectJob, onEditJob, onDeleteJob }) => {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
+                            // Save current page before navigating
+                            localStorage.setItem("jobsCurrentPage", currentPage.toString());
                             navigate(`/jobs/${job.id}`);
                           }}
                           className="text-blue-600 hover:text-blue-800 font-semibold focus:outline-none text-left underline hover:no-underline transition-all duration-200"
@@ -129,6 +131,8 @@ const JobsTable = ({ jobs, loading, onSelectJob, onEditJob, onDeleteJob }) => {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
+                          // Save current page before navigating
+                          localStorage.setItem("jobsCurrentPage", currentPage.toString());
                           navigate(`/jobs/${job.id}`);
                         }}
                         className="text-blue-600 hover:text-blue-800 p-1 rounded-md hover:bg-blue-50 transition-colors"

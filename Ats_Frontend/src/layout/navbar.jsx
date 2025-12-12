@@ -16,7 +16,8 @@ import {
   FaChevronRight,
   FaSignOutAlt,
   FaChartBar,
-  FaEnvelope
+  FaEnvelope,
+  FaClock
 } from "react-icons/fa";
 import { authAPI } from "../api/api";
 
@@ -62,8 +63,8 @@ const Navbar = () => {
 
   const handleLogout = async () => {
     const token = localStorage.getItem("jwtToken");
-    localStorage.clear(); // Clear all local storage
-
+    
+    // Call logout API FIRST while token is still available
     if (token) {
       try {
         await authAPI.logout();
@@ -71,6 +72,9 @@ const Navbar = () => {
         console.error("Server logout failed:", err);
       }
     }
+    
+    // Clear local storage AFTER API call
+    localStorage.clear();
     window.location.href = "/"; // redirect to login page
   };
 
@@ -89,6 +93,11 @@ const Navbar = () => {
 
   if (["ADMIN", "SECONDARY_ADMIN", "RECRUITER"].includes(normalizedRole)) {
     mainNavItems.push({ name: "Reports", path: "/reports", icon: <FaChartBar className="text-sm" /> });
+  }
+
+  // Add Time Tracking only for admins
+  if (normalizedRole.includes("ADMIN")) {
+    mainNavItems.push({ name: "Time Tracking", path: "/time-tracking", icon: <FaClock className="text-sm" /> });
   }
 
   // Dropdown items for ADMIN

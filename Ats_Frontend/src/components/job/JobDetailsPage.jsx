@@ -64,6 +64,7 @@ const JobDetailsPage = () => {
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [showMyCandidates, setShowMyCandidates] = useState(false);
   const [recruiterFilter, setRecruiterFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
   const currentUserName =
     (typeof window !== "undefined" && localStorage.getItem("username")) || "";
   const currentUserRole =
@@ -110,6 +111,35 @@ const JobDetailsPage = () => {
     return Array.from(names).sort((a, b) => a.localeCompare(b));
   }, [job?.applications]);
 
+  // Calculate status counts
+  const statusCounts = useMemo(() => {
+    if (!job?.applications) return {};
+    const counts = {
+      CLIENT_SHORTLIST: 0,
+      CLIENT_REJECT: 0,
+      FIRST_INTERVIEW_SCHEDULED: 0,
+      SECOND_INTERVIEW_SCHEDULED: 0,
+      THIRD_INTERVIEW_SCHEDULED: 0,
+      FINAL_SELECT: 0,
+      JOINED: 0,
+    };
+    job.applications.forEach((application) => {
+      const status = application.status;
+      if (status && counts.hasOwnProperty(status)) {
+        counts[status]++;
+      }
+    });
+    return counts;
+  }, [job?.applications]);
+
+  // Scroll to applications section
+  const scrollToApplications = () => {
+    const applicationsSection = document.getElementById('applications-section');
+    if (applicationsSection) {
+      applicationsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
   const filteredApplications = useMemo(() => {
     if (!job?.applications) {
       console.log("No applications found in job data");
@@ -150,11 +180,18 @@ const JobDetailsPage = () => {
           createdBy === recruiterFilter.trim().toLowerCase();
       }
 
+      // Status filter
+      let matchesStatus = true;
+      if (statusFilter) {
+        matchesStatus = application.status === statusFilter;
+      }
+
       return (
         matchesCandidate &&
         matchesApplicationId &&
         matchesMyCandidates &&
-        matchesRecruiter
+        matchesRecruiter &&
+        matchesStatus
       );
     });
     console.log("Filtered applications count:", filtered.length);
@@ -167,12 +204,20 @@ const JobDetailsPage = () => {
     currentUserName,
     currentUserRole,
     recruiterFilter,
+    statusFilter,
   ]);
 
   const handleBack = () => {
-    if (window.history.length > 2) {
-      navigate(-1);
-    } else {
+    try {
+      // Restore the saved page when navigating back
+      const savedPage = localStorage.getItem("jobsCurrentPage");
+      if (savedPage) {
+        navigate(`/jobs?page=${savedPage}`);
+      } else {
+        navigate("/jobs");
+      }
+    } catch (error) {
+      console.error("Error navigating back:", error);
       navigate("/jobs");
     }
   };
@@ -313,22 +358,198 @@ const JobDetailsPage = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <InfoItem label="Experience" value={job?.jobExperience || "Not specified"} />
           <InfoItem label="Salary Range" value={job?.jobSalaryRange || "Not specified"} />
-          <InfoItem
-            label="Created On"
-            value={job?.createdAt ? formatDate(job.createdAt) : "Not available"}
-          />
-          <InfoItem label="Total Applications" value={job?.applications?.length || 0} />
         </div>
-
+        
         <div className="space-y-4">
           <div>
-            <h3 className="text-sm font-semibold text-gray-600 uppercase">Required Skills</h3>
-            <p className="mt-2 text-sm text-gray-800 whitespace-pre-wrap">
+            <h3 className="text-sm font-semibold text-gray-600 uppercase mb-2">Required Skills</h3>
+            <p className="text-sm text-gray-800 whitespace-pre-wrap">
               {job?.skillsName || "No skills listed"}
             </p>
           </div>
         </div>
       </div>
+
+      {/* Created On and Total Applications Row */}
+      <div className="mt-6 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-center gap-6">
+            <div>
+              <span className="text-sm font-semibold text-gray-600 uppercase">Created On</span>
+              <div className="text-lg font-bold text-gray-900 mt-1">
+                {job?.createdAt ? formatDate(job.createdAt) : "Not available"}
+              </div>
+            </div>
+            <div>
+              <span className="text-sm font-semibold text-gray-600 uppercase">Total Applications</span>
+              <div className="text-lg font-bold text-gray-900 mt-1">{job?.applications?.length || 0}</div>
+            </div>
+          </div>
+        </div>
+        
+        {/* Status Filter Buttons */}
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => {
+              const newFilter = statusFilter === "CLIENT_SHORTLIST" ? "" : "CLIENT_SHORTLIST";
+              setStatusFilter(newFilter);
+              if (newFilter) scrollToApplications();
+            }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap flex items-center gap-2 ${
+              statusFilter === "CLIENT_SHORTLIST"
+                ? "bg-teal-600 text-white"
+                : "bg-teal-100 text-teal-700 hover:bg-teal-200"
+            }`}
+          >
+            Client Shortlist
+            <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${
+              statusFilter === "CLIENT_SHORTLIST"
+                ? "bg-white/20 text-white"
+                : "bg-teal-200 text-teal-800"
+            }`}>
+              {statusCounts.CLIENT_SHORTLIST || 0}
+            </span>
+          </button>
+          <button
+            onClick={() => {
+              const newFilter = statusFilter === "CLIENT_REJECT" ? "" : "CLIENT_REJECT";
+              setStatusFilter(newFilter);
+              if (newFilter) scrollToApplications();
+            }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap flex items-center gap-2 ${
+              statusFilter === "CLIENT_REJECT"
+                ? "bg-red-600 text-white"
+                : "bg-red-100 text-red-700 hover:bg-red-200"
+            }`}
+          >
+            Client Reject
+            <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${
+              statusFilter === "CLIENT_REJECT"
+                ? "bg-white/20 text-white"
+                : "bg-red-200 text-red-800"
+            }`}>
+              {statusCounts.CLIENT_REJECT || 0}
+            </span>
+          </button>
+          <button
+            onClick={() => {
+              const newFilter = statusFilter === "FIRST_INTERVIEW_SCHEDULED" ? "" : "FIRST_INTERVIEW_SCHEDULED";
+              setStatusFilter(newFilter);
+              if (newFilter) scrollToApplications();
+            }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap flex items-center gap-2 ${
+              statusFilter === "FIRST_INTERVIEW_SCHEDULED"
+                ? "bg-blue-600 text-white"
+                : "bg-blue-100 text-blue-700 hover:bg-blue-200"
+            }`}
+          >
+            1st Interview Schedule
+            <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${
+              statusFilter === "FIRST_INTERVIEW_SCHEDULED"
+                ? "bg-white/20 text-white"
+                : "bg-blue-200 text-blue-800"
+            }`}>
+              {statusCounts.FIRST_INTERVIEW_SCHEDULED || 0}
+            </span>
+          </button>
+          <button
+            onClick={() => {
+              const newFilter = statusFilter === "SECOND_INTERVIEW_SCHEDULED" ? "" : "SECOND_INTERVIEW_SCHEDULED";
+              setStatusFilter(newFilter);
+              if (newFilter) scrollToApplications();
+            }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap flex items-center gap-2 ${
+              statusFilter === "SECOND_INTERVIEW_SCHEDULED"
+                ? "bg-blue-600 text-white"
+                : "bg-blue-100 text-blue-700 hover:bg-blue-200"
+            }`}
+          >
+            2nd Interview Schedule
+            <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${
+              statusFilter === "SECOND_INTERVIEW_SCHEDULED"
+                ? "bg-white/20 text-white"
+                : "bg-blue-200 text-blue-800"
+            }`}>
+              {statusCounts.SECOND_INTERVIEW_SCHEDULED || 0}
+            </span>
+          </button>
+          <button
+            onClick={() => {
+              const newFilter = statusFilter === "THIRD_INTERVIEW_SCHEDULED" ? "" : "THIRD_INTERVIEW_SCHEDULED";
+              setStatusFilter(newFilter);
+              if (newFilter) scrollToApplications();
+            }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap flex items-center gap-2 ${
+              statusFilter === "THIRD_INTERVIEW_SCHEDULED"
+                ? "bg-blue-600 text-white"
+                : "bg-blue-100 text-blue-700 hover:bg-blue-200"
+            }`}
+          >
+            3rd Interview Schedule
+            <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${
+              statusFilter === "THIRD_INTERVIEW_SCHEDULED"
+                ? "bg-white/20 text-white"
+                : "bg-blue-200 text-blue-800"
+            }`}>
+              {statusCounts.THIRD_INTERVIEW_SCHEDULED || 0}
+            </span>
+          </button>
+          <button
+            onClick={() => {
+              const newFilter = statusFilter === "FINAL_SELECT" ? "" : "FINAL_SELECT";
+              setStatusFilter(newFilter);
+              if (newFilter) scrollToApplications();
+            }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap flex items-center gap-2 ${
+              statusFilter === "FINAL_SELECT"
+                ? "bg-green-600 text-white"
+                : "bg-green-100 text-green-700 hover:bg-green-200"
+            }`}
+          >
+            Final Select
+            <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${
+              statusFilter === "FINAL_SELECT"
+                ? "bg-white/20 text-white"
+                : "bg-green-200 text-green-800"
+            }`}>
+              {statusCounts.FINAL_SELECT || 0}
+            </span>
+          </button>
+          <button
+            onClick={() => {
+              const newFilter = statusFilter === "JOINED" ? "" : "JOINED";
+              setStatusFilter(newFilter);
+              if (newFilter) scrollToApplications();
+            }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap flex items-center gap-2 ${
+              statusFilter === "JOINED"
+                ? "bg-green-600 text-white"
+                : "bg-green-100 text-green-700 hover:bg-green-200"
+            }`}
+          >
+            Joined
+            <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${
+              statusFilter === "JOINED"
+                ? "bg-white/20 text-white"
+                : "bg-green-200 text-green-800"
+            }`}>
+              {statusCounts.JOINED || 0}
+            </span>
+          </button>
+          {statusFilter && (
+            <button
+              onClick={() => {
+                setStatusFilter("");
+                scrollToApplications();
+              }}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-200 text-gray-700 hover:bg-gray-300 whitespace-nowrap"
+            >
+              Clear Filter
+            </button>
+          )}
+        </div>
+      </div>
+
     </div>
   );
 
@@ -350,7 +571,7 @@ const JobDetailsPage = () => {
   );
 
   const renderApplications = () => (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+    <div id="applications-section" className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold text-gray-900">Applications</h2>
         <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4">

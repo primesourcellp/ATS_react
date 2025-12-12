@@ -12,9 +12,13 @@ import com.example.Material_Mitra.entity.Interview;
 import com.example.Material_Mitra.entity.JobApplication;
 import com.example.Material_Mitra.entity.User;
 import com.example.Material_Mitra.enums.RoleStatus;
+import com.example.Material_Mitra.entity.ApplicationStatusHistory;
+import com.example.Material_Mitra.repository.ApplicationStatusHistoryRepository;
 import com.example.Material_Mitra.repository.CandidateRepository;
 import com.example.Material_Mitra.repository.InterviewRepository;
 import com.example.Material_Mitra.repository.JobApplicationRepository;
+import com.example.Material_Mitra.repository.TimeTrackingRepository;
+import com.example.Material_Mitra.repository.UserActivityRepository;
 import com.example.Material_Mitra.repository.UserRepository;
 
 
@@ -35,6 +39,15 @@ public class UserService {
 
     @Autowired
     private InterviewRepository interviewRepository;
+
+    @Autowired
+    private TimeTrackingRepository timeTrackingRepository;
+
+    @Autowired
+    private UserActivityRepository userActivityRepository;
+
+    @Autowired
+    private ApplicationStatusHistoryRepository applicationStatusHistoryRepository;
 
     @Autowired
     private EmailService emailService;
@@ -303,6 +316,43 @@ public class UserService {
                 interview.setScheduledBy(null);
             });
             interviewRepository.saveAll(scheduledInterviews);
+        }
+
+        // Handle ApplicationStatusHistory records - preserve names but remove user reference
+        if (applicationStatusHistoryRepository != null) {
+            List<ApplicationStatusHistory> statusHistories = 
+                applicationStatusHistoryRepository.findByChangedBy_Id(user.getId());
+            if (!statusHistories.isEmpty()) {
+                statusHistories.forEach(history -> {
+                    // Preserve the name, email, and userId if not already set
+                    if (history.getChangedByName() == null || history.getChangedByName().isBlank()) {
+                        history.setChangedByName(user.getUsername());
+                    }
+                    if (history.getChangedByEmail() == null || history.getChangedByEmail().isBlank()) {
+                        history.setChangedByEmail(user.getEmail());
+                    }
+                    if (history.getChangedByUserId() == null) {
+                        history.setChangedByUserId(user.getId());
+                    }
+                    // Remove the user reference to allow deletion
+                    history.setChangedBy(null);
+                });
+                applicationStatusHistoryRepository.saveAll(statusHistories);
+            }
+        }
+
+        // Delete time tracking records for this user
+        if (timeTrackingRepository != null) {
+            List<com.example.Material_Mitra.entity.TimeTracking> timeTrackingRecords = 
+                timeTrackingRepository.findByUserOrderByLoginTimeDesc(user);
+            if (!timeTrackingRecords.isEmpty()) {
+                timeTrackingRepository.deleteAll(timeTrackingRecords);
+            }
+        }
+
+        // Delete user activity record for this user
+        if (userActivityRepository != null) {
+            userActivityRepository.findByUser(user).ifPresent(userActivityRepository::delete);
         }
 
         userRepository.delete(user);

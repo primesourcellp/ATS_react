@@ -20,7 +20,8 @@ import {
   FaArrowRight,
   FaGlobe,
   FaChartBar,
-  FaEnvelope
+  FaEnvelope,
+  FaClock
 } from "react-icons/fa";
 import { notificationAPI, jobAPI, candidateAPI, interviewAPI, applicationAPI, authAPI } from "../api/api";
 import logo from "../assets/logo.png";
@@ -67,6 +68,11 @@ const DesktopNav = ({ role, currentPath }) => {
       name: "Website Applications", 
       path: "/wesiteapplication", 
       icon: <FaGlobe className="text-lg" /> 
+    });
+    navItems.push({
+      name: "Time Tracking",
+      path: "/time-tracking",
+      icon: <FaClock className="text-lg" />
     });
   } else if (normalizedRole.toUpperCase() === "RECRUITER") {
     navItems.push({ 
@@ -699,8 +705,8 @@ const Dashboard = () => {
 
   const handleLogout = async () => {
     const token = localStorage.getItem("jwtToken");
-    localStorage.clear();
-
+    
+    // Call logout API FIRST while token is still available
     if (token) {
       try {
         await authAPI.logout();
@@ -708,6 +714,9 @@ const Dashboard = () => {
         console.error("Server logout failed:", err);
       }
     }
+    
+    // Clear local storage AFTER API call
+    localStorage.clear();
     window.location.href = "/";
   };
 

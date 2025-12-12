@@ -13,9 +13,13 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.example.Material_Mitra.dto.LoginRequest;
 import com.example.Material_Mitra.dto.LoginResponse;
+import com.example.Material_Mitra.dto.TimeTrackingDTO;
+import com.example.Material_Mitra.entity.User;
+import com.example.Material_Mitra.repository.UserRepository;
 import com.example.Material_Mitra.security.JwtUtil;
 import com.example.Material_Mitra.security.UserDetailsServiceImpl;
 import com.example.Material_Mitra.service.PasswordResetOTPService;
+import com.example.Material_Mitra.service.TimeTrackingService;
 
 import jakarta.servlet.http.HttpServletRequest;
 //@CrossOrigin(origins = "http://127.0.0.1:5501")
@@ -36,6 +40,12 @@ public class AuthController {
     @Autowired
     private PasswordResetOTPService otpService;
 
+    @Autowired
+    private TimeTrackingService timeTrackingService;
+
+    @Autowired
+    private UserRepository userRepository;
+
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest loginRequest) {
         try {
@@ -50,6 +60,18 @@ public class AuthController {
                                 .findFirst()
                                 .map(auth -> auth.getAuthority())
                                 .orElse("");
+
+                // Record login time tracking
+                try {
+                    User user = userRepository.findByUsername(userDetails.getUsername())
+                        .orElse(null);
+                    if (user != null) {
+                        timeTrackingService.recordLogin(user.getId());
+                    }
+                } catch (Exception e) {
+                    // Log but don't fail login if time tracking fails
+                    System.err.println("Failed to record login time: " + e.getMessage());
+                }
 
                 // Return successful login response with token and user info
                 return ResponseEntity.ok(new LoginResponse(token, userDetails.getUsername(), role));
@@ -68,10 +90,49 @@ public class AuthController {
 
         @PostMapping("/logout")
         public ResponseEntity<?> logout(HttpServletRequest request) {
-            // Invalidate the token (if using a token blacklist or similar mechanism)
-            String token = request.getHeader("Authorization").replace("Bearer ", "");
-            // Add logic to invalidate the token (e.g., add it to a blacklist)
-            return ResponseEntity.ok("Logged out successfully");
+            try {
+                // Record logout time tracking
+                String authHeader = request.getHeader("Authorization");
+                if (authHeader != null && authHeader.startsWith("Bearer ")) {
+                    String token = authHeader.substring(7);
+                    try {
+                        // Extract username from token (don't validate since token might be expired)
+                        String username = jwtUtil.extractUsername(token);
+                        if (username != null && !username.isEmpty()) {
+                            User user = userRepository.findByUsername(username).orElse(null);
+                            if (user != null) {
+                                try {
+                                    TimeTrackingDTO result = timeTrackingService.recordLogout(user.getId());
+                                    if (result != null) {
+                                        System.out.println("Logout time recorded for user: " + username);
+                                    } else {
+                                        System.out.println("No active session to close for user: " + username);
+                                    }
+                                } catch (Exception e) {
+                                    // Log but don't fail logout if time tracking fails
+                                    System.err.println("Failed to record logout time for user " + username + ": " + e.getMessage());
+                                    e.printStackTrace();
+                                }
+                            } else {
+                                System.err.println("User not found for username: " + username);
+                            }
+                        }
+                    } catch (Exception e) {
+                        // Log but don't fail logout if time tracking fails
+                        System.err.println("Failed to extract username from token: " + e.getMessage());
+                        e.printStackTrace();
+                    }
+                } else {
+                    System.err.println("No authorization header found in logout request");
+                }
+                
+                // Invalidate the token (if using a token blacklist or similar mechanism)
+                // Add logic to invalidate the token (e.g., add it to a blacklist)
+                return ResponseEntity.ok("Logged out successfully");
+            } catch (Exception e) {
+                e.printStackTrace();
+                return ResponseEntity.ok("Logged out successfully");
+            }
         }
         
         // DTOs for password reset

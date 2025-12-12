@@ -12,5 +12,6 @@ import com.example.Material_Mitra.entity.JobApplication;
 public interface ApplicationStatusHistoryRepository extends JpaRepository<ApplicationStatusHistory, Long> {
     List<ApplicationStatusHistory> findByApplicationOrderByChangedAtDesc(JobApplication application);
     List<ApplicationStatusHistory> findByApplicationIdOrderByChangedAtDesc(Long applicationId);
+    List<ApplicationStatusHistory> findByChangedBy_Id(Long userId);
 }
 

@@ -70,6 +70,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/users/**").hasAnyAuthority("ADMIN", "SECONDARY_ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/users/create-user").hasAnyAuthority("ADMIN", "SECONDARY_ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/users/create-secondary-admin").hasAuthority("ADMIN")
+                .requestMatchers("/api/time-tracking/**").hasAnyAuthority("ADMIN", "SECONDARY_ADMIN")
+                .requestMatchers("/api/user-activity/**").authenticated()
                 .requestMatchers("/api/clients/**").hasAnyAuthority("ADMIN", "SECONDARY_ADMIN", "RECRUITER")
                 .requestMatchers("/api/reports/recruiters").hasAnyAuthority("ADMIN", "SECONDARY_ADMIN")
                 .requestMatchers("/api/reports/recruiters/**").hasAnyAuthority("ADMIN", "SECONDARY_ADMIN", "RECRUITER")

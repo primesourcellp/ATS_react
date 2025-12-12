@@ -1,11 +1,11 @@
 
 // const BASE_URL = "https://atsapi.primesourcellp.com";
-// const BASE_URL = "http://localhost:8080";
+const BASE_URL = "http://localhost:8080";
 
 
 // const BASE_URL = "http://talentprimeapi.primesourcellp.com";
 
-const BASE_URL = "https://talentprimeapi.primesourcellp.com";
+// const BASE_URL = "https://talentprimeapi.primesourcellp.com";
 // const BASE_URL = "http://112.133.204.15:9090";
 
 // const BASE_URL = "https://talentprimeapi.primesourcellp.com:9090";
@@ -125,7 +125,7 @@ export const authAPI = {
 
   logout: async () => {
     const token = localStorage.getItem("jwtToken");
-    const response = await fetch(`${BASE_URL}/auth/logout`, {
+    const response = await fetch(`${BASE_URL}/api/auth/logout`, {
       method: "POST",
       headers: { 
         Authorization: `Bearer ${token}`,
@@ -1152,6 +1152,111 @@ export const resumeMatchingAPI = {
         "ngrok-skip-browser-warning": "true",
       },
       body: formData,
+    });
+    return handleResponse(response);
+  },
+};
+
+// ===================== TIME TRACKING API =====================
+export const timeTrackingAPI = {
+  // Record login
+  recordLogin: async (userId) => {
+    const response = await fetch(`${BASE_URL}/api/time-tracking/login/${userId}`, {
+      method: "POST",
+      headers: getAuthHeaders(),
+    });
+    return handleResponse(response);
+  },
+
+  // Record logout
+  recordLogout: async (userId) => {
+    const response = await fetch(`${BASE_URL}/api/time-tracking/logout/${userId}`, {
+      method: "POST",
+      headers: getAuthHeaders(),
+    });
+    return handleResponse(response);
+  },
+
+  // Get all active sessions (currently working users)
+  getAllActive: async () => {
+    const response = await fetch(`${BASE_URL}/api/time-tracking/active`, {
+      method: "GET",
+      headers: getAuthHeaders(),
+    });
+    return handleResponse(response);
+  },
+
+  // Get current user's session
+  getCurrentSession: async () => {
+    const response = await fetch(`${BASE_URL}/api/time-tracking/current`, {
+      method: "GET",
+      headers: getAuthHeaders(),
+    });
+    return handleResponse(response);
+  },
+
+  // Get user sessions
+  getUserSessions: async (userId) => {
+    const response = await fetch(`${BASE_URL}/api/time-tracking/user/${userId}`, {
+      method: "GET",
+      headers: getAuthHeaders(),
+    });
+    return handleResponse(response);
+  },
+
+  // Get user sessions by date
+  getUserSessionsByDate: async (userId, date) => {
+    const response = await fetch(`${BASE_URL}/api/time-tracking/user/${userId}/date?date=${date}`, {
+      method: "GET",
+      headers: getAuthHeaders(),
+    });
+    return handleResponse(response);
+  },
+
+  // Get total working minutes today for a user
+  getTotalWorkingMinutesToday: async (userId) => {
+    const response = await fetch(`${BASE_URL}/api/time-tracking/user/${userId}/total-today`, {
+      method: "GET",
+      headers: getAuthHeaders(),
+    });
+    return handleResponse(response);
+  },
+};
+
+// ===================== USER ACTIVITY API =====================
+export const userActivityAPI = {
+  // Ping to update current user's activity
+  ping: async () => {
+    const response = await fetch(`${BASE_URL}/api/user-activity/ping`, {
+      method: "POST",
+      headers: getAuthHeaders(),
+    });
+    return handleResponse(response);
+  },
+
+  // Get all users with their status
+  getAllUsersWithStatus: async () => {
+    const response = await fetch(`${BASE_URL}/api/user-activity/all`, {
+      method: "GET",
+      headers: getAuthHeaders(),
+    });
+    return handleResponse(response);
+  },
+
+  // Get specific user's status
+  getUserStatus: async (userId) => {
+    const response = await fetch(`${BASE_URL}/api/user-activity/user/${userId}/status`, {
+      method: "GET",
+      headers: getAuthHeaders(),
+    });
+    return handleResponse(response);
+  },
+
+  // Update all user statuses
+  updateAllStatuses: async () => {
+    const response = await fetch(`${BASE_URL}/api/user-activity/update-all`, {
+      method: "POST",
+      headers: getAuthHeaders(),
     });
     return handleResponse(response);
   },
