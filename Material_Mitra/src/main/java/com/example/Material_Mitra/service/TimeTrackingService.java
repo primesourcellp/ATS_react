@@ -316,56 +316,64 @@ public class TimeTrackingService {
         
         LocalDate today = LocalDate.now();
         
-        // Get all sessions for today
+        // Get all sessions for today (excluding active session to avoid double counting)
         List<TimeTracking> todaySessions = timeTrackingRepository.findByUserAndDate(user, today);
         
-        // Calculate total ONLINE minutes from completed sessions
+        // Check if there's an active session for today
+        Optional<TimeTracking> activeSessionOpt = timeTrackingRepository.findByUserAndIsActiveTrue(user);
+        boolean hasActiveSessionToday = activeSessionOpt.isPresent() && 
+            activeSessionOpt.get().getLoginTime() != null &&
+            activeSessionOpt.get().getLoginTime().toLocalDate().equals(today);
+        
+        // Calculate total ONLINE minutes from completed sessions only
         long totalOnlineMinutes = 0L;
         for (TimeTracking session : todaySessions) {
+            // Skip active session - we'll calculate it separately
+            if (hasActiveSessionToday && activeSessionOpt.isPresent() && 
+                session.getId().equals(activeSessionOpt.get().getId())) {
+                continue;
+            }
+            // Only count completed sessions (with onlineMinutes set)
             if (session.getOnlineMinutes() != null) {
                 totalOnlineMinutes += session.getOnlineMinutes();
             }
         }
         
         // Add current active session if exists - but ONLY count ONLINE time
-        Optional<TimeTracking> activeSession = timeTrackingRepository.findByUserAndIsActiveTrue(user);
-        if (activeSession.isPresent()) {
-            TimeTracking session = activeSession.get();
-            if (session.getLoginTime() != null && 
-                session.getLoginTime().toLocalDate().equals(today)) {
-                
-                // Get accumulated ONLINE minutes from previous ONLINE periods
-                long accumulatedOnlineMinutes = session.getOnlineMinutes() != null ? session.getOnlineMinutes() : 0L;
-                
-                // Check user's current status
-                final String[] currentStatus = {"OFFLINE"};
-                if (userActivityRepository != null) {
-                    try {
-                        userActivityRepository.findByUser(user).ifPresent(activity -> {
-                            currentStatus[0] = activity.getStatus();
-                        });
-                    } catch (Exception e) {
-                        // Ignore
-                    }
+        if (hasActiveSessionToday && activeSessionOpt.isPresent()) {
+            TimeTracking session = activeSessionOpt.get();
+            
+            // Get accumulated ONLINE minutes from previous ONLINE periods
+            long accumulatedOnlineMinutes = session.getOnlineMinutes() != null ? session.getOnlineMinutes() : 0L;
+            
+            // Check user's current status
+            final String[] currentStatus = {"OFFLINE"};
+            if (userActivityRepository != null) {
+                try {
+                    userActivityRepository.findByUser(user).ifPresent(activity -> {
+                        currentStatus[0] = activity.getStatus();
+                    });
+                } catch (Exception e) {
+                    // Ignore
                 }
-                
-                // Only count current ONLINE period if status is ONLINE
-                if ("ONLINE".equals(currentStatus[0])) {
-                    LocalDateTime lastOnlineTime = session.getLastOnlineTime();
-                    if (lastOnlineTime != null) {
-                        // Calculate ONLINE time from lastOnlineTime to now
-                        Duration onlineDuration = Duration.between(lastOnlineTime, LocalDateTime.now());
-                        long currentOnlineMinutes = onlineDuration.toMinutes();
-                        // Add accumulated ONLINE minutes + current ONLINE period
-                        totalOnlineMinutes += accumulatedOnlineMinutes + currentOnlineMinutes;
-                    } else {
-                        // If no lastOnlineTime, use accumulated minutes only
-                        totalOnlineMinutes += accumulatedOnlineMinutes;
-                    }
+            }
+            
+            // Only count current ONLINE period if status is ONLINE
+            if ("ONLINE".equals(currentStatus[0])) {
+                LocalDateTime lastOnlineTime = session.getLastOnlineTime();
+                if (lastOnlineTime != null) {
+                    // Calculate ONLINE time from lastOnlineTime to now
+                    Duration onlineDuration = Duration.between(lastOnlineTime, LocalDateTime.now());
+                    long currentOnlineMinutes = onlineDuration.toMinutes();
+                    // Add accumulated ONLINE minutes + current ONLINE period
+                    totalOnlineMinutes += accumulatedOnlineMinutes + currentOnlineMinutes;
                 } else {
-                    // User is AWAY - only count accumulated ONLINE minutes (not current period)
+                    // If no lastOnlineTime, use accumulated minutes only
                     totalOnlineMinutes += accumulatedOnlineMinutes;
                 }
+            } else {
+                // User is AWAY - only count accumulated ONLINE minutes (not current period)
+                totalOnlineMinutes += accumulatedOnlineMinutes;
             }
         }
         

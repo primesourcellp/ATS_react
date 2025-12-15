@@ -44,13 +44,13 @@ const TimeTracking = () => {
   useEffect(() => {
     loadData();
     
-    // Update all user statuses every 3 seconds to check for AWAY/ONLINE status changes
-    // This ensures immediate status updates when user interacts
+    // Update all user statuses every 10 seconds (reduced frequency to allow AWAY detection)
+    // The backend scheduler runs every 30 seconds, so this just helps with UI updates
     const statusInterval = setInterval(() => {
       userActivityAPI.updateAllStatuses().catch(err => console.error("Status update failed:", err));
-    }, 3000);
+    }, 10000);
     
-    // Refresh every 2 seconds for ultra-live updates
+    // Refresh every 5 seconds (reduced frequency to allow AWAY detection)
     const interval = setInterval(() => {
       loadActiveSessions();
       // Also refresh current user session if available
@@ -58,7 +58,7 @@ const TimeTracking = () => {
         loadCurrentUserSession();
       }
       setLastUpdate(new Date());
-    }, 2000);
+    }, 5000);
     
     return () => {
       clearInterval(interval);
@@ -238,8 +238,16 @@ const TimeTracking = () => {
     window.addEventListener('pagehide', handlePageHide);
     window.addEventListener('pageshow', handlePageShow);
     
-    // Initialize inactivity timer
-    markUserActive(true);
+    // Don't ping on initialization - let user interact first
+    // This allows AWAY status to be detected if user is already inactive
+    // Only reset the inactivity timer
+    if (inactivityTimer) {
+      clearTimeout(inactivityTimer);
+    }
+    inactivityTimer = setTimeout(() => {
+      isUserActive = false;
+      console.log("User inactive - will be marked as AWAY by backend scheduler");
+    }, INACTIVITY_THRESHOLD);
     
     return () => {
       clearInterval(heartbeatInterval);
@@ -457,7 +465,10 @@ const TimeTracking = () => {
   // Calculate statistics
   const onlineCount = activeSessions.filter(s => s.status === 'ONLINE').length;
   const awayCount = activeSessions.filter(s => s.status === 'AWAY').length;
-  const totalWorkingMinutes = activeSessions.reduce((sum, s) => sum + calculateCurrentWorkingTime(s.loginTime), 0);
+  // Calculate total working minutes using backend-calculated values (ONLINE time only)
+  const totalWorkingMinutes = activeSessions.reduce((sum, s) => {
+    return sum + (s.workingMinutes != null ? s.workingMinutes : (s.isActive ? calculateCurrentWorkingTime(s.loginTime) : 0));
+  }, 0);
   const avgWorkingHours = activeSessions.length > 0 ? Math.round(totalWorkingMinutes / activeSessions.length / 60 * 10) / 10 : 0;
 
   return (
@@ -529,7 +540,7 @@ const TimeTracking = () => {
                   <div className="flex items-center gap-2 text-sm">
                     <FaClock className="text-blue-600" />
                     <span className="font-semibold text-gray-900 tabular-nums">
-                      {formatDuration(calculateCurrentWorkingTime(currentUserSession.loginTime))}
+                      {formatDuration(currentUserSession.workingMinutes || calculateCurrentWorkingTime(currentUserSession.loginTime))}
                     </span>
                   </div>
                 )}
@@ -646,7 +657,11 @@ const TimeTracking = () => {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {(selectedDate !== new Date().toISOString().split('T')[0] ? filteredSessions : activeSessions).map((session, index) => {
-                    const workingMinutes = session.workingMinutes || (session.isActive ? calculateCurrentWorkingTime(session.loginTime) : 0);
+                    // Use backend-calculated workingMinutes (ONLINE time only) if available
+                    // Otherwise fallback to frontend calculation for active sessions
+                    const workingMinutes = session.workingMinutes != null 
+                      ? session.workingMinutes 
+                      : (session.isActive ? calculateCurrentWorkingTime(session.loginTime) : 0);
                     return (
                       <tr 
                         key={session.id} 
@@ -786,7 +801,7 @@ const TimeTracking = () => {
                               <>
                                 <FaClock className="text-blue-600" />
                                 <span className="font-semibold text-gray-900 tabular-nums">
-                                  {formatDuration(calculateCurrentWorkingTime(userSession.loginTime))}
+                                  {formatDuration(userSession.workingMinutes || calculateCurrentWorkingTime(userSession.loginTime))}
                                 </span>
                                 <span className="text-xs text-green-600 font-medium">● LIVE</span>
                               </>
