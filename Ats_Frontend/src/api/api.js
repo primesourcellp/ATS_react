@@ -1,9 +1,10 @@
 
 // const BASE_URL = "https://atsapi.primesourcellp.com";
 // const BASE_URL = "http://localhost:8080";
+// const BASE_URL = "http://localhost:9090";
 
 
-const BASE_URL = "http://talentprimeapi.primesourcellp.com";
+const BASE_URL = "http://talentprimeapi.primesourcellp.com:9090";
 
 // const BASE_URL = "https://talentprimeapi.primesourcellp.com";
 // const BASE_URL = "http://112.133.204.15:9090";
@@ -30,6 +31,8 @@ const getAuthHeaders = (contentType = "application/json") => {
   const headers = {};
   if (token) {
     headers.Authorization = `Bearer ${token}`;
+    // Debug: Log when token is found
+    console.log("DEBUG: JWT token found, adding Authorization header");
   } else {
     console.warn("WARNING: No JWT token found in localStorage. User may need to log in again.");
   }
@@ -38,6 +41,10 @@ const getAuthHeaders = (contentType = "application/json") => {
   }
   // Bypass ngrok browser warning for free tier
   headers["ngrok-skip-browser-warning"] = "true";
+  
+  // Debug: Log headers being sent
+  console.log("DEBUG: Request headers:", Object.keys(headers));
+  
   return headers;
 };
 
@@ -76,18 +83,39 @@ const handleResponse = async (response, skipLogoutOn403 = false) => {
     }
     if (response.status === 403) {
       // Don't logout on 403 if skipLogoutOn403 is true (for user creation endpoints)
+      // Also don't logout if it's a permission issue (user is authenticated but lacks permission)
       if (!skipLogoutOn403) {
         const existingToken = localStorage.getItem("jwtToken");
+        // Only logout if token exists but request was rejected - might be expired token
+        // If no token, it's just a permission issue, don't logout
         if (existingToken) {
-          localStorage.removeItem("jwtToken");
-          if (
-            window.location.pathname !== "/" &&
-            window.location.pathname !== "/login" &&
-            window.location.pathname !== "/forgot-password"
-          ) {
-            window.location.href = "/login";
+          // Check if it's a permission issue vs expired token
+          // If Authorization header was sent but got 403, it might be permission issue
+          // Don't auto-logout on permission errors, just show error
+          const errorData = isJson 
+            ? await response.json().catch(() => ({}))
+            : await response.text().catch(() => "");
+          
+          // Only logout if error message suggests token is invalid/expired
+          const errorMessage = errorData.message || errorData.error || errorData || "";
+          if (errorMessage.toLowerCase().includes("expired") || 
+              errorMessage.toLowerCase().includes("invalid") ||
+              errorMessage.toLowerCase().includes("unauthorized")) {
+            localStorage.removeItem("jwtToken");
+            if (
+              window.location.pathname !== "/" &&
+              window.location.pathname !== "/login" &&
+              window.location.pathname !== "/forgot-password"
+            ) {
+              window.location.href = "/login";
+            }
+            throw new Error("Session expired. Please log in again.");
+          } else {
+            // Permission issue - don't logout, just throw error
+            throw new Error(
+              errorMessage || "Forbidden: You don't have permission to perform this action."
+            );
           }
-          throw new Error("Session expired. Please log in again.");
         }
       }
       const errorData = isJson 

@@ -120,11 +120,14 @@ public class SecurityConfig {
             "http://talentprimeapi.primesourcellp.com:9090",
             "https://talentprimeapi.primesourcellp.com:9090"
         ));
-        // Allow all headers including ngrok-skip-browser-warning
+        // Allow all headers including Authorization and ngrok-skip-browser-warning
         config.setAllowedHeaders(List.of("*"));
         config.setExposedHeaders(List.of("*"));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
-        config.setAllowedHeaders(List.of("*"));
+        // Explicitly allow Authorization header for CORS
+        config.addAllowedHeader("Authorization");
+        config.addAllowedHeader("Content-Type");
+        config.addAllowedHeader("ngrok-skip-browser-warning");
         config.setAllowCredentials(true);
         config.setMaxAge(3600L);
         

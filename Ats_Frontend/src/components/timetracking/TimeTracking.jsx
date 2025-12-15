@@ -288,14 +288,20 @@ const TimeTracking = () => {
         loadCurrentUserSession()
       ]);
       
-      // Load working hours for all users
-      const users = await userAPI.getAll();
-      const usersArray = Array.isArray(users) ? users : [];
-      usersArray.forEach(user => {
-        loadUserWorkingHours(user.id);
-      });
+      // Load working hours for all users - catch error to prevent logout
+      try {
+        const users = await userAPI.getAll();
+        const usersArray = Array.isArray(users) ? users : [];
+        usersArray.forEach(user => {
+          loadUserWorkingHours(user.id);
+        });
+      } catch (error) {
+        console.error("Error loading users for working hours (may not have permission):", error);
+        // Don't throw - just skip loading working hours
+      }
     } catch (error) {
       console.error("Error loading data:", error);
+      // Don't throw - prevent logout on permission errors
     } finally {
       setLoading(false);
     }
@@ -316,7 +322,8 @@ const TimeTracking = () => {
       
       setActiveSessions(sessionsArray);
     } catch (error) {
-      console.error("Error loading active sessions:", error);
+      console.error("Error loading active sessions (may not have permission):", error);
+      // Don't throw - just set empty array to prevent logout
       setActiveSessions([]);
     } finally {
       setRefreshing(false);
@@ -329,7 +336,8 @@ const TimeTracking = () => {
       const usersArray = Array.isArray(users) ? users : [];
       setAllUsers(usersArray);
     } catch (error) {
-      console.error("Error loading users:", error);
+      console.error("Error loading users (may not have permission):", error);
+      // Don't throw - just set empty array to prevent logout
       setAllUsers([]);
     }
   };
@@ -370,9 +378,16 @@ const TimeTracking = () => {
         return;
       }
       
-      // Get all users
-      const users = await userAPI.getAll();
-      const usersArray = Array.isArray(users) ? users : [];
+      // Get all users - catch error to prevent logout
+      let usersArray = [];
+      try {
+        const users = await userAPI.getAll();
+        usersArray = Array.isArray(users) ? users : [];
+      } catch (error) {
+        console.error("Error loading users (may not have permission):", error);
+        // Don't throw - just use empty array
+        usersArray = [];
+      }
       
       // For each user, get sessions for the selected date
       const sessionsPromises = usersArray.map(async (user) => {
@@ -380,7 +395,8 @@ const TimeTracking = () => {
           const sessions = await timeTrackingAPI.getUserSessionsByDate(user.id, date);
           return Array.isArray(sessions) ? sessions : [];
         } catch (error) {
-          console.error(`Error loading sessions for user ${user.id}:`, error);
+          // Silently handle errors - don't log to prevent spam
+          // User might not have permission for some users
           return [];
         }
       });
@@ -391,6 +407,7 @@ const TimeTracking = () => {
     } catch (error) {
       console.error("Error filtering sessions by date:", error);
       setFilteredSessions([]);
+      // Don't throw - prevent logout
     }
   };
 
