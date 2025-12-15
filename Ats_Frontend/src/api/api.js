@@ -1,9 +1,9 @@
 
 // const BASE_URL = "https://atsapi.primesourcellp.com";
-const BASE_URL = "http://localhost:8080";
+// const BASE_URL = "http://localhost:8080";
 
 
-// const BASE_URL = "http://talentprimeapi.primesourcellp.com";
+const BASE_URL = "http://talentprimeapi.primesourcellp.com";
 
 // const BASE_URL = "https://talentprimeapi.primesourcellp.com";
 // const BASE_URL = "http://112.133.204.15:9090";
@@ -30,6 +30,8 @@ const getAuthHeaders = (contentType = "application/json") => {
   const headers = {};
   if (token) {
     headers.Authorization = `Bearer ${token}`;
+  } else {
+    console.warn("WARNING: No JWT token found in localStorage. User may need to log in again.");
   }
   if (contentType) {
     headers["Content-Type"] = contentType;

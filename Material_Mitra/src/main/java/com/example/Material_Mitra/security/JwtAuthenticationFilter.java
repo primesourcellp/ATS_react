@@ -50,11 +50,20 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String username = null;
         String jwt = null;
 
+        // Debug logging for authentication issues
+        if (authHeader == null || authHeader.isEmpty()) {
+            System.out.println("DEBUG: No Authorization header found for request: " + requestPath);
+        } else if (!authHeader.startsWith("Bearer ")) {
+            System.out.println("DEBUG: Authorization header doesn't start with 'Bearer ': " + requestPath);
+        }
+
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             jwt = authHeader.substring(7);
             try {
                 username = jwtUtil.extractUsername(jwt);
+                System.out.println("DEBUG: Extracted username from token: " + username + " for path: " + requestPath);
             } catch (Exception e) {
+                System.out.println("DEBUG: Failed to extract username from token for path: " + requestPath + ", error: " + e.getMessage());
                 // log invalid token or ignore to continue without auth
             }
         }

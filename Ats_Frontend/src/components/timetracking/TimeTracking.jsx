@@ -362,6 +362,14 @@ const TimeTracking = () => {
     try {
       if (!date) return;
       
+      // Check if user is logged in
+      const token = localStorage.getItem("jwtToken");
+      if (!token) {
+        console.error("No JWT token found. User needs to log in.");
+        setFilteredSessions([]);
+        return;
+      }
+      
       // Get all users
       const users = await userAPI.getAll();
       const usersArray = Array.isArray(users) ? users : [];
