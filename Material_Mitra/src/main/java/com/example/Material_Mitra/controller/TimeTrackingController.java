@@ -93,8 +93,23 @@ public class TimeTrackingController {
                 "minutes", minutes,
                 "formatted", hours + "h " + minutes + "m"
             ));
+        } catch (RuntimeException e) {
+            // Log the error for debugging
+            System.err.println("Error getting total working minutes for user " + userId + ": " + e.getMessage());
+            e.printStackTrace();
+            // Return error message in response
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", e.getMessage() != null ? e.getMessage() : "Failed to get working minutes",
+                "userId", userId
+            ));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().build();
+            // Log unexpected errors
+            System.err.println("Unexpected error getting total working minutes for user " + userId + ": " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", "An unexpected error occurred",
+                "userId", userId
+            ));
         }
     }
 
