@@ -22,7 +22,8 @@ const JobManagement = () => {
   const [jobToDelete, setJobToDelete] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [toasts, setToasts] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [titleSearch, setTitleSearch] = useState('');
+  const [clientSearch, setClientSearch] = useState('');
   const [idSearchTerm, setIdSearchTerm] = useState('');
   const [locationFilter, setLocationFilter] = useState('');
   const [dateFilter, setDateFilter] = useState('');
@@ -59,7 +60,7 @@ const JobManagement = () => {
 
   useEffect(() => {
     filterJobs();
-  }, [jobs, searchTerm, idSearchTerm, locationFilter, dateFilter, statusFilter, sortBy]);
+  }, [jobs, titleSearch, clientSearch, idSearchTerm, locationFilter, dateFilter, statusFilter, sortBy]);
 
   const loadJobs = async () => {
     try {
@@ -96,13 +97,19 @@ const JobManagement = () => {
       });
     }
 
-    // Search filter (job name, skills, client - NOT ID)
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
+    // Filter by job title
+    if (titleSearch) {
+      const term = titleSearch.toLowerCase();
       result = result.filter(job =>
-        (job.jobName && job.jobName.toLowerCase().includes(term)) ||
-        (job.skillsName && job.skillsName.toLowerCase().includes(term)) ||
-        (job.client?.clientName && job.client.clientName.toLowerCase().includes(term))
+        job.jobName && job.jobName.toLowerCase().includes(term)
+      );
+    }
+
+    // Filter by client name
+    if (clientSearch) {
+      const term = clientSearch.toLowerCase();
+      result = result.filter(job =>
+        job.client?.clientName && job.client.clientName.toLowerCase().includes(term)
       );
     }
 
@@ -310,31 +317,62 @@ const JobManagement = () => {
           </div>
         </div>
 
-        {/* Real-time ATS Search Bar */}
+        {/* Real-time ATS Search Bar - Separated Fields */}
         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl shadow-md p-4 mb-6 border border-blue-100">
-          <div className="flex flex-col lg:flex-row gap-3 items-end">
-            {/* General Search - Large and Prominent */}
-            <div className="flex-1 w-full">
+          <div className="flex flex-wrap gap-3 items-end">
+            {/* Job Title Search */}
+            <div className="flex-1 min-w-[150px]">
+              <label className="block text-xs font-medium text-gray-700 mb-1">Job Title</label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <svg className="h-5 w-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <svg className="h-4 w-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                   </svg>
                 </div>
                 <input
                   type="text"
-                  placeholder="Search jobs by title, skills, or client name..."
-                  className="w-full pl-12 pr-12 py-3.5 text-base border-2 border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm transition-all duration-200"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search by job title..."
+                  className="w-full pl-10 pr-10 py-2.5 text-sm border-2 border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm transition-all duration-200"
+                  value={titleSearch}
+                  onChange={(e) => setTitleSearch(e.target.value)}
                 />
-                {searchTerm && (
+                {titleSearch && (
                   <button
-                    onClick={() => setSearchTerm('')}
-                    className="absolute inset-y-0 right-0 pr-4 flex items-center hover:bg-blue-50 rounded-r-lg transition-colors"
-                    title="Clear search"
+                    onClick={() => setTitleSearch('')}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center hover:bg-blue-50 rounded-r-lg transition-colors"
+                    title="Clear title search"
                   >
-                    <svg className="h-5 w-5 text-gray-400 hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="h-4 w-4 text-gray-400 hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Client Name Search */}
+            <div className="flex-1 min-w-[150px]">
+              <label className="block text-xs font-medium text-gray-700 mb-1">Client Name</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <svg className="h-4 w-4 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                  </svg>
+                </div>
+                <input
+                  type="text"
+                  placeholder="Search by client name..."
+                  className="w-full pl-10 pr-10 py-2.5 text-sm border-2 border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white shadow-sm transition-all duration-200"
+                  value={clientSearch}
+                  onChange={(e) => setClientSearch(e.target.value)}
+                />
+                {clientSearch && (
+                  <button
+                    onClick={() => setClientSearch('')}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center hover:bg-purple-50 rounded-r-lg transition-colors"
+                    title="Clear client search"
+                  >
+                    <svg className="h-4 w-4 text-gray-400 hover:text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
                     </svg>
                   </button>
@@ -344,35 +382,32 @@ const JobManagement = () => {
 
             {/* ID Search - Compact */}
             <div className="w-full lg:w-48">
+              <label className="block text-xs font-medium text-gray-700 mb-1">Job ID</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <svg className="h-5 w-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="h-4 w-4 text-teal-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"></path>
                   </svg>
                 </div>
                 <input
                   type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   placeholder="Job ID..."
-                  className="w-full pl-10 pr-10 py-3.5 text-base border-2 border-indigo-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white shadow-sm transition-all duration-200"
+                  className="w-full pl-10 pr-10 py-2.5 text-sm border-2 border-teal-200 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white shadow-sm transition-all duration-200"
                   value={idSearchTerm}
-                  onChange={(e) => setIdSearchTerm(e.target.value)}
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      filterJobs();
-                    }
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/[^0-9]/g, '');
+                    setIdSearchTerm(value);
                   }}
                 />
                 {idSearchTerm && (
                   <button
-                    onClick={() => {
-                      setIdSearchTerm('');
-                      filterJobs();
-                    }}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center hover:bg-indigo-50 rounded-r-lg transition-colors"
+                    onClick={() => setIdSearchTerm('')}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center hover:bg-teal-50 rounded-r-lg transition-colors"
                     title="Clear ID search"
                   >
-                    <svg className="h-5 w-5 text-gray-400 hover:text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="h-4 w-4 text-gray-400 hover:text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
                     </svg>
                   </button>
@@ -381,14 +416,14 @@ const JobManagement = () => {
             </div>
 
             {/* Clear Button - Only show when search is active */}
-            {(searchTerm || idSearchTerm) && (
+            {(titleSearch || clientSearch || idSearchTerm) && (
               <button
                 onClick={() => {
-                  setSearchTerm('');
+                  setTitleSearch('');
+                  setClientSearch('');
                   setIdSearchTerm('');
-                  loadJobs();
                 }}
-                className="px-4 py-3.5 bg-white border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-all duration-200 font-medium whitespace-nowrap shadow-sm"
+                className="px-4 py-2.5 bg-white border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-all duration-200 font-medium whitespace-nowrap shadow-sm"
               >
                 Clear All
               </button>
@@ -396,18 +431,12 @@ const JobManagement = () => {
           </div>
           
           {/* Real-time Results Count */}
-          {(searchTerm || idSearchTerm) && (
+          {(titleSearch || clientSearch || idSearchTerm) && (
             <div className="mt-3 flex items-center text-sm text-blue-700">
               <svg className="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <span className="font-medium">{filteredJobs.length} job{filteredJobs.length !== 1 ? 's' : ''} found</span>
-              {(searchTerm || idSearchTerm) && (
-                <span className="ml-2 text-blue-600">
-                  {searchTerm && `• "${searchTerm}"`}
-                  {idSearchTerm && ` • ID: ${idSearchTerm}`}
-                </span>
-              )}
             </div>
           )}
         </div>
