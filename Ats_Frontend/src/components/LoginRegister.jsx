@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { authAPI, userAPI } from "../api/api";
+import { setLoginDate } from "../utils/dailyLogout";
 import logo from "../assets/logo.png";
 
 const LoginRegister = () => {
@@ -61,6 +62,8 @@ const LoginRegister = () => {
       localStorage.setItem("jwtToken", data.token);
       localStorage.setItem("username", data.username);
       localStorage.setItem("role", data.role);
+      // Store login date for daily logout check
+      setLoginDate();
       navigate("/dashboard");
     } catch (err) {
       const msg = err.message || "";

@@ -26,6 +26,7 @@ import Chatbot from "./components/chatbot/Chatbot";
 import ResumeJobMatching from "./components/resume/ResumeJobMatching";
 import JobSpecificMatching from "./components/resume/JobSpecificMatching";
 import TimeTracking from "./components/timetracking/TimeTracking";
+import { initDailyLogoutCheck } from "./utils/dailyLogout";
 
 const RequireAuth = ({ children }) => {
   const token = localStorage.getItem("jwtToken");
@@ -43,10 +44,27 @@ function App() {
     const token = localStorage.getItem("jwtToken");
     setIsAuthenticated(!!token);
 
+    // Initialize daily logout check if user is authenticated
+    let dailyLogoutCleanup = null;
+    if (token) {
+      dailyLogoutCleanup = initDailyLogoutCheck();
+    }
+
     // Listen for storage changes (e.g., login/logout)
     const handleStorageChange = () => {
       const newToken = localStorage.getItem("jwtToken");
       setIsAuthenticated(!!newToken);
+      
+      // Cleanup previous daily logout check
+      if (dailyLogoutCleanup) {
+        dailyLogoutCleanup();
+        dailyLogoutCleanup = null;
+      }
+      
+      // Reinitialize daily logout check if user logged in
+      if (newToken) {
+        dailyLogoutCleanup = initDailyLogoutCheck();
+      }
     };
 
     // Listen for custom storage events
@@ -57,12 +75,26 @@ function App() {
       const currentToken = localStorage.getItem("jwtToken");
       if (!!currentToken !== isAuthenticated) {
         setIsAuthenticated(!!currentToken);
+        
+        // Cleanup previous daily logout check
+        if (dailyLogoutCleanup) {
+          dailyLogoutCleanup();
+          dailyLogoutCleanup = null;
+        }
+        
+        // Reinitialize daily logout check if user logged in
+        if (currentToken) {
+          dailyLogoutCleanup = initDailyLogoutCheck();
+        }
       }
     }, 1000);
 
     return () => {
       window.removeEventListener('storage', handleStorageChange);
       clearInterval(interval);
+      if (dailyLogoutCleanup) {
+        dailyLogoutCleanup();
+      }
     };
   }, [isAuthenticated]);
 
