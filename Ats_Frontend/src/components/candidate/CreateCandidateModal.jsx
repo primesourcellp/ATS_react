@@ -89,13 +89,7 @@ const CreateCandidateModal = ({ onClose, onCandidateCreated, showToast }) => {
         return;
       }
 
-      // Validate file size (5MB max)
-      const maxSize = 5 * 1024 * 1024; // 5MB in bytes
-      if (file.size > maxSize) {
-        showToast('Error', 'File size exceeds the maximum limit of 5MB. Please upload a smaller file.', 'error');
-        e.target.value = ''; // Clear the input
-        return;
-      }
+      // File size validation removed - accepting any size
 
       setResumeFile(file);
       setResumeFileName(file.name);
@@ -608,7 +602,7 @@ const CreateCandidateModal = ({ onClose, onCandidateCreated, showToast }) => {
                       {resumeFileName || 'Click to upload resume (PDF, DOC, DOCX)'}
                     </p>
                     <p className="text-gray-500 text-sm mt-1">
-                      {resumeFileName ? 'Click to change file' : 'Drag and drop or click to browse (Max 5MB)'}
+                      {resumeFileName ? 'Click to change file' : 'Drag and drop or click to browse'}
                     </p>
                   </div>
                   {resumeFileName && (

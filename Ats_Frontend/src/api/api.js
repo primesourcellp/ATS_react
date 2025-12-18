@@ -396,8 +396,24 @@ export const candidateAPI = {
     return handleResponse(response);
   },
 
-  searchByResumeContent: async (keywords) => {
-    const response = await fetch(`${BASE_URL}/api/candidates/search-by-resume?keywords=${encodeURIComponent(keywords)}`, {
+  searchByResumeContent: async (keywords, offset = 0, limit = 500) => {
+    const response = await fetch(`${BASE_URL}/api/candidates/search-by-resume?keywords=${encodeURIComponent(keywords)}&offset=${offset}&limit=${limit}`, {
+      method: "GET",
+      headers: getAuthHeaders(),
+    });
+    return handleResponse(response);
+  },
+
+  getResumeSearchCount: async (keywords) => {
+    const response = await fetch(`${BASE_URL}/api/candidates/search-by-resume/count?keywords=${encodeURIComponent(keywords)}`, {
+      method: "GET",
+      headers: getAuthHeaders(),
+    });
+    return handleResponse(response);
+  },
+
+  getCount: async () => {
+    const response = await fetch(`${BASE_URL}/api/candidates/count`, {
       method: "GET",
       headers: getAuthHeaders(),
     });

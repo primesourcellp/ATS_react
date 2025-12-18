@@ -51,6 +51,9 @@ public class Candidate {
     @Column(name = "resume_path", length = 500)
     private String resumePath;
 
+    @Column(name = "resume_text", columnDefinition = "LONGTEXT")
+    private String resumeText;
+
     @Enumerated(EnumType.STRING)
     @Column(length = 100)
     private ResultStatus status;
@@ -153,6 +156,12 @@ public class Candidate {
 	}
 	public void setResumePath(String resumePath) {
 		this.resumePath = resumePath;
+	}
+	public String getResumeText() {
+		return resumeText;
+	}
+	public void setResumeText(String resumeText) {
+		this.resumeText = resumeText;
 	}
 	public ResultStatus getStatus() {
 		return status;

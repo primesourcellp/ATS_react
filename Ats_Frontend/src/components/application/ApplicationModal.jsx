@@ -135,13 +135,7 @@ const ApplicationModal = ({ application, candidates, jobs, onSave, onClose, show
         return;
       }
 
-      // Validate file size (5MB max)
-      const maxSize = 5 * 1024 * 1024; // 5MB in bytes
-      if (file.size > maxSize) {
-        showToast('Error', 'File size exceeds the maximum limit of 5MB. Please upload a smaller file.', 'error');
-        e.target.value = ''; // Clear the input
-        return;
-      }
+      // File size validation removed - accepting any size
 
       setFormData(prev => ({ ...prev, resumeFile: file, useMasterResume: false }));
       setFileName(file.name);

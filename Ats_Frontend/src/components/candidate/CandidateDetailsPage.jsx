@@ -240,12 +240,7 @@ const CandidateDetailsPage = () => {
         return;
       }
 
-      const maxSize = 5 * 1024 * 1024;
-      if (file.size > maxSize) {
-        showToast('Error', 'File size exceeds the maximum limit of 5MB', 'error');
-        e.target.value = '';
-        return;
-      }
+      // File size validation removed - accepting any size
 
       setResumeFile(file);
     }
@@ -554,7 +549,7 @@ const CandidateDetailsPage = () => {
                   ></textarea>
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-600 uppercase mb-2">Resume (PDF, DOC, DOCX) - Optional (Max 5MB)</label>
+                    <label className="block text-sm font-semibold text-gray-600 uppercase mb-2">Resume (PDF, DOC, DOCX) - Optional</label>
                   <input
                     type="file"
                     id="resume"

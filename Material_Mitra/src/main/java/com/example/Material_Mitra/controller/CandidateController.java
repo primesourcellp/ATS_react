@@ -314,22 +314,45 @@ public class CandidateController {
     
     /**
      * Search candidates by skills/keywords in their resume content
+     * OPTIMIZED: Uses parallel processing and caching for fast search across 2000+ resumes
      * This searches through actual resume files, not just the skills field in database
-     * Example: /api/candidates/search-by-resume?keywords=Java,Spring Boot
+     * Example: /api/candidates/search-by-resume?keywords=Java,Spring Boot&offset=0&limit=100
      */
     @GetMapping("/search-by-resume")
     public ResponseEntity<List<CandidateDTO>> searchCandidatesByResumeContent(
-            @RequestParam(required = false) String keywords) {
+            @RequestParam(required = false) String keywords,
+            @RequestParam(defaultValue = "0") int offset,
+            @RequestParam(defaultValue = "500") int limit) {
         if (keywords == null || keywords.trim().isEmpty()) {
             return ResponseEntity.ok(new ArrayList<>());
         }
         
-        List<Candidate> candidates = candidateService.searchCandidatesByResumeContent(keywords);
+        // Limit maximum results to prevent timeout
+        int maxLimit = Math.min(limit, 500);
+        int validOffset = Math.max(0, offset);
+        
+        List<Candidate> candidates = candidateService.searchCandidatesByResumeContent(keywords, validOffset, maxLimit);
         List<CandidateDTO> candidateDTOs = candidates.stream()
                 .map(DTOMapper::toCandidateDTO)
                 .collect(java.util.stream.Collectors.toList());
         
         return ResponseEntity.ok(candidateDTOs);
+    }
+    
+    /**
+     * Get count of candidates matching keywords in resume content
+     * Faster endpoint that only returns the count without full candidate data
+     * Example: /api/candidates/search-by-resume/count?keywords=Java,Spring Boot
+     */
+    @GetMapping("/search-by-resume/count")
+    public ResponseEntity<Map<String, Object>> getResumeSearchCount(
+            @RequestParam(required = false) String keywords) {
+        if (keywords == null || keywords.trim().isEmpty()) {
+            return ResponseEntity.ok(Map.of("count", 0));
+        }
+        
+        long count = candidateService.countCandidatesByResumeContent(keywords);
+        return ResponseEntity.ok(Map.of("count", count, "keywords", keywords));
     }
  // ✅ Parse resume and create candidate from file only
 //    @PostMapping(value = "/parse", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

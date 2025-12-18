@@ -55,4 +55,28 @@ public interface CandidateRepository extends JpaRepository<Candidate, Long> {
     List<Candidate> findByCreatedBy_Id(Long createdById);
 
     long countByCreatedBy_IdAndCreatedAtBetween(Long createdById, LocalDateTime startDate, LocalDateTime endDate);
+    
+    /**
+     * Fast search candidates by keywords in resume text (database-level search)
+     * Uses LIKE queries on stored resume_text column for much faster performance
+     */
+    @Query("SELECT c FROM Candidate c WHERE c.resumeText IS NOT NULL AND c.resumeText != '' " +
+           "AND LOWER(c.resumeText) LIKE LOWER(CONCAT('%', :keyword, '%'))")
+    List<Candidate> findByResumeTextContaining(@Param("keyword") String keyword);
+    
+    /**
+     * Count candidates matching keywords in resume text (database-level search)
+     */
+    @Query("SELECT COUNT(c) FROM Candidate c WHERE c.resumeText IS NOT NULL AND c.resumeText != '' " +
+           "AND LOWER(c.resumeText) LIKE LOWER(CONCAT('%', :keyword, '%'))")
+    long countByResumeTextContaining(@Param("keyword") String keyword);
+    
+    /**
+     * Fast search with multiple keywords - all keywords must be present
+     * This uses native SQL for better performance with multiple LIKE conditions
+     */
+    @Query(value = "SELECT * FROM candidate c WHERE c.resume_text IS NOT NULL AND c.resume_text != '' " +
+           "AND LOWER(c.resume_text) LIKE LOWER(CONCAT('%', :keyword1, '%')) " +
+           "AND LOWER(c.resume_text) LIKE LOWER(CONCAT('%', :keyword2, '%'))", nativeQuery = true)
+    List<Candidate> findByResumeTextContainingBothKeywords(@Param("keyword1") String keyword1, @Param("keyword2") String keyword2);
 }

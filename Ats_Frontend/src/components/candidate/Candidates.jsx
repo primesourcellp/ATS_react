@@ -76,6 +76,9 @@ const CandidateManagement = () => {
   const [showMyCandidates, setShowMyCandidates] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(20);
+  const [resumeSearchCount, setResumeSearchCount] = useState(null);
+  const [resumeSearchKeywords, setResumeSearchKeywords] = useState('');
+  const [totalCandidateCount, setTotalCandidateCount] = useState(0);
   const navigate = useNavigate();
   const displayedCandidateCount = filteredCandidates.length;
   const recruiterDisplayName = currentUserName || "You";
@@ -94,7 +97,17 @@ const CandidateManagement = () => {
     setUserRole(role);
     setCurrentUserName(localStorage.getItem("username") || "");
     loadCandidates();
+    loadTotalCount();
   }, []);
+
+  const loadTotalCount = async () => {
+    try {
+      const count = await candidateAPI.getCount();
+      setTotalCandidateCount(count);
+    } catch (error) {
+      console.error('Error loading candidate count:', error);
+    }
+  };
 
   useEffect(() => {
     setCurrentPage(1); // Reset to first page when filters change
@@ -124,17 +137,29 @@ const CandidateManagement = () => {
   const performResumeSearch = async (keywords) => {
     if (!keywords || !keywords.trim()) {
       loadCandidates();
+      setResumeSearchCount(null);
+      setResumeSearchKeywords('');
       return;
     }
 
     try {
       setResumeSearchLoading(true);
-      const results = await candidateAPI.searchByResumeContent(keywords);
+      setResumeSearchKeywords(keywords);
+      
+      // Fetch count and results in parallel
+      const [results, countData] = await Promise.all([
+        candidateAPI.searchByResumeContent(keywords),
+        candidateAPI.getResumeSearchCount(keywords)
+      ]);
+      
       setCandidates(results);
+      setResumeSearchCount(countData.count || results.length);
     } catch (error) {
       console.error('Error searching resumes:', error);
       showToast('Error', 'Failed to search resumes. Please try again.', 'error');
       loadCandidates(); // Fallback to loading all candidates
+      setResumeSearchCount(null);
+      setResumeSearchKeywords('');
     } finally {
       setResumeSearchLoading(false);
     }
@@ -152,9 +177,17 @@ const CandidateManagement = () => {
       
       // If search in resume is enabled, use resume search
       if (searchInResume) {
-        const results = await candidateAPI.searchByResumeContent(advancedKeywords);
+        setResumeSearchKeywords(advancedKeywords);
+        // Fetch count and results in parallel
+        const [results, countData] = await Promise.all([
+          candidateAPI.searchByResumeContent(advancedKeywords),
+          candidateAPI.getResumeSearchCount(advancedKeywords)
+        ]);
         filtered = results;
+        setResumeSearchCount(countData.count || results.length);
       } else {
+        setResumeSearchCount(null);
+        setResumeSearchKeywords('');
         // Regular search in skills field
         filtered = [...candidates];
         
@@ -193,10 +226,14 @@ const CandidateManagement = () => {
       console.log('Search Keywords:', advancedKeywords);
       console.log('Search in Resume:', searchInResume);
       console.log('Found Candidates:', filtered.length);
+      console.log('Total Matching Count:', resumeSearchCount);
       console.log('Candidates:', filtered.map(c => ({ id: c.id, name: c.name, hasResume: !!c.resumePath })));
       console.log('=== END DEBUG ===');
       
-      showToast('Success', `Found ${filtered.length} candidates`, 'success');
+      const countMessage = searchInResume && resumeSearchCount !== null 
+        ? `Found ${filtered.length} candidates (${resumeSearchCount} total matching skills)`
+        : `Found ${filtered.length} candidates`;
+      showToast('Success', countMessage, 'success');
     } catch (error) {
       console.error('Error in advanced search:', error);
       showToast('Error', 'Failed to search candidates. Please try again.', 'error');
@@ -247,6 +284,8 @@ const CandidateManagement = () => {
   const loadCandidates = async () => {
     try {
       setLoading(true);
+      setResumeSearchCount(null);
+      setResumeSearchKeywords('');
       const candidatesData = await candidateAPI.getAll();
       
       // Ensure applications array exists and hasResume is properly set
@@ -266,6 +305,9 @@ const CandidateManagement = () => {
           setSelectedCandidate(updatedSelected);
         }
       }
+      
+      // Update total count
+      await loadTotalCount();
     } catch (error) {
       showToast('Error', error.message || 'Failed to load candidates', 'error');
     } finally {
@@ -478,13 +520,28 @@ const CandidateManagement = () => {
           </div>
         </div>
 
-        {/* Simple Stats Overview */}
-        <div className="bg-white rounded-lg border border-gray-200 p-4 mb-1">
-          <div className="flex flex-wrap items-center justify-between gap-6">
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-600">Total Candidates:</span>
-              <span className="text-lg font-semibold text-gray-900">{displayedCandidateCount}</span>
-            </div>
+            {/* Simple Stats Overview */}
+            <div className="bg-white rounded-lg border border-gray-200 p-4 mb-1">
+              <div className="flex flex-wrap items-center justify-between gap-6">
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-600">Total Candidates:</span>
+                    <span className="text-lg font-semibold text-gray-900">{totalCandidateCount > 0 ? totalCandidateCount : displayedCandidateCount}</span>
+                    {totalCandidateCount > 0 && displayedCandidateCount !== totalCandidateCount && (
+                      <span className="text-sm text-gray-500">(Showing {displayedCandidateCount})</span>
+                    )}
+                  </div>
+                  {resumeSearchCount !== null && resumeSearchKeywords && (
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-500 text-white rounded-lg shadow-sm">
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      <span className="text-sm font-semibold">Matching Skills:</span>
+                      <span className="text-base font-bold">{resumeSearchCount.toLocaleString()}</span>
+                      <span className="text-xs text-blue-100">({resumeSearchKeywords})</span>
+                    </div>
+                  )}
+                </div>
             <button
               type="button"
               onClick={() => setShowMyCandidates((prev) => !prev)}

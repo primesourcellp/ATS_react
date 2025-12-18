@@ -37,13 +37,7 @@ const EditCandidateModal = ({ candidate, onClose, onCandidateUpdated, showToast 
         return;
       }
 
-      // Validate file size (5MB max)
-      const maxSize = 5 * 1024 * 1024; // 5MB in bytes
-      if (file.size > maxSize) {
-        showToast('Error', 'File size exceeds the maximum limit of 5MB. Please upload a smaller file.', 'error');
-        e.target.value = ''; // Clear the input
-        return;
-      }
+      // File size validation removed - accepting any size
 
       setResumeFile(file);
     }
@@ -243,7 +237,7 @@ const EditCandidateModal = ({ candidate, onClose, onCandidateUpdated, showToast 
                 ></textarea>
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-600 uppercase mb-2">Resume (PDF, DOC, DOCX) - Optional (Max 5MB)</label>
+                <label className="block text-sm font-semibold text-gray-600 uppercase mb-2">Resume (PDF, DOC, DOCX) - Optional</label>
                 <input
                   type="file"
                   id="resume"

@@ -46,13 +46,7 @@ const CandidateFormModal = ({ candidate, onSave, onCancel }) => {
         return;
       }
 
-      // Validate file size (5MB max)
-      const maxSize = 5 * 1024 * 1024; // 5MB in bytes
-      if (file.size > maxSize) {
-        alert('File size exceeds the maximum limit of 5MB. Please upload a smaller file.');
-        e.target.value = ''; // Clear the input
-        return;
-      }
+      // File size validation removed - accepting any size
 
       setResumeFile(file);
     }
@@ -267,7 +261,7 @@ const CandidateFormModal = ({ candidate, onSave, onCancel }) => {
 
           {/* Resume Upload */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Resume (PDF, DOC, DOCX) - Optional (Max 5MB)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Resume (PDF, DOC, DOCX) - Optional</label>
             <input
               type="file"
               id="resume"
