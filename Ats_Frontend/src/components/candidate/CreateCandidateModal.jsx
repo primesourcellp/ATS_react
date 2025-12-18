@@ -126,6 +126,10 @@ const CreateCandidateModal = ({ onClose, onCandidateCreated, showToast }) => {
     } catch (error) {
       setParsingStatus('error');
       console.error('Error parsing resume:', error);
+      
+      // Show more detailed error message to user
+      const errorMessage = error.message || error.response?.data?.message || 'Unknown error occurred';
+      showToast('Parsing Error', errorMessage, 'error');
     }
   };
 
@@ -629,9 +633,24 @@ const CreateCandidateModal = ({ onClose, onCandidateCreated, showToast }) => {
                 </div>
               )}
               {parsingStatus === 'error' && (
-                <div className="mt-4 flex items-center justify-center p-4 bg-red-50 border border-red-200 rounded-lg">
-                  <i className="fas fa-exclamation-triangle text-red-600 mr-3"></i>
-                  <span className="text-red-700 font-medium">Error parsing resume. Please fill manually.</span>
+                <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                  <div className="flex items-start">
+                    <i className="fas fa-exclamation-triangle text-red-600 mr-3 mt-1"></i>
+                    <div className="flex-1">
+                      <span className="text-red-700 font-medium block mb-1">Error parsing resume. Please fill manually.</span>
+                      <p className="text-xs text-red-600 mt-2">
+                        <strong>Common causes:</strong>
+                        <ul className="list-disc list-inside mt-1 space-y-1">
+                          <li>Password-protected PDF file</li>
+                          <li>Image-only resume (scanned document without text)</li>
+                          <li>Corrupted or invalid file format</li>
+                          <li>File format not supported (only PDF, DOC, DOCX are supported)</li>
+                          <li>File too large (max 10MB)</li>
+                        </ul>
+                        <span className="block mt-2">Check browser console for detailed error message.</span>
+                      </p>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>

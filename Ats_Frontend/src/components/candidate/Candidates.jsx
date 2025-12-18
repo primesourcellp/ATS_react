@@ -55,12 +55,20 @@ const CandidateManagement = () => {
   const [phoneSearch, setPhoneSearch] = useState('');
   const [locationSearch, setLocationSearch] = useState('');
   const [skillsSearch, setSkillsSearch] = useState('');
+  const [searchByResume, setSearchByResume] = useState(false);
+  const [resumeSearchLoading, setResumeSearchLoading] = useState(false);
   const [jobSearch, setJobSearch] = useState('');
+  const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
+  const [advancedKeywords, setAdvancedKeywords] = useState('');
+  const [booleanSearch, setBooleanSearch] = useState(false);
+  const [minExperience, setMinExperience] = useState('');
+  const [maxExperience, setMaxExperience] = useState('');
+  const [advancedLocation, setAdvancedLocation] = useState('');
+  const [includeRelocate, setIncludeRelocate] = useState(true);
+  const [searchInResume, setSearchInResume] = useState(true);
   const [candidateIdSearch, setCandidateIdSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [locationFilter, setLocationFilter] = useState('');
-  const [includeSkillsFilter, setIncludeSkillsFilter] = useState('');
-  const [excludeSkillsFilter, setExcludeSkillsFilter] = useState('');
   const [sortBy, setSortBy] = useState('newest');
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState('');
@@ -90,7 +98,133 @@ const CandidateManagement = () => {
 
   useEffect(() => {
     setCurrentPage(1); // Reset to first page when filters change
-  }, [nameSearch, emailSearch, phoneSearch, locationSearch, skillsSearch, jobSearch, candidateIdSearch, statusFilter, locationFilter, includeSkillsFilter, excludeSkillsFilter, sortBy, showMyCandidates]);
+  }, [nameSearch, emailSearch, phoneSearch, locationSearch, skillsSearch, jobSearch, candidateIdSearch, statusFilter, locationFilter, sortBy, showMyCandidates, searchByResume]);
+
+  // Handle resume-based search
+  useEffect(() => {
+    if (searchByResume && skillsSearch.trim()) {
+      performResumeSearch(skillsSearch);
+    } else if (!searchByResume && skillsSearch) {
+      // If resume search is disabled but skills search exists, reload all candidates
+      // This will allow normal filtering to work
+      loadCandidates();
+    }
+  }, [searchByResume]); // Only depend on searchByResume to avoid infinite loops
+
+  // Handle skills search change when resume search is enabled
+  useEffect(() => {
+    if (searchByResume && skillsSearch.trim()) {
+      const timeoutId = setTimeout(() => {
+        performResumeSearch(skillsSearch);
+      }, 500); // Debounce search by 500ms
+      return () => clearTimeout(timeoutId);
+    }
+  }, [skillsSearch, searchByResume]);
+
+  const performResumeSearch = async (keywords) => {
+    if (!keywords || !keywords.trim()) {
+      loadCandidates();
+      return;
+    }
+
+    try {
+      setResumeSearchLoading(true);
+      const results = await candidateAPI.searchByResumeContent(keywords);
+      setCandidates(results);
+    } catch (error) {
+      console.error('Error searching resumes:', error);
+      showToast('Error', 'Failed to search resumes. Please try again.', 'error');
+      loadCandidates(); // Fallback to loading all candidates
+    } finally {
+      setResumeSearchLoading(false);
+    }
+  };
+
+  const handleAdvancedSearch = async () => {
+    if (!advancedKeywords || !advancedKeywords.trim()) {
+      showToast('Info', 'Please enter keywords to search', 'info');
+      return;
+    }
+
+    try {
+      setResumeSearchLoading(true);
+      let filtered = [];
+      
+      // If search in resume is enabled, use resume search
+      if (searchInResume) {
+        const results = await candidateAPI.searchByResumeContent(advancedKeywords);
+        filtered = results;
+      } else {
+        // Regular search in skills field
+        filtered = [...candidates];
+        
+        // Filter by keywords in skills
+        const keywords = advancedKeywords.toLowerCase().split(/\s+(and|or)\s+/i).filter(k => k !== 'and' && k !== 'or');
+        filtered = filtered.filter(c => {
+          const skills = (c.skills || '').toLowerCase();
+          // Simple keyword matching (can be enhanced for boolean logic)
+          return keywords.some(keyword => skills.includes(keyword));
+        });
+      }
+      
+      // Apply experience filter
+      if (minExperience || maxExperience) {
+        filtered = filtered.filter(c => {
+          const exp = parseFloat(c.experience) || 0;
+          const min = parseFloat(minExperience) || 0;
+          const max = parseFloat(maxExperience) || Infinity;
+          return exp >= min && exp <= max;
+        });
+      }
+      
+      // Apply location filter
+      if (advancedLocation) {
+        const locationTerm = advancedLocation.toLowerCase();
+        filtered = filtered.filter(c => {
+          const location = (c.location || '').toLowerCase();
+          return location.includes(locationTerm);
+        });
+      }
+      
+      setCandidates(filtered);
+      
+      // Debug: Log search results
+      console.log('=== RESUME SEARCH DEBUG ===');
+      console.log('Search Keywords:', advancedKeywords);
+      console.log('Search in Resume:', searchInResume);
+      console.log('Found Candidates:', filtered.length);
+      console.log('Candidates:', filtered.map(c => ({ id: c.id, name: c.name, hasResume: !!c.resumePath })));
+      console.log('=== END DEBUG ===');
+      
+      showToast('Success', `Found ${filtered.length} candidates`, 'success');
+    } catch (error) {
+      console.error('Error in advanced search:', error);
+      showToast('Error', 'Failed to search candidates. Please try again.', 'error');
+    } finally {
+      setResumeSearchLoading(false);
+    }
+  };
+
+  // Test function to view extracted resume text (for debugging)
+  const testResumeExtraction = async (candidateId) => {
+    try {
+      const result = await candidateAPI.getResumeText(candidateId);
+      console.log('=== RESUME TEXT EXTRACTION TEST ===');
+      console.log('Candidate ID:', result.candidateId);
+      console.log('Candidate Name:', result.candidateName);
+      console.log('Resume Path:', result.resumePath);
+      console.log('Text Length:', result.textLength);
+      console.log('Preview (first 500 chars):', result.preview);
+      console.log('Full Text:', result.resumeText);
+      console.log('=== END TEST ===');
+      
+      // Show in alert for easy viewing
+      alert(`Resume Text for ${result.candidateName}:\n\nLength: ${result.textLength} characters\n\nPreview:\n${result.preview}\n\nCheck console for full text.`);
+    } catch (error) {
+      console.error('Error testing resume extraction:', error);
+      showToast('Error', 'Failed to extract resume text: ' + error.message, 'error');
+    }
+  };
 
   useEffect(() => {
     filterCandidates();
@@ -105,8 +239,6 @@ const CandidateManagement = () => {
     candidateIdSearch,
     statusFilter,
     locationFilter,
-    includeSkillsFilter,
-    excludeSkillsFilter,
     sortBy,
     showMyCandidates,
     currentUserName
@@ -168,11 +300,7 @@ const CandidateManagement = () => {
       result = result.filter(c => c.location && c.location.toLowerCase().includes(term));
     }
     
-    // Filter by skills
-    if (skillsSearch) {
-      const term = skillsSearch.toLowerCase();
-      result = result.filter(c => c.skills && c.skills.toLowerCase().includes(term));
-    }
+    // Skills search is now handled in advanced search panel
     
     // Filter by job
     if (jobSearch) {
@@ -208,28 +336,6 @@ const CandidateManagement = () => {
     if (locationFilter) {
       const locationTerm = locationFilter.toLowerCase();
       result = result.filter(c => c.location && c.location.toLowerCase().includes(locationTerm));
-    }
-    
-    // Filter by include skills (candidate MUST have these skills)
-    if (includeSkillsFilter) {
-      const includeSkills = includeSkillsFilter.split(',').map(s => s.trim().toLowerCase()).filter(s => s);
-      result = result.filter(c => {
-        if (!c.skills) return false;
-        const candidateSkills = c.skills.toLowerCase();
-        // All include skills must be present
-        return includeSkills.every(skill => candidateSkills.includes(skill));
-      });
-    }
-    
-    // Filter by exclude skills (candidate MUST NOT have these skills)
-    if (excludeSkillsFilter) {
-      const excludeSkills = excludeSkillsFilter.split(',').map(s => s.trim().toLowerCase()).filter(s => s);
-      result = result.filter(c => {
-        if (!c.skills) return true; // If no skills, include the candidate
-        const candidateSkills = c.skills.toLowerCase();
-        // None of the exclude skills should be present
-        return !excludeSkills.some(skill => candidateSkills.includes(skill));
-      });
     }
     
     if (showMyCandidates && currentUserName) {
@@ -359,12 +465,9 @@ const CandidateManagement = () => {
   // Get status counts for stats
 
   return (
-    <div className="flex min-h-screen bg-gray-50 mt-2">
-      {/* Sidebar-style Navbar */}
-      <Navbar />
-
+    <>
       {/* Main content */}
-      <main className="flex-1 p-6">
+      <main className="flex-1 p-6" style={{ position: 'relative' }}>
         {/* Header */}
         <div className="py-10">
           <div className="flex justify-between items-center">
@@ -396,6 +499,18 @@ const CandidateManagement = () => {
             </button>
           </div>
         </div>
+
+        {/* Add Candidate Button */}
+        <button
+          onClick={() => setShowCreateModal(true)}
+          className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md flex items-center gap-2 transition-colors font-medium shadow-sm mb-6"
+          style={{ position: 'absolute', left: '1118px', top: '183px' }}
+        >
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+          </svg>
+          Add Candidate
+        </button>
 
         {/* Real-time ATS Search Bar - Separated Fields */}
         <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl shadow-md p-4 mb-6 border border-purple-100">
@@ -521,36 +636,6 @@ const CandidateManagement = () => {
               </div>
             </div>
 
-            {/* Skills Search */}
-            <div className="flex-1 min-w-[150px]">
-              <label className="block text-xs font-medium text-gray-700 mb-1">Skills</label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <svg className="h-4 w-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                  </svg>
-                </div>
-                <input
-                  type="text"
-                  placeholder="Search by skills..."
-                  className="w-full pl-10 pr-10 py-2.5 text-sm border-2 border-indigo-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white shadow-sm transition-all duration-200"
-                  value={skillsSearch}
-                  onChange={(e) => setSkillsSearch(e.target.value)}
-                />
-                {skillsSearch && (
-                  <button
-                    onClick={() => setSkillsSearch('')}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center hover:bg-indigo-50 rounded-r-lg transition-colors"
-                    title="Clear skills search"
-                  >
-                    <svg className="h-4 w-4 text-gray-400 hover:text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
-                    </svg>
-                  </button>
-                )}
-              </div>
-            </div>
-
             {/* Job Search */}
             <div className="flex-1 min-w-[150px]">
               <label className="block text-xs font-medium text-gray-700 mb-1">Job</label>
@@ -631,14 +716,13 @@ const CandidateManagement = () => {
             </div>
 
             {/* Clear Button - Only show when search is active */}
-            {(nameSearch || emailSearch || phoneSearch || locationSearch || skillsSearch || jobSearch || candidateIdSearch) && (
+            {(nameSearch || emailSearch || phoneSearch || locationSearch || jobSearch || candidateIdSearch) && (
               <button
                 onClick={() => {
                   setNameSearch('');
                   setEmailSearch('');
                   setPhoneSearch('');
                   setLocationSearch('');
-                  setSkillsSearch('');
                   setJobSearch('');
                   setCandidateIdSearch('');
                 }}
@@ -688,6 +772,24 @@ const CandidateManagement = () => {
               )}
             </div>
 
+            {/* Sort By */}
+            <div className="flex items-center gap-2">
+              <svg className="h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4" />
+              </svg>
+              <select
+                className="px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white"
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+              >
+                <option value="newest">Newest First</option>
+                <option value="oldest">Oldest First</option>
+                <option value="name">By Name</option>
+                <option value="id_asc">ID: 1 to Last</option>
+                <option value="id_desc">ID: Last to 1</option>
+              </select>
+            </div>
+
             {/* Status Filter */}
             <div className="flex items-center gap-2">
               <svg className="h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -732,23 +834,20 @@ const CandidateManagement = () => {
               </select>
             </div>
 
-            {/* Sort By */}
-            <div className="flex items-center gap-2">
-              <svg className="h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4" />
+            {/* Advanced Search Button */}
+            <button
+              onClick={() => setShowAdvancedSearch(!showAdvancedSearch)}
+              className={`px-4 py-2 rounded-md flex items-center gap-2 transition-colors font-medium shadow-sm text-sm ${
+                showAdvancedSearch
+                  ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                  : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+              }`}
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
-              <select
-                className="px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white"
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-              >
-                <option value="newest">Newest First</option>
-                <option value="oldest">Oldest First</option>
-                <option value="name">By Name</option>
-                <option value="id_asc">ID: 1 to Last</option>
-                <option value="id_desc">ID: Last to 1</option>
-              </select>
-            </div>
+              {showAdvancedSearch ? 'Hide Search' : 'Advanced Search'}
+            </button>
 
             {/* Clear All Filters */}
             {(locationFilter || statusFilter !== 'all') && (
@@ -763,67 +862,143 @@ const CandidateManagement = () => {
               </button>
             )}
           </div>
-
-          {/* Skills Filters Row */}
-          <div className="flex flex-wrap items-center gap-4 mt-4 pt-4 border-t border-gray-200">
-            <div className="flex items-center gap-2 flex-1 min-w-[250px]">
-              <svg className="h-4 w-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <input
-                type="text"
-                placeholder="Include Skills (comma-separated)..."
-                className="flex-1 px-3 py-2 text-sm border border-green-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-green-50"
-                value={includeSkillsFilter}
-                onChange={(e) => setIncludeSkillsFilter(e.target.value)}
-              />
-              {includeSkillsFilter && (
-                <button
-                  onClick={() => setIncludeSkillsFilter('')}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
-                  </svg>
-                </button>
-              )}
-            </div>
-
-            <div className="flex items-center gap-2 flex-1 min-w-[250px]">
-              <svg className="h-4 w-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <input
-                type="text"
-                placeholder="Exclude Skills (comma-separated)..."
-                className="flex-1 px-3 py-2 text-sm border border-red-300 rounded-md focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-red-50"
-                value={excludeSkillsFilter}
-                onChange={(e) => setExcludeSkillsFilter(e.target.value)}
-              />
-              {excludeSkillsFilter && (
-                <button
-                  onClick={() => setExcludeSkillsFilter('')}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
-                  </svg>
-                </button>
-              )}
-            </div>
-
-            {/* Add Candidate Button */}
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md flex items-center gap-2 transition-colors font-medium shadow-sm"
-            >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-              Add Candidate
-            </button>
-          </div>
         </div>
+
+        {/* Advanced Search Panel */}
+        {showAdvancedSearch && (
+          <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6 mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Search Candidates</h3>
+              <button
+                onClick={() => setShowAdvancedSearch(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* Keywords Section */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-gray-700">Keywords</label>
+                  <div className="flex items-center gap-2">
+                    <label className="flex items-center gap-1 text-xs text-gray-600 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={booleanSearch}
+                        onChange={(e) => setBooleanSearch(e.target.checked)}
+                        className="w-3 h-3 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      />
+                      <span>Boolean</span>
+                    </label>
+                    {advancedKeywords && (
+                      <button
+                        onClick={() => setAdvancedKeywords('')}
+                        className="text-xs text-gray-500 hover:text-gray-700"
+                      >
+                        Clear all
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <input
+                  type="text"
+                  placeholder={booleanSearch ? "e.g., python and Django and (React or Next)" : "Enter keywords (e.g., Java, Spring Boot)"}
+                  className="w-full px-4 py-2.5 text-sm border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                  value={advancedKeywords}
+                  onChange={(e) => setAdvancedKeywords(e.target.value)}
+                />
+                <div className="mt-2">
+                  <select
+                    className="w-full px-4 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                    value={searchInResume ? 'resume' : 'skills'}
+                    onChange={(e) => setSearchInResume(e.target.value === 'resume')}
+                  >
+                    <option value="resume">Search keyword in Entire resume</option>
+                    <option value="skills">Search keyword in Skills field</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Experience Range */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Experience</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    step="0.5"
+                    placeholder="Min experience"
+                    className="flex-1 px-4 py-2.5 text-sm border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                    value={minExperience}
+                    onChange={(e) => setMinExperience(e.target.value)}
+                  />
+                  <span className="text-gray-500">to</span>
+                  <input
+                    type="number"
+                    step="0.5"
+                    placeholder="Max experience"
+                    className="flex-1 px-4 py-2.5 text-sm border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                    value={maxExperience}
+                    onChange={(e) => setMaxExperience(e.target.value)}
+                  />
+                  <span className="text-gray-500">Years</span>
+                </div>
+              </div>
+
+              {/* Location */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Current location of candidate</label>
+                <input
+                  type="text"
+                  placeholder="Add location"
+                  className="w-full px-4 py-2.5 text-sm border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                  value={advancedLocation}
+                  onChange={(e) => setAdvancedLocation(e.target.value)}
+                />
+                <div className="mt-2 space-y-1">
+                  <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={includeRelocate}
+                      onChange={(e) => setIncludeRelocate(e.target.checked)}
+                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                    <span>Include candidates who prefer to relocate to above locations</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Search Button */}
+              <div className="flex justify-end pt-2">
+                <button
+                  onClick={handleAdvancedSearch}
+                  disabled={resumeSearchLoading}
+                  className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {resumeSearchLoading ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Searching...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                      Search candidates
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Candidates Table */}
         <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
@@ -931,7 +1106,11 @@ const CandidateManagement = () => {
           ))}
         </div>
       </main>
-    </div>
+      <div className="flex min-h-screen bg-gray-50 mt-2">
+        {/* Sidebar-style Navbar */}
+        <Navbar />
+      </div>
+    </>
   );
 };
 

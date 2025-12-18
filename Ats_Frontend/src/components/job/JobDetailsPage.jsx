@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import Navbar from "../../layout/navbar";
 import { jobAPI, applicationAPI, candidateAPI } from "../../api/api";
+import Toast from "../toast/Toast";
+import RichTextEditor from "./RichTextEditor";
 
 const statusClassMap = {
   NEW_CANDIDATE: "bg-emerald-100 text-emerald-800",
@@ -54,6 +56,7 @@ const getStatusLabel = (status) =>
 const JobDetailsPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const [job, setJob] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -65,6 +68,18 @@ const JobDetailsPage = () => {
   const [showMyCandidates, setShowMyCandidates] = useState(false);
   const [recruiterFilter, setRecruiterFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [isEditing, setIsEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [toasts, setToasts] = useState([]);
+  const [formData, setFormData] = useState({
+    jobName: "",
+    jobLocation: "",
+    skillsname: "",
+    jobDiscription: "",
+    rolesAndResponsibilities: "",
+    jobExperience: "",
+    jobSalaryRange: "",
+  });
   const currentUserName =
     (typeof window !== "undefined" && localStorage.getItem("username")) || "";
   const currentUserRole =
@@ -98,6 +113,30 @@ const JobDetailsPage = () => {
       fetchJob();
     }
   }, [id]);
+
+  useEffect(() => {
+    if (job) {
+      setFormData({
+        jobName: job.jobName || "",
+        jobLocation: job.jobLocation || "",
+        skillsname: job.skillsName || "",
+        jobDiscription: job.jobDescription || "",
+        rolesAndResponsibilities: job.rolesAndResponsibilities || "",
+        jobExperience: job.jobExperience || "",
+        jobSalaryRange: job.jobSalaryRange || "",
+      });
+    }
+  }, [job]);
+
+  // Check if edit mode should be enabled from URL parameter
+  useEffect(() => {
+    const editParam = searchParams.get('edit');
+    if (editParam === 'true' && job && !isEditing) {
+      setIsEditing(true);
+      // Remove the edit parameter from URL without reloading
+      navigate(`/jobs/${id}`, { replace: true });
+    }
+  }, [searchParams, job, id, navigate, isEditing]);
 
   const recruiterOptions = useMemo(() => {
     if (!job?.applications) return [];
@@ -260,13 +299,86 @@ const JobDetailsPage = () => {
     }
   };
 
+  const showToast = (title, message, type = 'success') => {
+    const id = Date.now();
+    const newToast = { id, title, message, type };
+    setToasts(prev => [...prev, newToast]);
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 5000);
+  };
+
+  const handleEdit = () => {
+    setIsEditing(true);
+  };
+
+  const handleCancel = () => {
+    setIsEditing(false);
+    // Reset form data to original job data
+    if (job) {
+      setFormData({
+        jobName: job.jobName || "",
+        jobLocation: job.jobLocation || "",
+        skillsname: job.skillsName || "",
+        jobDiscription: job.jobDescription || "",
+        rolesAndResponsibilities: job.rolesAndResponsibilities || "",
+        jobExperience: job.jobExperience || "",
+        jobSalaryRange: job.jobSalaryRange || "",
+      });
+    }
+  };
+
+  const handleInputChange = (e) => {
+    const { id, value } = e.target;
+    setFormData((prev) => ({ ...prev, [id]: value }));
+  };
+
+  const handleSave = async (e) => {
+    e.preventDefault();
+    if (!formData.jobName || !formData.jobLocation || !formData.skillsname || !formData.jobDiscription) {
+      showToast("Validation Error", "Please fill all required fields", "error");
+      return;
+    }
+    try {
+      setSaving(true);
+      await jobAPI.update(job.id, formData);
+      // Reload job data
+      const data = await jobAPI.getById(id);
+      setJob(data);
+      setFormData({
+        jobName: data.jobName || "",
+        jobLocation: data.jobLocation || "",
+        skillsname: data.skillsName || "",
+        jobDiscription: data.jobDescription || "",
+        rolesAndResponsibilities: data.rolesAndResponsibilities || "",
+        jobExperience: data.jobExperience || "",
+        jobSalaryRange: data.jobSalaryRange || "",
+      });
+      setIsEditing(false);
+      showToast("Success", "Job updated successfully", "success");
+    } catch (error) {
+      showToast("Error", error.message || "Failed to update job", "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const renderHeader = () => (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
       <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold text-gray-900">{job?.jobName || "Job"}</h1>
-            {job?.status && (
+            {isEditing ? (
+              <input
+                type="text"
+                id="jobName"
+                value={formData.jobName}
+                onChange={handleInputChange}
+                className="text-2xl font-bold text-gray-900 p-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                required
+              />
+            ) : (
+              <h1 className="text-2xl font-bold text-gray-900">{job?.jobName || "Job"}</h1>
+            )}
+            {job?.status && !isEditing && (
               <span
                 className={`px-3 py-1 rounded-full text-xs font-semibold ${
                   job.status === "ACTIVE" ? "bg-green-100 text-green-800" : 
@@ -285,11 +397,25 @@ const JobDetailsPage = () => {
                 {job.client.clientName}
               </span>
             )}
-            {job?.jobLocation && (
+            {isEditing ? (
               <span className="flex items-center gap-2">
                 <i className="fas fa-map-marker-alt text-gray-400"></i>
-                {job.jobLocation}
+                <input
+                  type="text"
+                  id="jobLocation"
+                  value={formData.jobLocation}
+                  onChange={handleInputChange}
+                  className="p-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  required
+                />
               </span>
+            ) : (
+              job?.jobLocation && (
+                <span className="flex items-center gap-2">
+                  <i className="fas fa-map-marker-alt text-gray-400"></i>
+                  {job.jobLocation}
+                </span>
+              )
             )}
             {job?.jobType && (
               <span className="flex items-center gap-2">
@@ -301,6 +427,37 @@ const JobDetailsPage = () => {
         </div>
 
         <div className="flex flex-wrap gap-3">
+          {isEditing ? (
+            <>
+              <button
+                type="button"
+                onClick={handleCancel}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-gray-600 text-white hover:bg-gray-700 transition-colors"
+              >
+                <i className="fas fa-times"></i>
+                Cancel
+              </button>
+              <button
+                type="submit"
+                onClick={handleSave}
+                disabled={saving}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50"
+              >
+                {saving ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-save"></i>}
+                {saving ? "Saving..." : "Save Changes"}
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={handleEdit}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-yellow-600 text-white hover:bg-yellow-700 transition-colors"
+              >
+                <i className="fas fa-edit"></i>
+                Edit
+              </button>
+            </>
+          )}
           <button
             onClick={() => navigate(`/job-matching?jobId=${job?.id}`)}
             className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-[#3A9188] text-white hover:bg-[#2E7D6E] transition-colors"
@@ -356,17 +513,61 @@ const JobDetailsPage = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <InfoItem label="Experience" value={job?.jobExperience || "Not specified"} />
-          <InfoItem label="Salary Range" value={job?.jobSalaryRange || "Not specified"} />
+          {isEditing ? (
+            <>
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Experience</p>
+                <input
+                  type="text"
+                  id="jobExperience"
+                  value={formData.jobExperience}
+                  onChange={handleInputChange}
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  placeholder="e.g., 5-8 years"
+                />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Salary Range</p>
+                <input
+                  type="text"
+                  id="jobSalaryRange"
+                  value={formData.jobSalaryRange}
+                  onChange={handleInputChange}
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  placeholder="e.g., 10-15 LPA"
+                />
+              </div>
+            </>
+          ) : (
+            <>
+              <InfoItem label="Experience" value={job?.jobExperience || "Not specified"} />
+              <InfoItem label="Salary Range" value={job?.jobSalaryRange || "Not specified"} />
+            </>
+          )}
         </div>
         
         <div className="space-y-4">
-          <div>
-            <h3 className="text-sm font-semibold text-gray-600 uppercase mb-2">Required Skills</h3>
-            <p className="text-sm text-gray-800 whitespace-pre-wrap">
-              {job?.skillsName || "No skills listed"}
-            </p>
-          </div>
+          {isEditing ? (
+            <div>
+              <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Required Skills *</p>
+              <textarea
+                id="skillsname"
+                value={formData.skillsname}
+                onChange={handleInputChange}
+                rows="4"
+                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                placeholder="e.g., React, JavaScript, TypeScript"
+                required
+              ></textarea>
+            </div>
+          ) : (
+            <div>
+              <h3 className="text-sm font-semibold text-gray-600 uppercase mb-2">Required Skills</h3>
+              <p className="text-sm text-gray-800 whitespace-pre-wrap">
+                {job?.skillsName || "No skills listed"}
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -556,22 +757,43 @@ const JobDetailsPage = () => {
   const renderJobDescription = () => (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
       <h2 className="text-lg font-semibold text-gray-900 mb-3">Job Description</h2>
-      <p className="text-sm text-gray-700 whitespace-pre-wrap">{job?.jobDescription || "No description provided."}</p>
+      {isEditing ? (
+        <textarea
+          id="jobDiscription"
+          value={formData.jobDiscription}
+          onChange={handleInputChange}
+          rows="6"
+          className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+          placeholder="Enter detailed job description..."
+          required
+        ></textarea>
+      ) : (
+        <p className="text-sm text-gray-700 whitespace-pre-wrap">{job?.jobDescription || "No description provided."}</p>
+      )}
     </div>
   );
 
   const renderRolesAndResponsibilities = () => (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
       <h2 className="text-lg font-semibold text-gray-900 mb-3">Roles & Responsibilities</h2>
-      <div
-        className="text-sm text-gray-700 prose prose-sm max-w-none"
-        dangerouslySetInnerHTML={{ __html: job?.rolesAndResponsibilities || "No roles and responsibilities provided." }}
-      />
+      {isEditing ? (
+        <RichTextEditor
+          value={formData.rolesAndResponsibilities}
+          onChange={(html) => setFormData({ ...formData, rolesAndResponsibilities: html })}
+          placeholder="Enter detailed roles and responsibilities... You can use formatting like bold, italic, lists, etc."
+          minHeight="200px"
+        />
+      ) : (
+        <div
+          className="text-sm text-gray-700 prose prose-sm max-w-none"
+          dangerouslySetInnerHTML={{ __html: job?.rolesAndResponsibilities || "No roles and responsibilities provided." }}
+        />
+      )}
     </div>
   );
 
   const renderApplications = () => (
-    <div id="applications-section" className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+    <div id="applications-section" className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-8">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold text-gray-900">Applications</h2>
         <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4">
@@ -791,7 +1013,18 @@ const JobDetailsPage = () => {
   return (
     <div className="flex min-h-screen bg-gray-50 mt-16">
       <Navbar />
-      <main className="flex-1 p-6 space-y-6">
+      <main className="flex-1 p-6 pb-12 space-y-6 relative">
+        {/* Toast Container */}
+        <div className="fixed top-20 right-4 z-50 space-y-2">
+          {toasts.map((toast) => (
+            <Toast
+              key={toast.id}
+              title={toast.title}
+              message={toast.message}
+              type={toast.type}
+            />
+          ))}
+        </div>
         <div className="flex items-center justify-between">
           <button
             onClick={handleBack}

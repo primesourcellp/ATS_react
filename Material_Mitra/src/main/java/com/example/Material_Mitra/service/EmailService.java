@@ -97,7 +97,8 @@ public class EmailService {
             
             Please keep these credentials secure and do not share them with anyone.
             
-            You can now log in to the TalentPrime system using your username and password.
+            You can now log in to the TalentPrime system using your username and password at:
+            https://talentprime.primesourcellp.com/
             
             If you have any questions or need assistance, please contact the system administrator.
             

@@ -26,11 +26,39 @@ public class FileStorageService {
     private String baseUrl;
 
     private Path getFileStorageLocation() {
-        Path fileStorageLocation = Paths.get(uploadDir).toAbsolutePath().normalize();
+        Path fileStorageLocation;
+        
+        // If uploadDir is a relative path, resolve it relative to the current working directory
+        // If it's an absolute path, use it as-is
+        if (Paths.get(uploadDir).isAbsolute()) {
+            fileStorageLocation = Paths.get(uploadDir).normalize();
+        } else {
+            // Use relative path from current working directory (project root)
+            fileStorageLocation = Paths.get(System.getProperty("user.dir"), uploadDir).normalize();
+        }
+        
+        System.out.println("=== FILE STORAGE DEBUG ===");
+        System.out.println("Upload directory config: " + uploadDir);
+        System.out.println("Resolved path: " + fileStorageLocation.toAbsolutePath());
+        System.out.println("Path exists: " + Files.exists(fileStorageLocation));
+        System.out.println("Path is writable: " + Files.isWritable(fileStorageLocation.getParent() != null ? fileStorageLocation.getParent() : fileStorageLocation));
+        
         try {
             Files.createDirectories(fileStorageLocation);
+            System.out.println("Directory created/verified successfully");
+            System.out.println("=== END FILE STORAGE DEBUG ===");
         } catch (Exception ex) {
-            throw new RuntimeException("Could not create the directory where the uploaded files will be stored.", ex);
+            System.err.println("=== FILE STORAGE ERROR ===");
+            System.err.println("Failed to create directory: " + fileStorageLocation.toAbsolutePath());
+            System.err.println("Error: " + ex.getMessage());
+            System.err.println("=== END FILE STORAGE ERROR ===");
+            throw new RuntimeException(
+                "Could not create the directory where the uploaded files will be stored. " +
+                "Path: " + fileStorageLocation.toAbsolutePath() + ". " +
+                "Error: " + ex.getMessage() + ". " +
+                "Please check the 'file.upload-dir' property in application.properties and ensure the directory path is correct and writable.", 
+                ex
+            );
         }
         return fileStorageLocation;
     }

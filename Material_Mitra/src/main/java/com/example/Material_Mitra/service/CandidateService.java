@@ -813,17 +813,67 @@ public class CandidateService {
     }
 
     public Candidate parseResumeWithoutSaving(MultipartFile file) throws Exception {
+        // Validate file
+        if (file == null || file.isEmpty()) {
+            throw new RuntimeException("File is empty or null");
+        }
+        
+        // Validate file size (10MB max)
+        long maxSize = 10 * 1024 * 1024; // 10MB
+        if (file.getSize() > maxSize) {
+            throw new RuntimeException("File size (" + file.getSize() + " bytes) exceeds maximum limit of 10MB");
+        }
+        
+        // Validate file type
+        String contentType = file.getContentType();
+        String fileName = file.getOriginalFilename();
+        if (fileName != null) {
+            String extension = fileName.toLowerCase();
+            if (!extension.endsWith(".pdf") && !extension.endsWith(".doc") && !extension.endsWith(".docx")) {
+                throw new RuntimeException("Unsupported file format. Only PDF, DOC, and DOCX files are supported.");
+            }
+        }
+        
+        System.out.println("Starting resume parsing for file: " + fileName);
+        System.out.println("File size: " + file.getSize() + " bytes");
+        System.out.println("Content type: " + contentType);
+        
         // Use more efficient parsing with memory limit
         AutoDetectParser parser = new AutoDetectParser();
         BodyContentHandler handler = new BodyContentHandler(1000000); // Limit to 1MB of text
         Metadata metadata = new Metadata();
         
+        String content = null;
+        
         // Parse the file
         try (InputStream inputStream = file.getInputStream()) {
             parser.parse(inputStream, handler, metadata);
+            content = handler.toString();
+            
+            System.out.println("Text extraction successful. Extracted " + (content != null ? content.length() : 0) + " characters");
+        } catch (Exception e) {
+            System.err.println("Error during text extraction: " + e.getMessage());
+            e.printStackTrace();
+            
+            // Provide more specific error messages
+            if (e.getMessage() != null && e.getMessage().contains("password")) {
+                throw new RuntimeException("Resume file is password-protected. Please remove password protection and try again.", e);
+            } else if (e.getMessage() != null && (e.getMessage().contains("corrupted") || e.getMessage().contains("invalid"))) {
+                throw new RuntimeException("Resume file appears to be corrupted or invalid. Please try uploading the file again.", e);
+            } else {
+                throw new RuntimeException("Failed to extract text from resume file: " + e.getMessage(), e);
+            }
         }
 
-        String content = handler.toString();
+        // Validate extracted content
+        if (content == null || content.trim().isEmpty()) {
+            throw new RuntimeException("Resume file contains no readable text. The file may be image-only, password-protected, or corrupted. Please ensure the resume has readable text content.");
+        }
+        
+        // Check if content is too short (likely extraction failed)
+        if (content.trim().length() < 50) {
+            throw new RuntimeException("Resume appears to contain very little text (" + content.trim().length() + " characters). The file may be image-only or corrupted. Please ensure the resume has readable text content.");
+        }
         
         // Extract top section (first 2000 chars) for name extraction - resumes usually have name at top
         String topSection = content.length() > 2000 ? content.substring(0, 2000) : content;
@@ -853,9 +903,10 @@ public class CandidateService {
         candidate.setCurrentCtc(currentCtc);
         candidate.setExpectedCtc(expectedCtc);
         
-        // Store resume file
-        String resumePath = fileStorageService.storeFile(file, "resumes/candidates");
-        candidate.setResumePath(resumePath);
+        // Note: For parse-only endpoint, we don't store the file
+        // The file will be stored when the candidate is actually created
+        // This method is just for parsing and extracting data
+        candidate.setResumePath(null); // Don't store file path during parsing
         candidate.setUpdatedAt(LocalDateTime.now());
 
         return candidate;
@@ -904,6 +955,173 @@ public class CandidateService {
         return null;
     }
    
+    /**
+     * Search candidates by skills/keywords in their resume content
+     * This method reads actual resume files and searches for keywords in the extracted text
+     * Similar to Naukri-like skill search
+     */
+    public List<Candidate> searchCandidatesByResumeContent(String searchKeywords) {
+        if (searchKeywords == null || searchKeywords.trim().isEmpty()) {
+            return new ArrayList<>();
+        }
+        
+        System.out.println("=== RESUME SEARCH DEBUG ===");
+        System.out.println("Search Keywords: " + searchKeywords);
+        
+        // Get all candidates with resumes
+        List<Candidate> allCandidates = candidateRepository.findAll();
+        List<Candidate> matchingCandidates = new ArrayList<>();
+        
+        // Split search keywords (can be comma-separated or space-separated)
+        String[] keywords = searchKeywords.toLowerCase().split("[,\\s]+");
+        System.out.println("Parsed Keywords: " + Arrays.toString(keywords));
+        System.out.println("Total candidates to check: " + allCandidates.size());
+        
+        int candidatesWithResumes = 0;
+        int candidatesProcessed = 0;
+        int candidatesMatched = 0;
+        
+        for (Candidate candidate : allCandidates) {
+            if (candidate.getResumePath() == null || candidate.getResumePath().isEmpty()) {
+                continue; // Skip candidates without resumes
+            }
+            
+            candidatesWithResumes++;
+            
+            try {
+                // Extract text from resume file
+                String resumeText = extractTextFromResumeFile(candidate.getResumePath());
+                
+                if (resumeText == null || resumeText.isEmpty()) {
+                    System.out.println("  Candidate ID " + candidate.getId() + " (" + candidate.getName() + "): No text extracted");
+                    continue; // Skip if text extraction failed
+                }
+                
+                candidatesProcessed++;
+                
+                // Debug: Show first 200 chars of extracted text
+                String preview = resumeText.length() > 200 ? resumeText.substring(0, 200) + "..." : resumeText;
+                System.out.println("  Candidate ID " + candidate.getId() + " (" + candidate.getName() + "):");
+                System.out.println("    Resume text preview: " + preview);
+                System.out.println("    Resume text length: " + resumeText.length() + " characters");
+                
+                String resumeTextLower = resumeText.toLowerCase();
+                
+                // Check if all keywords are found in the resume
+                boolean allKeywordsFound = true;
+                List<String> foundKeywords = new ArrayList<>();
+                List<String> missingKeywords = new ArrayList<>();
+                
+                for (String keyword : keywords) {
+                    keyword = keyword.trim();
+                    if (!keyword.isEmpty()) {
+                        if (resumeTextLower.contains(keyword)) {
+                            foundKeywords.add(keyword);
+                        } else {
+                            missingKeywords.add(keyword);
+                            allKeywordsFound = false;
+                        }
+                    }
+                }
+                
+                System.out.println("    Found keywords: " + foundKeywords);
+                if (!missingKeywords.isEmpty()) {
+                    System.out.println("    Missing keywords: " + missingKeywords);
+                }
+                
+                if (allKeywordsFound) {
+                    candidatesMatched++;
+                    matchingCandidates.add(candidate);
+                    System.out.println("    ✓ MATCHED - All keywords found!");
+                } else {
+                    System.out.println("    ✗ NOT MATCHED - Missing some keywords");
+                }
+                
+            } catch (Exception e) {
+                // Log error but continue with other candidates
+                System.err.println("  ✗ ERROR - Candidate ID " + candidate.getId() + ": " + e.getMessage());
+                e.printStackTrace();
+            }
+        }
+        
+        System.out.println("=== SEARCH SUMMARY ===");
+        System.out.println("Candidates with resumes: " + candidatesWithResumes);
+        System.out.println("Candidates processed: " + candidatesProcessed);
+        System.out.println("Candidates matched: " + candidatesMatched);
+        System.out.println("=== END RESUME SEARCH DEBUG ===");
+        
+        return matchingCandidates;
+    }
+    
+    /**
+     * Extract text content from a resume file stored in the filesystem
+     */
+    private String extractTextFromResumeFile(String resumePath) {
+        try {
+            System.out.println("    Extracting text from: " + resumePath);
+            
+            // Load the file as a resource
+            org.springframework.core.io.Resource resource = fileStorageService.loadFileAsResource(resumePath);
+            
+            if (!resource.exists()) {
+                System.err.println("    ✗ File does not exist: " + resumePath);
+                return null;
+            }
+            
+            // Use Apache Tika to extract text
+            AutoDetectParser parser = new AutoDetectParser();
+            BodyContentHandler handler = new BodyContentHandler(1000000); // Limit to 1MB of text
+            Metadata metadata = new Metadata();
+            
+            // Parse the file
+            try (InputStream inputStream = resource.getInputStream()) {
+                parser.parse(inputStream, handler, metadata);
+            }
+            
+            String content = handler.toString();
+            
+            // Clean up the text - remove excessive whitespace but preserve structure
+            if (content != null) {
+                content = content.replaceAll("\\s+", " ").trim();
+            }
+            
+            if (content == null || content.isEmpty()) {
+                System.err.println("    ✗ No text extracted from file");
+            } else {
+                System.out.println("    ✓ Successfully extracted " + content.length() + " characters");
+            }
+            
+            return content;
+            
+        } catch (Exception e) {
+            System.err.println("    ✗ Error extracting text from resume file: " + resumePath + " - " + e.getMessage());
+            e.printStackTrace();
+            return null;
+        }
+    }
+    
+    /**
+     * Get extracted resume text for a specific candidate (for debugging/testing)
+     */
+    public String getResumeTextForCandidate(Long candidateId) {
+        Optional<Candidate> candidateOpt = candidateRepository.findById(candidateId);
+        if (candidateOpt.isEmpty()) {
+            throw new RuntimeException("Candidate not found with ID: " + candidateId);
+        }
+        
+        Candidate candidate = candidateOpt.get();
+        if (candidate.getResumePath() == null || candidate.getResumePath().isEmpty()) {
+            throw new RuntimeException("Candidate does not have a resume file");
+        }
+        
+        String resumeText = extractTextFromResumeFile(candidate.getResumePath());
+        if (resumeText == null || resumeText.isEmpty()) {
+            throw new RuntimeException("Failed to extract text from resume file");
+        }
+        
+        return resumeText;
+    }
+
     public CandidateDetailsDTO getCandidateDetails(Long candidateId, Long jobId) {
         System.out.println("Fetching candidate details for candidateId: " + candidateId + ", jobId: " + jobId);
 

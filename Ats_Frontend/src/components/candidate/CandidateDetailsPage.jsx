@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Navbar from "../../layout/navbar";
 import { candidateAPI } from "../../api/api";
+import Toast from "../toast/Toast";
 
 const statusClassMap = {
   NEW_CANDIDATE: "bg-emerald-100 text-emerald-800",
@@ -92,6 +93,11 @@ const CandidateDetailsPage = () => {
   const [applicationJobSearch, setApplicationJobSearch] = useState("");
   const [applicationIdSearch, setApplicationIdSearch] = useState("");
   const [expandedApplicationId, setExpandedApplicationId] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [formData, setFormData] = useState({});
+  const [resumeFile, setResumeFile] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [toasts, setToasts] = useState([]);
   const experienceDisplay = formatYearsValue(candidate?.experience) || "Not specified";
   const noticeDisplay = formatNoticeValue(candidate?.noticePeriod) || "Not specified";
   const currentCtcDisplay = formatCtcValue(candidate?.currentCtc) || "Not specified";
@@ -118,6 +124,20 @@ const CandidateDetailsPage = () => {
           })));
         }
         setCandidate(data);
+        // Initialize form data
+        setFormData({
+          name: data.name || "",
+          email: data.email || "",
+          phone: data.phone || "",
+          status: data.status || "SCHEDULED",
+          about: data.about || "",
+          experience: data.experience || "",
+          noticePeriod: data.noticePeriod || "",
+          skills: data.skills || "",
+          currentCtc: data.currentCtc || "",
+          expectedCtc: data.expectedCtc || "",
+          location: data.location || "",
+        });
       } catch (err) {
         console.error("Failed to load candidate", err);
         setError(err.message || "Failed to load candidate details.");
@@ -177,102 +197,444 @@ const CandidateDetailsPage = () => {
     }
   };
 
+  const handleEdit = () => {
+    setIsEditing(true);
+  };
+
+  const handleCancel = () => {
+    setIsEditing(false);
+    setResumeFile(null);
+    // Reset form data to original candidate data
+    if (candidate) {
+      setFormData({
+        name: candidate.name || "",
+        email: candidate.email || "",
+        phone: candidate.phone || "",
+        status: candidate.status || "SCHEDULED",
+        about: candidate.about || "",
+        experience: candidate.experience || "",
+        noticePeriod: candidate.noticePeriod || "",
+        skills: candidate.skills || "",
+        currentCtc: candidate.currentCtc || "",
+        expectedCtc: candidate.expectedCtc || "",
+        location: candidate.location || "",
+      });
+    }
+  };
+
+  const handleInputChange = (e) => {
+    const { id, value } = e.target;
+    setFormData((prev) => ({ ...prev, [id]: value }));
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+      const allowedExtensions = ['.pdf', '.doc', '.docx'];
+      const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
+      
+      if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(fileExtension)) {
+        showToast('Error', 'Please select a PDF, DOC, or DOCX file', 'error');
+        e.target.value = '';
+        return;
+      }
+
+      const maxSize = 5 * 1024 * 1024;
+      if (file.size > maxSize) {
+        showToast('Error', 'File size exceeds the maximum limit of 5MB', 'error');
+        e.target.value = '';
+        return;
+      }
+
+      setResumeFile(file);
+    }
+  };
+
+  const handleSave = async (e) => {
+    e.preventDefault();
+    if (!formData.name || !formData.email || !formData.phone) {
+      showToast("Validation Error", "Please fill all required fields", "error");
+      return;
+    }
+    try {
+      setSaving(true);
+      await candidateAPI.update(candidate.id, formData, resumeFile);
+      // Reload candidate data
+      const data = await candidateAPI.getById(id);
+      setCandidate(data);
+      setFormData({
+        name: data.name || "",
+        email: data.email || "",
+        phone: data.phone || "",
+        status: data.status || "SCHEDULED",
+        about: data.about || "",
+        experience: data.experience || "",
+        noticePeriod: data.noticePeriod || "",
+        skills: data.skills || "",
+        currentCtc: data.currentCtc || "",
+        expectedCtc: data.expectedCtc || "",
+        location: data.location || "",
+      });
+      setIsEditing(false);
+      setResumeFile(null);
+      showToast('Success', 'Candidate updated successfully', 'success');
+    } catch (err) {
+      showToast("Error", err.message || "Failed to update candidate", "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const showToast = (title, message, type = 'success') => {
+    const toastId = Date.now();
+    const newToast = { id: toastId, title, message, type };
+    setToasts(prev => [...prev, newToast]);
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== toastId)), 5000);
+  };
+
 
   const renderHeader = () => (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold text-gray-900">{candidate?.name || "Candidate"}</h1>
-            {candidate?.status && (
-              <span
-                className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                  statusClassMap[candidate.status] || "bg-gray-100 text-gray-800"
-                }`}
-              >
-                {getStatusLabel(candidate.status)}
-              </span>
+    <form onSubmit={handleSave}>
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
+          <div className="flex-1">
+            {isEditing ? (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Name *</label>
+                  <input
+                    type="text"
+                    id="name"
+                    value={formData.name}
+                    onChange={handleInputChange}
+                    className="w-full p-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  />
+                </div>
+                <div className="flex flex-wrap gap-4">
+                  <div className="flex-1 min-w-[200px]">
+                    <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Email *</label>
+                    <input
+                      type="email"
+                      id="email"
+                      value={formData.email}
+                      onChange={handleInputChange}
+                      className="w-full p-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      required
+                    />
+                  </div>
+                  <div className="flex-1 min-w-[200px]">
+                    <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Phone *</label>
+                    <input
+                      type="tel"
+                      id="phone"
+                      value={formData.phone}
+                      onChange={handleInputChange}
+                      className="w-full p-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      required
+                    />
+                  </div>
+                  <div className="flex-1 min-w-[200px]">
+                    <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Location</label>
+                    <input
+                      type="text"
+                      id="location"
+                      value={formData.location}
+                      onChange={handleInputChange}
+                      className="w-full p-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center gap-3">
+                  <h1 className="text-2xl font-bold text-gray-900">{candidate?.name || "Candidate"}</h1>
+                  {candidate?.status && (
+                    <span
+                      className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                        statusClassMap[candidate.status] || "bg-gray-100 text-gray-800"
+                      }`}
+                    >
+                      {getStatusLabel(candidate.status)}
+                    </span>
+                  )}
+                </div>
+                <div className="flex flex-wrap items-center gap-4 mt-3 text-sm text-gray-600">
+                  {candidate?.email && (
+                    <span className="flex items-center gap-2">
+                      <i className="fas fa-envelope text-gray-400"></i>
+                      {candidate.email}
+                    </span>
+                  )}
+                  {candidate?.phone && (
+                    <span className="flex items-center gap-2">
+                      <i className="fas fa-phone text-gray-400"></i>
+                      {candidate.phone}
+                    </span>
+                  )}
+                  {candidate?.location && (
+                    <span className="flex items-center gap-2">
+                      <i className="fas fa-map-marker-alt text-gray-400"></i>
+                      {candidate.location}
+                    </span>
+                  )}
+                </div>
+              </>
             )}
           </div>
-          <div className="flex flex-wrap items-center gap-4 mt-3 text-sm text-gray-600">
-            {candidate?.email && (
-              <span className="flex items-center gap-2">
-                <i className="fas fa-envelope text-gray-400"></i>
-                {candidate.email}
-              </span>
-            )}
-            {candidate?.phone && (
-              <span className="flex items-center gap-2">
-                <i className="fas fa-phone text-gray-400"></i>
-                {candidate.phone}
-              </span>
-            )}
-            {candidate?.location && (
-              <span className="flex items-center gap-2">
-                <i className="fas fa-map-marker-alt text-gray-400"></i>
-                {candidate.location}
-              </span>
+
+          <div className="flex flex-wrap gap-3">
+            {isEditing ? (
+              <>
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-gray-600 text-white hover:bg-gray-700 transition-colors"
+                >
+                  <i className="fas fa-times"></i>
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50"
+                >
+                  {saving ? (
+                    <>
+                      <i className="fas fa-spinner fa-spin"></i>
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <i className="fas fa-save"></i>
+                      Save
+                    </>
+                  )}
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={handleEdit}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-yellow-600 text-white hover:bg-yellow-700 transition-colors"
+                >
+                  <i className="fas fa-edit"></i>
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  onClick={handleViewResume}
+                  disabled={!candidate?.hasResume || resumeLoading}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium ${
+                    candidate?.hasResume
+                      ? "bg-blue-600 text-white hover:bg-blue-700"
+                      : "bg-gray-200 text-gray-500 cursor-not-allowed"
+                  }`}
+                >
+                  <i className={`fas ${resumeLoading ? "fa-spinner fa-spin" : "fa-file-pdf"}`}></i>
+                  {resumeLoading ? "Opening..." : "View Resume"}
+                </button>
+              </>
             )}
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-3">
-          <button
-            onClick={handleViewResume}
-            disabled={!candidate?.hasResume || resumeLoading}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium ${
-              candidate?.hasResume
-                ? "bg-blue-600 text-white hover:bg-blue-700"
-                : "bg-gray-200 text-gray-500 cursor-not-allowed"
-            }`}
-          >
-            <i className={`fas ${resumeLoading ? "fa-spinner fa-spin" : "fa-file-pdf"}`}></i>
-            {resumeLoading ? "Opening..." : "View Resume"}
-          </button>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+          {isEditing ? (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Experience</label>
+                  <input
+                    type="text"
+                    id="experience"
+                    value={formData.experience}
+                    onChange={handleInputChange}
+                    className="w-full mt-1 p-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="e.g., 5 years"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Notice Period</label>
+                  <input
+                    type="text"
+                    id="noticePeriod"
+                    value={formData.noticePeriod}
+                    onChange={handleInputChange}
+                    className="w-full mt-1 p-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="e.g., 30 days"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Current CTC</label>
+                  <input
+                    type="text"
+                    id="currentCtc"
+                    value={formData.currentCtc}
+                    onChange={handleInputChange}
+                    className="w-full mt-1 p-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="e.g., 10 LPA"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Expected CTC</label>
+                  <input
+                    type="text"
+                    id="expectedCtc"
+                    value={formData.expectedCtc}
+                    onChange={handleInputChange}
+                    className="w-full mt-1 p-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="e.g., 15 LPA"
+                  />
+                </div>
+                <InfoItem
+                  label="Added On"
+                  value={candidate?.createdAt ? formatDateTime(candidate.createdAt) : "Not available"}
+                />
+                <InfoItem
+                  label="Updated At"
+                  value={candidate?.updatedAt ? formatDateTime(candidate.updatedAt) : "Not available"}
+                />
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-600 uppercase mb-2">Status *</label>
+                  <select
+                    id="status"
+                    value={formData.status}
+                    onChange={handleInputChange}
+                    className="w-full p-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  >
+                    <option value="NEW_CANDIDATE">New Candidate</option>
+                    <option value="PENDING">Pending</option>
+                    <option value="SCHEDULED">Scheduled</option>
+                    <option value="INTERVIEWED">Interviewed</option>
+                    <option value="PLACED">Placed</option>
+                    <option value="REJECTED">Rejected</option>
+                    <option value="NOT_INTERESTED">Not Interested</option>
+                    <option value="HOLD">Hold</option>
+                    <option value="HIGH_CTC">High CTC</option>
+                    <option value="DROPPED_BY_CLIENT">Dropped by Client</option>
+                    <option value="SUBMITTED_TO_CLIENT">Submitted to Client</option>
+                    <option value="NO_RESPONSE">No Response</option>
+                    <option value="IMMEDIATE">Immediate</option>
+                    <option value="REJECTED_BY_CLIENT">Rejected by Client</option>
+                    <option value="CLIENT_SHORTLIST">Client Shortlist</option>
+                    <option value="FIRST_INTERVIEW_SCHEDULED">1st Interview Scheduled</option>
+                    <option value="FIRST_INTERVIEW_FEEDBACK_PENDING">1st Interview Feedback Pending</option>
+                    <option value="FIRST_INTERVIEW_REJECT">1st Interview Reject</option>
+                    <option value="SECOND_INTERVIEW_SCHEDULED">2nd Interview Scheduled</option>
+                    <option value="SECOND_INTERVIEW_FEEDBACK_PENDING">2nd Interview Feedback Pending</option>
+                    <option value="SECOND_INTERVIEW_REJECT">2nd Interview Reject</option>
+                    <option value="THIRD_INTERVIEW_SCHEDULED">3rd Interview Scheduled</option>
+                    <option value="THIRD_INTERVIEW_FEEDBACK_PENDING">3rd Interview Feedback Pending</option>
+                    <option value="THIRD_INTERVIEW_REJECT">3rd Interview Reject</option>
+                    <option value="INTERNEL_REJECT">Internel Reject</option>
+                    <option value="CLIENT_REJECT">Client Reject</option>
+                    <option value="FINAL_SELECT">Final Select</option>
+                    <option value="JOINED">Joined</option>
+                    <option value="BACKEDOUT">Backed Out</option>
+                    <option value="NOT_RELEVANT">Not Relevant</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-600 uppercase mb-2">Skills</label>
+                  <textarea
+                    id="skills"
+                    value={formData.skills}
+                    onChange={handleInputChange}
+                    rows="4"
+                    className="w-full p-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 whitespace-pre-wrap"
+                    placeholder="List skills separated by commas"
+                  ></textarea>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-600 uppercase mb-2">Resume (PDF, DOC, DOCX) - Optional (Max 5MB)</label>
+                  <input
+                    type="file"
+                    id="resume"
+                    accept=".pdf,.doc,.docx"
+                    onChange={handleFileChange}
+                    className="w-full p-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    {(candidate.hasResume || candidate.resumePath)
+                      ? "A resume is already uploaded. Select a new file to replace it."
+                      : "No resume uploaded yet."}
+                  </p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-600 uppercase">Added By</h3>
+                  <p className="mt-1 text-sm text-gray-900 font-medium">
+                    {candidate?.createdByUsername || "N/A"}
+                  </p>
+                  {candidate?.createdByEmail && (
+                    <p className="text-xs text-gray-500">{candidate.createdByEmail}</p>
+                  )}
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <InfoItem label="Experience" value={experienceDisplay} />
+                <InfoItem label="Notice Period" value={noticeDisplay} />
+                <InfoItem label="Current CTC" value={currentCtcDisplay} />
+                <InfoItem label="Expected CTC" value={expectedCtcDisplay} />
+                <InfoItem
+                  label="Added On"
+                  value={candidate?.createdAt ? formatDateTime(candidate.createdAt) : "Not available"}
+                />
+                <InfoItem
+                  label="Updated At"
+                  value={candidate?.updatedAt ? formatDateTime(candidate.updatedAt) : "Not available"}
+                />
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-600 uppercase">Skills</h3>
+                  <p className="mt-2 text-sm text-gray-800 whitespace-pre-wrap">
+                    {candidate?.skills || "No skills listed"}
+                  </p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-600 uppercase">Added By</h3>
+                  <p className="mt-1 text-sm text-gray-900 font-medium">
+                    {candidate?.createdByUsername || "N/A"}
+                  </p>
+                  {candidate?.createdByEmail && (
+                    <p className="text-xs text-gray-500">{candidate.createdByEmail}</p>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <InfoItem label="Experience" value={experienceDisplay} />
-          <InfoItem label="Notice Period" value={noticeDisplay} />
-          <InfoItem label="Current CTC" value={currentCtcDisplay} />
-          <InfoItem label="Expected CTC" value={expectedCtcDisplay} />
-          <InfoItem
-            label="Added On"
-            value={candidate?.createdAt ? formatDateTime(candidate.createdAt) : "Not available"}
-          />
-          <InfoItem
-            label="Updated At"
-            value={candidate?.updatedAt ? formatDateTime(candidate.updatedAt) : "Not available"}
-          />
-        </div>
-
-        <div className="space-y-4">
-          <div>
-            <h3 className="text-sm font-semibold text-gray-600 uppercase">Skills</h3>
-            <p className="mt-2 text-sm text-gray-800 whitespace-pre-wrap">
-              {candidate?.skills || "No skills listed"}
-            </p>
-          </div>
-          <div>
-            <h3 className="text-sm font-semibold text-gray-600 uppercase">Added By</h3>
-            <p className="mt-1 text-sm text-gray-900 font-medium">
-              {candidate?.createdByUsername || "N/A"}
-            </p>
-            {candidate?.createdByEmail && (
-              <p className="text-xs text-gray-500">{candidate.createdByEmail}</p>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
+    </form>
   );
 
   const renderAboutSection = () => (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
       <h2 className="text-lg font-semibold text-gray-900 mb-3">About</h2>
-      <p className="text-sm text-gray-700 whitespace-pre-wrap">{candidate?.about || "No summary provided."}</p>
+      {isEditing ? (
+        <textarea
+          id="about"
+          value={formData.about}
+          onChange={handleInputChange}
+          rows="4"
+          className="w-full p-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 whitespace-pre-wrap"
+          placeholder="Enter candidate summary..."
+        ></textarea>
+      ) : (
+        <p className="text-sm text-gray-700 whitespace-pre-wrap">{candidate?.about || "No summary provided."}</p>
+      )}
     </div>
   );
 
@@ -476,6 +838,19 @@ const CandidateDetailsPage = () => {
             <p className="text-gray-600">Candidate not found.</p>
           </div>
         )}
+
+        {/* Toasts */}
+        <div className="fixed top-4 right-4 z-50 space-y-2">
+          {toasts.map(toast => (
+            <Toast
+              key={toast.id}
+              title={toast.title}
+              message={toast.message}
+              type={toast.type}
+              onClose={() => setToasts(prev => prev.filter(t => t.id !== toast.id))}
+            />
+          ))}
+        </div>
       </main>
     </div>
   );

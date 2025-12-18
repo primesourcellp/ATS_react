@@ -170,26 +170,72 @@ const CandidateDetails = ({ candidate, onClose, onEdit, onDelete }) => {
           </div>
         </div>
 
-        {/* Details Grid */}
+        {/* Details Grid - Matching Edit Page Layout */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          {/* Left Column */}
           <div>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+              <p className="text-gray-900">{candidate.name || 'N/A'}</p>
+            </div>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+              <p className="text-gray-900">{candidate.email || 'N/A'}</p>
+            </div>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+              <p className="text-gray-900">{candidate.phone || 'N/A'}</p>
+            </div>
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
               <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusClass(candidate.status)}`}>
                 {candidate.status ? getStatusLabel(candidate.status) : 'N/A'}
               </span>
             </div>
-            <div className="mb-4"><label className="block text-sm font-medium text-gray-700 mb-1">Job</label><p>{jobNames}</p></div>
-            <div className="mb-4"><label className="block text-sm font-medium text-gray-700 mb-1">Skills</label><p>{candidate.skills || 'N/A'}</p></div>
-            <div className="mb-4"><label className="block text-sm font-medium text-gray-700 mb-1">Experience</label><p>{experienceLabel}</p></div>
-            <div className="mb-4"><label className="block text-sm font-medium text-gray-700 mb-1">Notice Period</label><p>{noticeLabel}</p></div>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Skills</label>
+              <p className="text-gray-900">{candidate.skills || 'N/A'}</p>
+            </div>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Experience</label>
+              <p className="text-gray-900">{experienceLabel}</p>
+            </div>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Notice Period</label>
+              <p className="text-gray-900">{noticeLabel}</p>
+            </div>
           </div>
+
+          {/* Right Column */}
           <div>
-            <div className="mb-4"><label className="block text-sm font-medium text-gray-700 mb-1">Current CTC</label><p>{currentCtcLabel}</p></div>
-            <div className="mb-4"><label className="block text-sm font-medium text-gray-700 mb-1">Expected CTC</label><p>{expectedCtcLabel}</p></div>
-            <div className="mb-4"><label className="block text-sm font-medium text-gray-700 mb-1">Location</label><p>{candidate.location || 'N/A'}</p></div>
-            <div className="mb-4"><label className="block text-sm font-medium text-gray-700 mb-1">Updated At</label><p>{candidate.updatedAt ? new Date(candidate.updatedAt).toLocaleString() : 'N/A'}</p></div>
-            <div className="mb-4"><label className="block text-sm font-medium text-gray-700 mb-1">Resume</label><p className={candidate.hasResume ? 'text-green-600' : 'text-red-600'}>{candidate.hasResume ? 'Available' : 'Not Uploaded'}</p></div>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Current CTC</label>
+              <p className="text-gray-900">{currentCtcLabel}</p>
+            </div>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Expected CTC</label>
+              <p className="text-gray-900">{expectedCtcLabel}</p>
+            </div>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+              <p className="text-gray-900">{candidate.location || 'N/A'}</p>
+            </div>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Resume</label>
+              <p className={candidate.hasResume ? 'text-green-600' : 'text-red-600'}>
+                {candidate.hasResume ? 'Available' : 'Not Uploaded'}
+              </p>
+            </div>
+            {jobNames !== 'N/A' && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Job</label>
+                <p className="text-gray-900">{jobNames}</p>
+              </div>
+            )}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Updated At</label>
+              <p className="text-gray-900">{candidate.updatedAt ? new Date(candidate.updatedAt).toLocaleString() : 'N/A'}</p>
+            </div>
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-1">Added By</label>
               <p className="text-gray-900">{candidate.createdByUsername || 'N/A'}</p>
@@ -199,7 +245,7 @@ const CandidateDetails = ({ candidate, onClose, onEdit, onDelete }) => {
             </div>
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-1">Added On</label>
-              <p>{candidate.createdAt ? new Date(candidate.createdAt).toLocaleDateString() : 'N/A'}</p>
+              <p className="text-gray-900">{candidate.createdAt ? new Date(candidate.createdAt).toLocaleDateString() : 'N/A'}</p>
             </div>
           </div>
         </div>

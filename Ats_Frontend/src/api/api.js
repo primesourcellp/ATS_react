@@ -396,6 +396,23 @@ export const candidateAPI = {
     return handleResponse(response);
   },
 
+  searchByResumeContent: async (keywords) => {
+    const response = await fetch(`${BASE_URL}/api/candidates/search-by-resume?keywords=${encodeURIComponent(keywords)}`, {
+      method: "GET",
+      headers: getAuthHeaders(),
+    });
+    return handleResponse(response);
+  },
+
+  // Debug method to get extracted resume text for a candidate
+  getResumeText: async (candidateId) => {
+    const response = await fetch(`${BASE_URL}/api/candidates/${candidateId}/resume-text`, {
+      method: "GET",
+      headers: getAuthHeaders(),
+    });
+    return handleResponse(response);
+  },
+
   create: async (candidateData, resumeFile) => {
     const formData = new FormData();
     formData.append("candidate", JSON.stringify(candidateData));

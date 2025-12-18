@@ -9,11 +9,7 @@ const statusStyles = {
 
 const JobsTable = ({ jobs, loading, onSelectJob, onEditJob, onDeleteJob, currentPage = 1 }) => {
   const navigate = useNavigate();
-  const [expandedJobId, setExpandedJobId] = useState(null);
-
-  const toggleExpand = (jobId) => {
-    setExpandedJobId(expandedJobId === jobId ? null : jobId);
-  };
+  const [openMenuId, setOpenMenuId] = useState(null);
 
   if (loading) {
     return (
@@ -42,8 +38,8 @@ const JobsTable = ({ jobs, loading, onSelectJob, onEditJob, onDeleteJob, current
   }
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-      <div className="overflow-x-auto">
+    <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-visible">
+      <div className="overflow-x-auto overflow-y-visible">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
@@ -68,12 +64,11 @@ const JobsTable = ({ jobs, loading, onSelectJob, onEditJob, onDeleteJob, current
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {jobs.map((job, index) => (
+            {jobs.map((job, index) => {
+              const isLastRow = index === jobs.length - 1;
+              return (
               <React.Fragment key={job.id}>
-                <tr 
-                  className="hover:bg-gray-50 transition-colors duration-150 cursor-pointer"
-                  onClick={() => toggleExpand(job.id)}
-                >
+                <tr className="hover:bg-gray-50 transition-colors duration-150">
                   <td className="py-4 px-4">
                     <div className="flex items-center">
                       <div className="flex-shrink-0 h-10 w-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
@@ -127,122 +122,77 @@ const JobsTable = ({ jobs, loading, onSelectJob, onEditJob, onDeleteJob, current
 </td>
 
                   <td className="py-4 px-4">
-                    <div className="flex items-center space-x-2">
+                    <div className="relative">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          // Save current page before navigating
-                          localStorage.setItem("jobsCurrentPage", currentPage.toString());
-                          navigate(`/jobs/${job.id}`);
+                          setOpenMenuId(openMenuId === job.id ? null : job.id);
                         }}
-                        className="text-blue-600 hover:text-blue-800 p-1 rounded-md hover:bg-blue-50 transition-colors"
-                        title="View Details"
+                        className="text-gray-600 hover:text-gray-800 p-1 rounded-md hover:bg-gray-100 transition-colors"
+                        title="Actions"
                       >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path>
                         </svg>
                       </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onEditJob(job);
-                        }}
-                        className="text-yellow-600 hover:text-yellow-800 p-1 rounded-md hover:bg-yellow-50 transition-colors"
-                        title="Edit"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-                        </svg>
-                      </button>
-                      {/* Delete button - disabled if job has applications */}
-                      {job.hasApplications ? (
-                        <span 
-                          className="text-gray-400 p-1 rounded-md cursor-not-allowed"
-                          title="Cannot delete job with existing applications"
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                          </svg>
-                        </span>
-                      ) : (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onDeleteJob(job.id);
-                          }}
-                          className="text-red-600 hover:text-red-800 p-1 rounded-md hover:bg-red-50 transition-colors"
-                          title="Delete"
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                          </svg>
-                        </button>
-                      )}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleExpand(job.id);
-                        }}
-                        className="text-gray-500 hover:text-gray-700 p-1 rounded-md hover:bg-gray-100 transition-colors"
-                        title={expandedJobId === job.id ? "Collapse" : "Expand"}
-                      >
-                        <svg 
-                          className={`w-5 h-5 transform transition-transform ${expandedJobId === job.id ? 'rotate-180' : ''}`} 
-                          fill="none" 
-                          stroke="currentColor" 
-                          viewBox="0 0 24 24" 
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
-                        </svg>
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-                {expandedJobId === job.id && (
-                  <tr className="bg-blue-50">
-                    <td colSpan="6" className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <h4 className="text-sm font-medium text-gray-700 mb-2">Job Description</h4>
-                          <p className="text-sm text-gray-600">
-                            {job.jobDescription || "No description available for this job."}
-                          </p>
-                        </div>
-                        <div>
-                          <h4 className="text-sm font-medium text-gray-700 mb-2">Additional Information</h4>
-                          <div className="grid grid-cols-2 gap-2 text-sm">
-                            <div className="text-gray-600">Experience Level:</div>
-                            <div className="text-gray-900 font-medium">{job.jobExperience || "Not specified"}</div>
-                            
-                            <div className="text-gray-600">Job Type:</div>
-                            <div className="text-gray-900 font-medium">{job.jobType || "Not specified"}</div>
-                            
-                            <div className="text-gray-600">Salary Range:</div>
-                            <div className="text-gray-900 font-medium">{job.jobSalaryRange || "Not specified"}</div>
-                          </div>
-                          
-                          <div className="mt-4">
-                            <h4 className="text-sm font-medium text-gray-700 mb-2">Required Skills</h4>
-                            <div className="flex flex-wrap gap-2">
-                              {job.skillsName && job.skillsName.split(',').map((skill, i) => (
-                                <span key={i} className="bg-blue-100 text-blue-800 text-xs px-2.5 py-1 rounded-full font-medium">
-                                  {skill.trim()}
-                                </span>
-                              ))}
-                              {(!job.skillsName || job.skillsName.trim() === '') && (
-                                <span className="text-gray-500 text-sm">No skills specified</span>
+                      
+                      {/* Dropdown Menu */}
+                      {openMenuId === job.id && (
+                        <>
+                          <div 
+                            className="fixed inset-0 z-10" 
+                            onClick={() => setOpenMenuId(null)}
+                          ></div>
+                          <div className={`absolute right-0 w-48 bg-white rounded-md shadow-lg border border-gray-200 z-50 ${isLastRow ? 'bottom-full mb-2' : 'top-full mt-2'}`}>
+                            <div className="py-1">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setOpenMenuId(null);
+                                  // Save current page before navigating
+                                  localStorage.setItem("jobsCurrentPage", currentPage.toString());
+                                  // Navigate to job detail page with edit mode
+                                  navigate(`/jobs/${job.id}?edit=true`);
+                                }}
+                                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                              >
+                                <svg className="w-4 h-4 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                </svg>
+                                Edit
+                              </button>
+                              {job.hasApplications ? (
+                                <div className="px-4 py-2 text-sm text-gray-400 cursor-not-allowed flex items-center gap-2">
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                  </svg>
+                                  Delete (Has Applications)
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setOpenMenuId(null);
+                                    onDeleteJob(job.id);
+                                  }}
+                                  className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                  </svg>
+                                  Delete
+                                </button>
                               )}
                             </div>
                           </div>
-                        </div>
-                      </div>
-                    </td>
-                  </tr>
-                )}
+                        </>
+                      )}
+                    </div>
+                  </td>
+                </tr>
               </React.Fragment>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>

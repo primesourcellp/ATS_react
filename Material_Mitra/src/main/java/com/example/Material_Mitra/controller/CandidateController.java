@@ -1,6 +1,7 @@
 package com.example.Material_Mitra.controller;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -310,6 +311,26 @@ public class CandidateController {
         List<Candidate> candidates = candidateService.searchCandidates(keyword);
         return ResponseEntity.ok(candidates);
     }
+    
+    /**
+     * Search candidates by skills/keywords in their resume content
+     * This searches through actual resume files, not just the skills field in database
+     * Example: /api/candidates/search-by-resume?keywords=Java,Spring Boot
+     */
+    @GetMapping("/search-by-resume")
+    public ResponseEntity<List<CandidateDTO>> searchCandidatesByResumeContent(
+            @RequestParam(required = false) String keywords) {
+        if (keywords == null || keywords.trim().isEmpty()) {
+            return ResponseEntity.ok(new ArrayList<>());
+        }
+        
+        List<Candidate> candidates = candidateService.searchCandidatesByResumeContent(keywords);
+        List<CandidateDTO> candidateDTOs = candidates.stream()
+                .map(DTOMapper::toCandidateDTO)
+                .collect(java.util.stream.Collectors.toList());
+        
+        return ResponseEntity.ok(candidateDTOs);
+    }
  // ✅ Parse resume and create candidate from file only
 //    @PostMapping(value = "/parse", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
 //    public ResponseEntity<?> parseAndSaveCandidateFromResume(
@@ -329,15 +350,64 @@ public class CandidateController {
     @PostMapping(value = "/parse-only", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> parseResumeOnly(@RequestPart("resumeFile") MultipartFile resumeFile) {
         try {
+            // Validate file
+            if (resumeFile == null || resumeFile.isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "error", "Failed to parse resume",
+                    "message", "No file provided or file is empty"
+                ));
+            }
+            
+            // Log file info for debugging
+            System.out.println("=== RESUME PARSING DEBUG ===");
+            System.out.println("File Name: " + resumeFile.getOriginalFilename());
+            System.out.println("File Size: " + resumeFile.getSize() + " bytes");
+            System.out.println("Content Type: " + resumeFile.getContentType());
+            
             Candidate candidate = candidateService.parseResumeWithoutSaving(resumeFile);
+            
+            System.out.println("Parsing successful!");
+            System.out.println("Extracted Name: " + candidate.getName());
+            System.out.println("Extracted Email: " + candidate.getEmail());
+            System.out.println("Extracted Skills: " + (candidate.getSkills() != null ? candidate.getSkills().substring(0, Math.min(100, candidate.getSkills().length())) : "null"));
+            System.out.println("=== END PARSING DEBUG ===");
+            
             return ResponseEntity.ok(candidate);
         } catch (Exception e) {
+            // Log detailed error
+            System.err.println("=== RESUME PARSING ERROR ===");
+            System.err.println("File Name: " + (resumeFile != null ? resumeFile.getOriginalFilename() : "null"));
+            System.err.println("Error Type: " + e.getClass().getSimpleName());
+            System.err.println("Error Message: " + e.getMessage());
+            e.printStackTrace();
+            System.err.println("=== END PARSING ERROR ===");
+            
+            // Provide more specific error messages
+            String errorMessage = e.getMessage();
+            String userFriendlyMessage = "Failed to parse resume";
+            
+            if (errorMessage != null) {
+                if (errorMessage.contains("password") || errorMessage.contains("encrypted")) {
+                    userFriendlyMessage = "Resume file is password-protected. Please remove password protection and try again.";
+                } else if (errorMessage.contains("corrupted") || errorMessage.contains("invalid")) {
+                    userFriendlyMessage = "Resume file appears to be corrupted or invalid. Please try uploading the file again or use a different file.";
+                } else if (errorMessage.contains("empty") || errorMessage.contains("no text")) {
+                    userFriendlyMessage = "Resume file contains no readable text (may be image-only). Please use a text-based resume file.";
+                } else if (errorMessage.contains("format") || errorMessage.contains("type")) {
+                    userFriendlyMessage = "Unsupported file format. Please upload a PDF, DOC, or DOCX file.";
+                } else if (errorMessage.contains("size") || errorMessage.contains("too large")) {
+                    userFriendlyMessage = "File is too large. Please upload a file smaller than 10MB.";
+                } else {
+                    userFriendlyMessage = "Failed to parse resume: " + errorMessage;
+                }
+            }
+            
             return ResponseEntity.badRequest().body(Map.of(
                 "error", "Failed to parse resume",
-                "message", e.getMessage()
+                "message", userFriendlyMessage,
+                "details", errorMessage != null ? errorMessage : "Unknown error occurred"
             ));
         }
-    
     }
     
 
@@ -354,6 +424,30 @@ public class CandidateController {
         return candidateService.getCandidateDetails(candidateId, jobId);
     }
 
-
+    /**
+     * Debug endpoint to view extracted resume text for a candidate
+     * This helps verify that resume text extraction is working correctly
+     * Example: GET /api/candidates/{id}/resume-text
+     */
+    @GetMapping("/{id}/resume-text")
+    public ResponseEntity<Map<String, Object>> getResumeText(@PathVariable Long id) {
+        try {
+            String resumeText = candidateService.getResumeTextForCandidate(id);
+            Candidate candidate = candidateService.getCandidateById(id);
+            
+            Map<String, Object> response = new java.util.HashMap<>();
+            response.put("candidateId", id);
+            response.put("candidateName", candidate.getName());
+            response.put("resumePath", candidate.getResumePath());
+            response.put("resumeText", resumeText);
+            response.put("textLength", resumeText.length());
+            response.put("preview", resumeText.length() > 500 ? resumeText.substring(0, 500) + "..." : resumeText);
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("error", e.getMessage()));
+        }
+    }
 
 }

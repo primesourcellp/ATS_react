@@ -78,249 +78,225 @@ const EditCandidateModal = ({ candidate, onClose, onCandidateUpdated, showToast 
       >
         {/* Header */}
         <div className="flex justify-between items-center border-b pb-3 mb-4">
-          <h2 className="text-2xl font-bold text-gray-800">
-            <i className="fas fa-edit mr-2 text-blue-500"></i>
-            Edit Candidate
-          </h2>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 text-xl"
-          >
+          <h2 className="text-2xl font-bold text-gray-800">Edit Candidate</h2>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700 text-xl">
             &times;
           </button>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Name & Email */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Name *
-              </label>
-              <input
-                type="text"
-                id="name"
-                value={formData.name}
-                onChange={handleInputChange}
-                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Email *
-              </label>
-              <input
-                type="email"
-                id="email"
-                value={formData.email}
-                onChange={handleInputChange}
-                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                required
-              />
-            </div>
+        {/* Candidate Info */}
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-gray-800">{formData.name || 'N/A'}</h1>
+          <div className="flex flex-wrap gap-4 mt-2 text-gray-600">
+            <span><i className="fas fa-envelope mr-2"></i> {formData.email || 'N/A'}</span>
+            <span><i className="fas fa-phone mr-2"></i> {formData.phone || 'N/A'}</span>
           </div>
+        </div>
 
-          {/* Phone & Status */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Phone *
-              </label>
-              <input
-                type="tel"
-                id="phone"
-                value={formData.phone}
-                onChange={handleInputChange}
-                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                required
-              />
+        {/* Form */}
+        <form onSubmit={handleSubmit}>
+          {/* Details Grid - Matching Detail Page Layout Exactly */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            {/* Left Column - Matching Detail Page */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Name *</label>
+                <input
+                  type="text"
+                  id="name"
+                  value={formData.name}
+                  onChange={handleInputChange}
+                  className="w-full mt-1 p-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Email *</label>
+                <input
+                  type="email"
+                  id="email"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  className="w-full mt-1 p-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Phone *</label>
+                <input
+                  type="tel"
+                  id="phone"
+                  value={formData.phone}
+                  onChange={handleInputChange}
+                  className="w-full mt-1 p-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Location</label>
+                <input
+                  type="text"
+                  id="location"
+                  value={formData.location}
+                  onChange={handleInputChange}
+                  className="w-full mt-1 p-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Experience</label>
+                <input
+                  type="text"
+                  id="experience"
+                  value={formData.experience}
+                  onChange={handleInputChange}
+                  className="w-full mt-1 p-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="e.g., 5 years"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Notice Period</label>
+                <input
+                  type="text"
+                  id="noticePeriod"
+                  value={formData.noticePeriod}
+                  onChange={handleInputChange}
+                  className="w-full mt-1 p-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="e.g., 30 days"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Current CTC</label>
+                <input
+                  type="text"
+                  id="currentCtc"
+                  value={formData.currentCtc}
+                  onChange={handleInputChange}
+                  className="w-full mt-1 p-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="e.g., 10 LPA"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Expected CTC</label>
+                <input
+                  type="text"
+                  id="expectedCtc"
+                  value={formData.expectedCtc}
+                  onChange={handleInputChange}
+                  className="w-full mt-1 p-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="e.g., 15 LPA"
+                />
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Status *
-              </label>
-              <select
-                id="status"
-                value={formData.status}
-                onChange={handleInputChange}
-                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                required
-              >
-                <option value="NEW_CANDIDATE">New Candidate</option>
-                <option value="PENDING">Pending</option>
-                <option value="SCHEDULED">Scheduled</option>
-                <option value="INTERVIEWED">Interviewed</option>
-                <option value="PLACED">Placed</option>
-                <option value="REJECTED">Rejected</option>
-              <option value="NOT_INTERESTED">Not Interested</option>
-              <option value="HOLD">Hold</option>
-              <option value="HIGH_CTC">High CTC</option>
-              <option value="DROPPED_BY_CLIENT">Dropped by Client</option>
-                <option value="SUBMITTED_TO_CLIENT">Submitted to Client</option>
-                <option value="NO_RESPONSE">No Response</option>
-                <option value="IMMEDIATE">Immediate</option>
-                <option value="REJECTED_BY_CLIENT">Rejected by Client</option>
-                <option value="CLIENT_SHORTLIST">Client Shortlist</option>
-                <option value="FIRST_INTERVIEW_SCHEDULED">1st Interview Scheduled</option>
-                <option value="FIRST_INTERVIEW_FEEDBACK_PENDING">1st Interview Feedback Pending</option>
-                <option value="FIRST_INTERVIEW_REJECT">1st Interview Reject</option>
-                <option value="SECOND_INTERVIEW_SCHEDULED">2nd Interview Scheduled</option>
-                <option value="SECOND_INTERVIEW_FEEDBACK_PENDING">2nd Interview Feedback Pending</option>
-                <option value="SECOND_INTERVIEW_REJECT">2nd Interview Reject</option>
-                <option value="THIRD_INTERVIEW_SCHEDULED">3rd Interview Scheduled</option>
-                <option value="THIRD_INTERVIEW_FEEDBACK_PENDING">3rd Interview Feedback Pending</option>
-                <option value="THIRD_INTERVIEW_REJECT">3rd Interview Reject</option>
-                <option value="INTERNEL_REJECT">Internel Reject</option>
-                <option value="CLIENT_REJECT">Client Reject</option>
-                <option value="FINAL_SELECT">Final Select</option>
-                <option value="JOINED">Joined</option>
-                <option value="BACKEDOUT">Backed Out</option>
-                <option value="NOT_RELEVANT">Not Relevant</option>
-              </select>
+
+            {/* Right Column - Matching Detail Page */}
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-600 uppercase mb-2">Status *</label>
+                <select
+                  id="status"
+                  value={formData.status}
+                  onChange={handleInputChange}
+                  className="w-full p-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  required
+                >
+                  <option value="NEW_CANDIDATE">New Candidate</option>
+                  <option value="PENDING">Pending</option>
+                  <option value="SCHEDULED">Scheduled</option>
+                  <option value="INTERVIEWED">Interviewed</option>
+                  <option value="PLACED">Placed</option>
+                  <option value="REJECTED">Rejected</option>
+                  <option value="NOT_INTERESTED">Not Interested</option>
+                  <option value="HOLD">Hold</option>
+                  <option value="HIGH_CTC">High CTC</option>
+                  <option value="DROPPED_BY_CLIENT">Dropped by Client</option>
+                  <option value="SUBMITTED_TO_CLIENT">Submitted to Client</option>
+                  <option value="NO_RESPONSE">No Response</option>
+                  <option value="IMMEDIATE">Immediate</option>
+                  <option value="REJECTED_BY_CLIENT">Rejected by Client</option>
+                  <option value="CLIENT_SHORTLIST">Client Shortlist</option>
+                  <option value="FIRST_INTERVIEW_SCHEDULED">1st Interview Scheduled</option>
+                  <option value="FIRST_INTERVIEW_FEEDBACK_PENDING">1st Interview Feedback Pending</option>
+                  <option value="FIRST_INTERVIEW_REJECT">1st Interview Reject</option>
+                  <option value="SECOND_INTERVIEW_SCHEDULED">2nd Interview Scheduled</option>
+                  <option value="SECOND_INTERVIEW_FEEDBACK_PENDING">2nd Interview Feedback Pending</option>
+                  <option value="SECOND_INTERVIEW_REJECT">2nd Interview Reject</option>
+                  <option value="THIRD_INTERVIEW_SCHEDULED">3rd Interview Scheduled</option>
+                  <option value="THIRD_INTERVIEW_FEEDBACK_PENDING">3rd Interview Feedback Pending</option>
+                  <option value="THIRD_INTERVIEW_REJECT">3rd Interview Reject</option>
+                  <option value="INTERNEL_REJECT">Internel Reject</option>
+                  <option value="CLIENT_REJECT">Client Reject</option>
+                  <option value="FINAL_SELECT">Final Select</option>
+                  <option value="JOINED">Joined</option>
+                  <option value="BACKEDOUT">Backed Out</option>
+                  <option value="NOT_RELEVANT">Not Relevant</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-600 uppercase mb-2">Skills</label>
+                <textarea
+                  id="skills"
+                  value={formData.skills}
+                  onChange={handleInputChange}
+                  rows="4"
+                  className="w-full p-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 whitespace-pre-wrap"
+                  placeholder="List skills separated by commas"
+                ></textarea>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-600 uppercase mb-2">Resume (PDF, DOC, DOCX) - Optional (Max 5MB)</label>
+                <input
+                  type="file"
+                  id="resume"
+                  accept=".pdf,.doc,.docx"
+                  onChange={handleFileChange}
+                  className="w-full p-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  {(candidate.hasResume || candidate.resumePath)
+                    ? "A resume is already uploaded. Select a new file to replace it."
+                    : "No resume uploaded yet."}
+                </p>
+              </div>
             </div>
           </div>
 
           {/* About */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              About Candidate
-            </label>
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-700 mb-1">About</label>
             <textarea
               id="about"
               value={formData.about}
               onChange={handleInputChange}
-              rows="3"
-              className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              rows="4"
+              className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             ></textarea>
           </div>
 
-          {/* Experience / Notice / Location */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Experience (Years)
-              </label>
-              <input
-                type="text"
-                id="experience"
-                value={formData.experience}
-                onChange={handleInputChange}
-                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Notice Period (Days)
-              </label>
-              <input
-                type="text"
-                id="noticePeriod"
-                value={formData.noticePeriod}
-                onChange={handleInputChange}
-                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Location
-              </label>
-              <input
-                type="text"
-                id="location"
-                value={formData.location}
-                onChange={handleInputChange}
-                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-          </div>
-
-          {/* CTC */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Current CTC (LPA)
-              </label>
-              <input
-                type="text"
-                id="currentCtc"
-                value={formData.currentCtc}
-                onChange={handleInputChange}
-                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Expected CTC (LPA)
-              </label>
-              <input
-                type="text"
-                id="expectedCtc"
-                value={formData.expectedCtc}
-                onChange={handleInputChange}
-                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-          </div>
-
-          {/* Skills */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Skills
-            </label>
-            <div className="relative">
-              <i className="fas fa-tools absolute left-3 top-3 text-gray-400"></i>
-              <textarea
-                id="skills"
-                value={formData.skills}
-                onChange={handleInputChange}
-                rows="4"
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all resize-y min-h-[120px]"
-                placeholder="List skills separated by commas (e.g., React, Node.js, Python)"
-              ></textarea>
-            </div>
-          </div>
-
-          {/* Resume Upload */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Resume (PDF, DOC, DOCX) - Optional (Max 5MB)
-            </label>
-            <input
-              type="file"
-              id="resume"
-              accept=".pdf,.doc,.docx"
-              onChange={handleFileChange}
-              className="w-full p-2 border border-gray-300 rounded-lg"
-            />
-            <p className="text-sm text-gray-500 mt-1">
-              {(candidate.hasResume || candidate.resumePath)
-                ? "A resume is already uploaded. Select a new file to replace it."
-                : "No resume uploaded yet."}
-            </p>
-          </div>
-
           {/* Actions */}
-          <div className="flex justify-end space-x-3">
+          <div className="flex flex-wrap gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg"
+              className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg flex items-center"
             >
               <i className="fas fa-times mr-2"></i> Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg disabled:opacity-50"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center disabled:opacity-50"
             >
               {loading ? (
-                <i className="fas fa-spinner fa-spin mr-2"></i>
+                <>
+                  <i className="fas fa-spinner fa-spin mr-2"></i>
+                  Saving...
+                </>
               ) : (
-                <i className="fas fa-save mr-2"></i>
+                <>
+                  <i className="fas fa-save mr-2"></i>
+                  Save Changes
+                </>
               )}
-              Save Changes
             </button>
           </div>
         </form>
