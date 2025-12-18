@@ -473,4 +473,35 @@ public class CandidateController {
         }
     }
 
+    /**
+     * Backfill resume text for existing candidates
+     * Processes all candidates that have resume files but no resume_text stored
+     * This is useful for migrating existing resumes to the new fast search system
+     * 
+     * Example: POST /api/candidates/backfill-resume-text?batchSize=50
+     * 
+     * @param batchSize Number of candidates to process in each batch (default: 50)
+     * @return Statistics about the backfill process
+     */
+    @PostMapping("/backfill-resume-text")
+    public ResponseEntity<Map<String, Object>> backfillResumeText(
+            @RequestParam(value = "batchSize", defaultValue = "50") int batchSize) {
+        try {
+            if (batchSize <= 0 || batchSize > 200) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Batch size must be between 1 and 200"));
+            }
+            
+            System.out.println("Backfill request received with batch size: " + batchSize);
+            Map<String, Object> result = candidateService.backfillResumeText(batchSize);
+            
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            System.err.println("Error during backfill: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("error", "Backfill failed: " + e.getMessage()));
+        }
+    }
+
 }

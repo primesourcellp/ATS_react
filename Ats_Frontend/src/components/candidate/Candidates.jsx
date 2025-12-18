@@ -79,6 +79,8 @@ const CandidateManagement = () => {
   const [resumeSearchCount, setResumeSearchCount] = useState(null);
   const [resumeSearchKeywords, setResumeSearchKeywords] = useState('');
   const [totalCandidateCount, setTotalCandidateCount] = useState(0);
+  const [backfillLoading, setBackfillLoading] = useState(false);
+  const [backfillResult, setBackfillResult] = useState(null);
   const navigate = useNavigate();
   const displayedCandidateCount = filteredCandidates.length;
   const recruiterDisplayName = currentUserName || "You";
@@ -239,6 +241,45 @@ const CandidateManagement = () => {
       showToast('Error', 'Failed to search candidates. Please try again.', 'error');
     } finally {
       setResumeSearchLoading(false);
+    }
+  };
+
+  // Backfill resume text for existing candidates
+  const handleBackfillResumeText = async () => {
+    const confirmed = window.confirm(
+      'This will process all existing resumes and extract their text for fast searching.\n\n' +
+      'This may take several minutes depending on the number of resumes.\n\n' +
+      'Do you want to continue?'
+    );
+    
+    if (!confirmed) return;
+    
+    setBackfillLoading(true);
+    setBackfillResult(null);
+    
+    try {
+      showToast('Info', 'Starting resume text backfill... This may take a few minutes.', 'info');
+      
+      const result = await candidateAPI.backfillResumeText(50);
+      setBackfillResult(result);
+      
+      const message = `Backfill completed!\n` +
+        `Total: ${result.totalCandidates}\n` +
+        `Success: ${result.totalSuccess}\n` +
+        `Failed: ${result.totalFailed}\n` +
+        `Time: ${result.durationSeconds}s`;
+      
+      showToast('Success', message, 'success');
+      
+      // Reload candidates to refresh data
+      await loadCandidates();
+      await loadTotalCount();
+      
+    } catch (error) {
+      console.error('Error during backfill:', error);
+      showToast('Error', 'Failed to backfill resume text: ' + (error.message || 'Unknown error'), 'error');
+    } finally {
+      setBackfillLoading(false);
     }
   };
 
@@ -542,32 +583,101 @@ const CandidateManagement = () => {
                     </div>
                   )}
                 </div>
-            <button
-              type="button"
-              onClick={() => setShowMyCandidates((prev) => !prev)}
-              className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors ${
-                showMyCandidates
-                  ? "border-purple-500 bg-purple-50 text-purple-700"
-                  : "border-gray-300 bg-white text-gray-700 hover:border-purple-400 hover:text-purple-600"
-              }`}
-            >
-              <i className="fas fa-user-check"></i>
-              {showMyCandidates ? "Show All Candidates" : `My Candidates (${recruiterCandidatesCount})`}
-            </button>
+            <div className="flex items-center gap-3">
+              {/* My Candidates Button */}
+              <button
+                type="button"
+                onClick={() => setShowMyCandidates((prev) => !prev)}
+                className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors ${
+                  showMyCandidates
+                    ? "border-purple-500 bg-purple-50 text-purple-700"
+                    : "border-gray-300 bg-white text-gray-700 hover:border-purple-400 hover:text-purple-600"
+                }`}
+              >
+                <i className="fas fa-user-check"></i>
+                {showMyCandidates ? "Show All Candidates" : `My Candidates (${recruiterCandidatesCount})`}
+              </button>
+              
+              {/* Backfill Resume Text Button */}
+              <button
+                type="button"
+                onClick={handleBackfillResumeText}
+                disabled={backfillLoading}
+                className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors ${
+                  backfillLoading
+                    ? "border-gray-300 bg-gray-100 text-gray-500 cursor-not-allowed"
+                    : "border-green-500 bg-green-50 text-green-700 hover:border-green-600 hover:bg-green-100"
+                }`}
+                title="Extract and store resume text for all existing candidates to enable fast search"
+              >
+                {backfillLoading ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Backfill Resume Text
+                  </>
+                )}
+              </button>
+              
+              {/* Add Candidate Button */}
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md flex items-center gap-2 transition-colors font-medium shadow-sm"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                Add Candidate
+              </button>
+            </div>
           </div>
+          
+          {/* Backfill Result Display */}
+          {backfillResult && (
+            <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <h3 className="text-sm font-semibold text-blue-900 mb-2">Backfill Results</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div>
+                      <span className="text-gray-600">Total Candidates:</span>
+                      <span className="ml-2 font-semibold text-gray-900">{backfillResult.totalCandidates}</span>
+                    </div>
+                    <div>
+                      <span className="text-green-600">Success:</span>
+                      <span className="ml-2 font-semibold text-green-700">{backfillResult.totalSuccess}</span>
+                    </div>
+                    <div>
+                      <span className="text-red-600">Failed:</span>
+                      <span className="ml-2 font-semibold text-red-700">{backfillResult.totalFailed}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-600">Duration:</span>
+                      <span className="ml-2 font-semibold text-gray-900">{backfillResult.durationSeconds}s</span>
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setBackfillResult(null)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
-
-        {/* Add Candidate Button */}
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md flex items-center gap-2 transition-colors font-medium shadow-sm mb-6"
-          style={{ position: 'absolute', left: '1118px', top: '183px' }}
-        >
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-          </svg>
-          Add Candidate
-        </button>
 
         {/* Real-time ATS Search Bar - Separated Fields */}
         <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl shadow-md p-4 mb-6 border border-purple-100">

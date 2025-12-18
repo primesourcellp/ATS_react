@@ -429,6 +429,16 @@ export const candidateAPI = {
     return handleResponse(response);
   },
 
+  // Backfill resume text for existing candidates
+  // Processes all candidates that have resume files but no resume_text stored
+  backfillResumeText: async (batchSize = 50) => {
+    const response = await fetch(`${BASE_URL}/api/candidates/backfill-resume-text?batchSize=${batchSize}`, {
+      method: "POST",
+      headers: getAuthHeaders(),
+    });
+    return handleResponse(response);
+  },
+
   create: async (candidateData, resumeFile) => {
     const formData = new FormData();
     formData.append("candidate", JSON.stringify(candidateData));

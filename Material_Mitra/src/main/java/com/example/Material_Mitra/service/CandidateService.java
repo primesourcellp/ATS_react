@@ -1294,7 +1294,103 @@ public class CandidateService {
         return dto;
     }
 
-
+    /**
+     * Backfill resume text for existing candidates
+     * Processes candidates that have resume files but no resume_text stored
+     * Processes in batches to avoid memory issues
+     * 
+     * @param batchSize Number of candidates to process in each batch
+     * @return Map with statistics: totalProcessed, totalSuccess, totalFailed, totalSkipped
+     */
+    @Transactional
+    public Map<String, Object> backfillResumeText(int batchSize) {
+        long startTime = System.currentTimeMillis();
+        System.out.println("=== STARTING RESUME TEXT BACKFILL ===");
+        System.out.println("Batch size: " + batchSize);
+        
+        // Find all candidates with resume files but no resume_text
+        List<Candidate> candidatesToProcess = candidateRepository.findAll().stream()
+            .filter(c -> c.getResumePath() != null && !c.getResumePath().isEmpty())
+            .filter(c -> c.getResumeText() == null || c.getResumeText().isEmpty())
+            .collect(Collectors.toList());
+        
+        int totalCandidates = candidatesToProcess.size();
+        System.out.println("Found " + totalCandidates + " candidates to process");
+        
+        int totalProcessed = 0;
+        int totalSuccess = 0;
+        int totalFailed = 0;
+        int totalSkipped = 0;
+        
+        // Process in batches
+        for (int i = 0; i < candidatesToProcess.size(); i += batchSize) {
+            int endIndex = Math.min(i + batchSize, candidatesToProcess.size());
+            List<Candidate> batch = candidatesToProcess.subList(i, endIndex);
+            
+            System.out.println("Processing batch " + (i / batchSize + 1) + " (candidates " + (i + 1) + "-" + endIndex + ")");
+            
+            for (Candidate candidate : batch) {
+                try {
+                    totalProcessed++;
+                    
+                    // Check if resume file exists
+                    if (candidate.getResumePath() == null || candidate.getResumePath().isEmpty()) {
+                        totalSkipped++;
+                        continue;
+                    }
+                    
+                    // Extract text from resume file
+                    String resumeText = extractTextFromResumeFile(candidate.getResumePath());
+                    
+                    if (resumeText != null && !resumeText.isEmpty()) {
+                        // Store in database
+                        candidate.setResumeText(resumeText);
+                        candidateRepository.save(candidate);
+                        totalSuccess++;
+                        
+                        if (totalSuccess % 10 == 0) {
+                            System.out.println("Progress: " + totalSuccess + " resumes processed successfully");
+                        }
+                    } else {
+                        // File might not exist or extraction failed
+                        totalFailed++;
+                        System.err.println("Failed to extract text for candidate ID: " + candidate.getId() + " - " + candidate.getName());
+                    }
+                    
+                } catch (Exception e) {
+                    totalFailed++;
+                    System.err.println("Error processing candidate ID: " + candidate.getId() + " - " + e.getMessage());
+                    // Continue with next candidate
+                }
+            }
+            
+            // Flush batch to database
+            candidateRepository.flush();
+        }
+        
+        long endTime = System.currentTimeMillis();
+        long duration = endTime - startTime;
+        
+        System.out.println("=== BACKFILL COMPLETE ===");
+        System.out.println("Total candidates: " + totalCandidates);
+        System.out.println("Total processed: " + totalProcessed);
+        System.out.println("Successfully processed: " + totalSuccess);
+        System.out.println("Failed: " + totalFailed);
+        System.out.println("Skipped: " + totalSkipped);
+        System.out.println("Time taken: " + (duration / 1000) + " seconds");
+        System.out.println("=== END BACKFILL ===");
+        
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("totalCandidates", totalCandidates);
+        result.put("totalProcessed", totalProcessed);
+        result.put("totalSuccess", totalSuccess);
+        result.put("totalFailed", totalFailed);
+        result.put("totalSkipped", totalSkipped);
+        result.put("durationSeconds", duration / 1000);
+        result.put("message", "Backfill completed successfully");
+        
+        return result;
+    }
 
     
 }
